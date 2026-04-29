@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "location": "Shivalik College Campus, Dehradun",
+    "created": "2026-04-17",
+    "version": "1.0"
+  },
+  "nodes": [
+    { "id": "gate_main",   "lat": 30.3515, "lng": 77.9028, "zone": "SAFE",    "name": "Main Gate" },
+    { "id": "ground_c",    "lat": 30.3523, "lng": 77.9018, "zone": "SAFE",    "name": "Ground Center" },
+    { "id": "road_north",  "lat": 30.3540, "lng": 77.9008, "zone": "SAFE",    "name": "North Road" },
+    { "id": "pharma_pts",  "lat": 30.3536, "lng": 77.9022, "zone": "SAFE",    "name": "Pharma Techno (PTS)" },
+    { "id": "hostel_cv",   "lat": 30.3528, "lng": 77.8998, "zone": "RESTRICTED", "name": "CV Raman Hostel" },
+    { "id": "yellow_blk",  "lat": 30.3535, "lng": 77.9008, "zone": "CAUTION", "name": "Yellow Block" },
+    { "id": "birla_edge",  "lat": 30.3510, "lng": 77.9025, "zone": "SAFE",    "name": "Birla Open Minds Edge" }
+  ],
+  "edges": [
+    { "from": "hostel_cv",  "to": "yellow_blk", "weight": 85.0 },
+    { "from": "yellow_blk", "to": "road_north",  "weight": 60.0 },
+    { "from": "road_north", "to": "pharma_pts",  "weight": 55.0 },
+    { "from": "pharma_pts", "to": "ground_c",    "weight": 90.0 },
+    { "from": "ground_c",   "to": "gate_main",   "weight": 120.0 },
+    { "from": "ground_c",   "to": "birla_edge",  "weight": 100.0 }
+  ]
+}
