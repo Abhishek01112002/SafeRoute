@@ -1,75 +1,22 @@
 // lib/services/pathfinding_service.dart
-// ============================================================
-// SAFEROUTE — OFFLINE AI PATHFINDING ENGINE
-// Works with ZERO internet, ZERO Bluetooth, ZERO network
-// Only requirement: GPS (always works via satellites)
-// ============================================================
+// Per-destination A* pathfinding engine.
+// Graph is fetched from the backend API and cached in local SQLite.
+// Works with ZERO internet once cached. Only requires GPS.
 
 import 'dart:math';
-import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:saferoute/models/trail_graph_model.dart';
+import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/services/api_service.dart';
+import 'package:saferoute/services/database_service.dart';
 
-// ─────────────────────────────────────────
-// DATA MODELS
-// ─────────────────────────────────────────
-
-import '../models/location_ping_model.dart';
-
-class TrailNode {
-  final String id;
-  final double lat;
-  final double lng;
-  final ZoneType zone;
-  final String name;
-
-  const TrailNode({
-    required this.id,
-    required this.lat,
-    required this.lng,
-    required this.zone,
-    required this.name,
-  });
-
-  factory TrailNode.fromJson(Map<String, dynamic> json) {
-    return TrailNode(
-      id: json['id'],
-      lat: (json['lat'] as num).toDouble(),
-      lng: (json['lng'] as num).toDouble(),
-      zone: ZoneTypeExtension.fromString(json['zone'] ?? ""),
-      name: json['name'] ?? '',
-    );
-  }
-}
-
-class TrailEdge {
-  final String fromId;
-  final String toId;
-  final double weightMeters; // actual distance in meters
-  final List<dynamic>? offlinePath; // Pre-computed geometry for offline curves
-
-  const TrailEdge({
-    required this.fromId,
-    required this.toId,
-    required this.weightMeters,
-    this.offlinePath,
-  });
-
-  factory TrailEdge.fromJson(Map<String, dynamic> json) {
-    return TrailEdge(
-      fromId: json['from'],
-      toId: json['to'],
-      weightMeters: (json['weight'] as num).toDouble(),
-      offlinePath: json['offline_path'],
-    );
-  }
-}
+// ── Navigation result ─────────────────────────────────────────────────────────
 
 class NavigationResult {
-  final List<TrailNode> path;       // ordered list of nodes to follow
-  final List<Map<String, double>> offlineGeometries; // Curvy path array for offline
+  final List<TrailNode> path;
+  final List<Map<String, double>> offlineGeometries;
   final double totalDistanceMeters;
-  final int estimatedMinutes;       // walking at ~4 km/h
+  final int estimatedMinutes;
   final bool pathFound;
   final String message;
 
@@ -82,7 +29,7 @@ class NavigationResult {
     required this.message,
   });
 
-  static NavigationResult noPath() => const NavigationResult(
+  static const NavigationResult noPath = NavigationResult(
     path: [],
     offlineGeometries: [],
     totalDistanceMeters: 0,
@@ -90,97 +37,110 @@ class NavigationResult {
     pathFound: false,
     message: 'No safe route found. Activate SOS immediately.',
   );
+
+  static const NavigationResult noGraph = NavigationResult(
+    path: [],
+    offlineGeometries: [],
+    totalDistanceMeters: 0,
+    estimatedMinutes: 0,
+    pathFound: false,
+    message: 'Trail map not available for this destination. Use SOS if in danger.',
+  );
 }
 
-// ─────────────────────────────────────────
-// A* PATHFINDING ENGINE
-// ─────────────────────────────────────────
+// ── A* node ──────────────────────────────────────────────────────────────────
 
 class _AStarNode {
   final String id;
-  final double gCost;   // cost from start
-  final double hCost;   // heuristic to goal
+  final double gCost;
+  final double hCost;
   final _AStarNode? parent;
-
   double get fCost => gCost + hCost;
 
-  const _AStarNode({
-    required this.id,
-    required this.gCost,
-    required this.hCost,
-    this.parent,
-  });
+  const _AStarNode({required this.id, required this.gCost, required this.hCost, this.parent});
 }
 
+// ── Service ───────────────────────────────────────────────────────────────────
+
 class PathfindingService {
-  Map<String, TrailNode> _nodes = {};
-  final Map<String, List<TrailEdge>> _adjacency = {};
-  bool _isLoaded = false;
+  TrailGraph? _graph;
+  Map<String, TrailNode>         _nodes     = {};
+  Map<String, List<TrailEdge>>   _adjacency = {};
+  String? _loadedDestinationId;
 
-  // ── Load trail graph from local asset (no internet needed) ──
-  Future<void> loadGraph() async {
-    if (_isLoaded) return;
+  bool get isLoaded => _graph != null && !_graph!.isEmpty;
 
+  // ── Load graph for a destination ──────────────────────────────────────────
+
+  Future<void> loadForDestination(String destinationId) async {
+    if (_loadedDestinationId == destinationId && isLoaded) return;
+
+    TrailGraph? graph;
+
+    // 1. Try API
     try {
-      // Load from assets/trail_graph.json (bundled with app)
-      final String jsonStr =
-          await rootBundle.loadString('assets/trail_graph.json');
-      final Map<String, dynamic> data = json.decode(jsonStr);
-
-      final List nodesJson  = data['nodes']  as List;
-      final List edgesJson  = data['edges']  as List;
-
-      _nodes = {
-        for (var n in nodesJson)
-          (n['id'] as String): TrailNode.fromJson(n as Map<String, dynamic>)
-      };
-
-      for (var e in edgesJson) {
-        final edge = TrailEdge.fromJson(e as Map<String, dynamic>);
-        // Bidirectional — trail goes both ways
-        _adjacency.putIfAbsent(edge.fromId, () => []).add(edge);
-        
-        List<dynamic>? reverseCurve;
-        if (edge.offlinePath != null) {
-          reverseCurve = List.from(edge.offlinePath!.reversed);
-        }
-        
-        _adjacency.putIfAbsent(edge.toId,   () => []).add(
-          TrailEdge(
-            fromId: edge.toId,
-            toId: edge.fromId,
-            weightMeters: edge.weightMeters,
-            offlinePath: reverseCurve,
-          ),
-        );
+      graph = await ApiService().getTrailGraph(destinationId);
+      if (!graph!.isEmpty) {
+        await DatabaseService().saveTrailGraph(graph);
+        debugPrint('[Pathfinding] Graph loaded from API: ${graph.nodes.length} nodes for $destinationId');
       }
-
-      _isLoaded = true;
-      debugPrint('[Pathfinding] Graph loaded: ${_nodes.length} nodes, '
-          '${edgesJson.length} edges');
     } catch (e) {
-      debugPrint('[Pathfinding] ERROR loading graph: $e');
+      debugPrint('[Pathfinding] API failed: $e — trying cache');
+    }
+
+    // 2. Try local cache
+    if (graph == null || graph.isEmpty) {
+      graph = await DatabaseService().getTrailGraph(destinationId);
+      if (graph != null && !graph.isEmpty) {
+        debugPrint('[Pathfinding] Graph loaded from cache: ${graph.nodes.length} nodes for $destinationId');
+      }
+    }
+
+    if (graph == null || graph.isEmpty) {
+      debugPrint('[Pathfinding] No trail graph for $destinationId — offline nav disabled');
+      _graph = null;
+      return;
+    }
+
+    _graph = graph;
+    _loadedDestinationId = destinationId;
+    _buildAdjacency(graph);
+  }
+
+  void _buildAdjacency(TrailGraph graph) {
+    _nodes = {for (final n in graph.nodes) n.id: n};
+    _adjacency = {};
+
+    for (final edge in graph.edges) {
+      _adjacency.putIfAbsent(edge.fromId, () => []).add(edge);
+      // Bidirectional — reverse the offline path
+      final reversedPath = edge.offlinePath.reversed
+          .map((p) => <String, double>{'lat': p['lat']!, 'lng': p['lng']!})
+          .toList();
+      _adjacency.putIfAbsent(edge.toId, () => []).add(TrailEdge(
+        fromId:       edge.toId,
+        toId:         edge.fromId,
+        weightMeters: edge.weightMeters,
+        offlinePath:  reversedPath,
+      ));
     }
   }
 
-  // ── Main entry point: find route to nearest safe zone ──
+  // ── Find route to nearest safe zone ──────────────────────────────────────
+
   NavigationResult findRouteToSafety({
     required double currentLat,
     required double currentLng,
   }) {
-    if (!_isLoaded || _nodes.isEmpty) {
-      return NavigationResult.noPath();
-    }
+    if (!isLoaded) return NavigationResult.noGraph;
 
-    // 1. Snap tourist to nearest node on the trail graph
-    final startNode = _nearestNode(currentLat, currentLng);
-    if (startNode == null) return NavigationResult.noPath();
+    final start = _nearestNode(currentLat, currentLng);
+    if (start == null) return NavigationResult.noPath;
 
-    // If already in safe zone — no navigation needed
-    if (startNode.zone == ZoneType.greenOuter || startNode.zone == ZoneType.greenInner) {
+    if (start.zoneType == ZoneType.safe) {
       return NavigationResult(
-        path: [startNode],
-        offlineGeometries: [{"lat": startNode.lat, "lng": startNode.lng}],
+        path: [start],
+        offlineGeometries: [{'lat': start.lat, 'lng': start.lng}],
         totalDistanceMeters: 0,
         estimatedMinutes: 0,
         pathFound: true,
@@ -188,169 +148,127 @@ class PathfindingService {
       );
     }
 
-    // 2. Find all safe-zone nodes as potential goals
     final safeNodes = _nodes.values
-        .where((n) => n.zone == ZoneType.greenOuter || n.zone == ZoneType.greenInner)
+        .where((n) => n.zoneType == ZoneType.safe)
         .toList();
+    if (safeNodes.isEmpty) return NavigationResult.noPath;
 
-    if (safeNodes.isEmpty) return NavigationResult.noPath();
+    final goal    = _nearestAmong(start, safeNodes);
+    final rawPath = _aStar(start.id, goal.id);
+    if (rawPath == null) return NavigationResult.noPath;
 
-    // 3. Run A* toward the geographically nearest safe node
-    //    (heuristic = straight-line distance to nearest safe zone)
-    final goalNode = _nearestAmong(startNode, safeNodes);
-    final rawPath = _aStar(startNode.id, goalNode.id);
-
-    if (rawPath == null) return NavigationResult.noPath();
-
-    // 4. Calculate stats and build High-Res offline curves
     double totalDist = 0;
-    List<Map<String, double>> fullCurve = [];
-    
+    final fullCurve  = <Map<String, double>>[];
+
     if (rawPath.length == 1) {
-       fullCurve.add({"lat": rawPath[0].lat, "lng": rawPath[0].lng});
+      fullCurve.add({'lat': rawPath[0].lat, 'lng': rawPath[0].lng});
     }
 
     for (int i = 0; i < rawPath.length - 1; i++) {
-      final fromNode = rawPath[i];
-      final toNode = rawPath[i + 1];
-      
-      final edgeList = _adjacency[fromNode.id];
-      // Using firstWhere with nullable return inside try/catch or collection if
-      final edgeListMatches = edgeList?.where((e) => e.toId == toNode.id).toList();
-      final edge = (edgeListMatches != null && edgeListMatches.isNotEmpty) ? edgeListMatches.first : null;
-      
-      if (edge != null && edge.offlinePath != null && edge.offlinePath!.isNotEmpty) {
-          for (var p in edge.offlinePath!) {
-              fullCurve.add({
-                "lat": (p['lat'] as num).toDouble(), 
-                "lng": (p['lng'] as num).toDouble()
-              });
-          }
+      final from   = rawPath[i];
+      final to     = rawPath[i + 1];
+      final edges  = _adjacency[from.id] ?? [];
+      final edge   = edges.where((e) => e.toId == to.id).firstOrNull;
+
+      if (edge != null && edge.offlinePath.isNotEmpty) {
+        for (final p in edge.offlinePath) {
+          fullCurve.add({'lat': p['lat']!, 'lng': p['lng']!});
+        }
       } else {
-          // Fallback to straight lines if script not run yet
-          if (i == 0) fullCurve.add({"lat": fromNode.lat, "lng": fromNode.lng});
-          fullCurve.add({"lat": toNode.lat, "lng": toNode.lng});
+        if (i == 0) fullCurve.add({'lat': from.lat, 'lng': from.lng});
+        fullCurve.add({'lat': to.lat, 'lng': to.lng});
       }
 
-      totalDist += _haversineMeters(
-        fromNode.lat, fromNode.lng,
-        toNode.lat, toNode.lng,
-      );
+      totalDist += _haversineM(from.lat, from.lng, to.lat, to.lng);
     }
 
-    final minutes = (totalDist / 1000 / 4.0 * 60).ceil(); // 4 km/h walk
+    final minutes = (totalDist / 1000 / 4.0 * 60).ceil();
 
     return NavigationResult(
-      path: rawPath,
-      offlineGeometries: fullCurve,
+      path:                rawPath,
+      offlineGeometries:   fullCurve,
       totalDistanceMeters: totalDist,
-      estimatedMinutes: minutes,
-      pathFound: true,
-      message: 'Route found! Head to ${goalNode.name}. '
-          '${totalDist.toStringAsFixed(0)}m, ~$minutes min.',
+      estimatedMinutes:    minutes,
+      pathFound:           true,
+      message:             'Head to ${goal.name}. ${totalDist.toStringAsFixed(0)}m, ~$minutes min.',
     );
   }
 
-  // ── A* Algorithm (pure Dart, no dependencies) ──
-  List<TrailNode>? _aStar(String startId, String goalId) {
-    final goal = _nodes[goalId]!;
+  // ── A* ────────────────────────────────────────────────────────────────────
 
+  List<TrailNode>? _aStar(String startId, String goalId) {
+    final goal     = _nodes[goalId]!;
     final openSet  = <String, _AStarNode>{};
     final closedSet = <String>{};
 
     openSet[startId] = _AStarNode(
-      id: startId,
-      gCost: 0,
-      hCost: _haversineMeters(
-        _nodes[startId]!.lat, _nodes[startId]!.lng,
-        goal.lat, goal.lng,
-      ),
+      id: startId, gCost: 0,
+      hCost: _haversineM(_nodes[startId]!.lat, _nodes[startId]!.lng, goal.lat, goal.lng),
     );
 
     while (openSet.isNotEmpty) {
-      // Pick node with lowest f = g + h
-      final current = openSet.values
-          .reduce((a, b) => a.fCost < b.fCost ? a : b);
+      final current = openSet.values.reduce((a, b) => a.fCost < b.fCost ? a : b);
 
-      if (current.id == goalId) {
-        return _reconstructPath(current);
-      }
+      if (current.id == goalId) return _reconstruct(current);
 
       openSet.remove(current.id);
       closedSet.add(current.id);
 
       for (final edge in _adjacency[current.id] ?? []) {
         if (closedSet.contains(edge.toId)) continue;
-
-        final neighborNode = _nodes[edge.toId];
-        if (neighborNode == null) continue;
-
-        // Penalize paths through restricted zones (3× weight)
-        final zonePenalty = neighborNode.zone == ZoneType.red ? 3.0 : 1.0;
-        final newG = current.gCost + edge.weightMeters * zonePenalty;
-
+        final neighbour = _nodes[edge.toId];
+        if (neighbour == null) continue;
+        // Penalise restricted zones 3× to route around them
+        final penalty = neighbour.zoneType == ZoneType.restricted ? 3.0 : 1.0;
+        final newG    = current.gCost + edge.weightMeters * penalty;
         final existing = openSet[edge.toId];
         if (existing == null || newG < existing.gCost) {
           openSet[edge.toId] = _AStarNode(
-            id: edge.toId,
-            gCost: newG,
-            hCost: _haversineMeters(
-              neighborNode.lat, neighborNode.lng,
-              goal.lat, goal.lng,
-            ),
+            id:     edge.toId,
+            gCost:  newG,
+            hCost:  _haversineM(neighbour.lat, neighbour.lng, goal.lat, goal.lng),
             parent: current,
           );
         }
       }
     }
-
-    return null; // no path found
+    return null;
   }
 
-  List<TrailNode> _reconstructPath(_AStarNode node) {
+  List<TrailNode> _reconstruct(_AStarNode node) {
     final path = <TrailNode>[];
-    _AStarNode? current = node;
-    while (current != null) {
-      path.add(_nodes[current.id]!);
-      current = current.parent;
-    }
+    _AStarNode? cur = node;
+    while (cur != null) { path.add(_nodes[cur.id]!); cur = cur.parent; }
     return path.reversed.toList();
   }
 
-  // ── Utilities ──
+  // ── Utilities ─────────────────────────────────────────────────────────────
 
   TrailNode? _nearestNode(double lat, double lng) {
     TrailNode? nearest;
-    double minDist = double.infinity;
-    for (final node in _nodes.values) {
-      final d = _haversineMeters(lat, lng, node.lat, node.lng);
-      if (d < minDist) { minDist = d; nearest = node; }
+    double min = double.infinity;
+    for (final n in _nodes.values) {
+      final d = _haversineM(lat, lng, n.lat, n.lng);
+      if (d < min) { min = d; nearest = n; }
     }
     return nearest;
   }
 
-  TrailNode _nearestAmong(TrailNode from, List<TrailNode> candidates) {
-    return candidates.reduce((a, b) {
-      final dA = _haversineMeters(from.lat, from.lng, a.lat, a.lng);
-      final dB = _haversineMeters(from.lat, from.lng, b.lat, b.lng);
-      return dA < dB ? a : b;
-    });
-  }
+  TrailNode _nearestAmong(TrailNode from, List<TrailNode> candidates) =>
+      candidates.reduce((a, b) =>
+          _haversineM(from.lat, from.lng, a.lat, a.lng) <
+          _haversineM(from.lat, from.lng, b.lat, b.lng) ? a : b);
 
-  /// Haversine formula — accurate GPS distance in meters
-  double _haversineMeters(double lat1, double lng1, double lat2, double lng2) {
-    const R = 6371000.0; // Earth radius in meters
-    final dLat = _toRad(lat2 - lat1);
-    final dLng = _toRad(lng2 - lng1);
+  double _haversineM(double lat1, double lng1, double lat2, double lng2) {
+    const R = 6371000.0;
+    final dLat = _rad(lat2 - lat1);
+    final dLng = _rad(lng2 - lng1);
     final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRad(lat1)) * cos(_toRad(lat2)) *
-            sin(dLng / 2) * sin(dLng / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return R * c;
+        cos(_rad(lat1)) * cos(_rad(lat2)) * sin(dLng / 2) * sin(dLng / 2);
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 
-  double _toRad(double deg) => deg * pi / 180;
+  double _rad(double deg) => deg * pi / 180;
 
-  // Expose nodes for map rendering
   Map<String, TrailNode> get nodes => Map.unmodifiable(_nodes);
 }

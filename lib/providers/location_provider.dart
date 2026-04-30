@@ -18,7 +18,7 @@ import 'package:saferoute/services/fall_detection_service.dart';
 
 class LocationProvider with ChangeNotifier {
   Position? _currentPosition;
-  ZoneType _zoneStatus = ZoneType.none;
+  ZoneType _zoneStatus = ZoneType.unknown;
   bool _isTracking = false;
   bool _isLocationActive = false;
   bool _isSosActive = false;
@@ -44,7 +44,7 @@ class LocationProvider with ChangeNotifier {
   Position? _lastSavedPosition;
   DateTime _lastSaveTime = DateTime.fromMillisecondsSinceEpoch(0);
   
-  ZoneType _pendingZone = ZoneType.none;
+  ZoneType _pendingZone = ZoneType.unknown;
   DateTime? _pendingStartTime;
 
   // Getters
@@ -74,17 +74,17 @@ class LocationProvider with ChangeNotifier {
   Future<void> startTracking() async {
     if (_isTracking) return;
     
-    // 0. Pre-load Geofences (Issue #14) - Offline First
+    // Pre-load zones for tourist's selected destination
     final prefs = await SharedPreferences.getInstance();
-    final state = prefs.getString('destination_state');
-    if (state != null) {
-      final cachedZones = await _dbService.getCachedZones(state);
-      if (cachedZones.isNotEmpty) {
-        _geofencing.setDynamicZones(cachedZones);
-      }
+    final destinationId = prefs.getString('primary_destination_id');
+    if (destinationId != null) {
+      await _geofencing.loadForDestination(destinationId);
     }
-    // Attempt API update in background
-    _geofencing.loadZonesFromApi(ApiService()).catchError((e) => debugPrint("Zone refresh failed: $e"));
+    // Attempt fresh sync in background
+    if (destinationId != null) {
+      _geofencing.loadForDestination(destinationId).catchError(
+        (e) => debugPrint('Zone refresh failed: $e'));
+    }
 
     PermissionStatus status = await Permission.location.status;
     if (!status.isGranted) {
@@ -189,8 +189,8 @@ class LocationProvider with ChangeNotifier {
       _lastMovementTime = DateTime.now();
     }
 
-    // 3. Hysteresis (2s stability)
-    ZoneType instantZone = _geofencing.getZone(LatLng(smoothedLat, smoothedLng));
+    // 3. Hysteresis — 2s stability before committing zone change
+    ZoneType instantZone = _geofencing.getZoneType(LatLng(smoothedLat, smoothedLng));
     if (instantZone != _zoneStatus) {
       if (instantZone != _pendingZone) {
         _pendingZone = instantZone;
@@ -250,15 +250,14 @@ class LocationProvider with ChangeNotifier {
 
   void _triggerZoneHaptic() {
     switch (_zoneStatus) {
-      case ZoneType.red:
+      case ZoneType.restricted:
         HapticFeedback.heavyImpact();
         Future.delayed(const Duration(milliseconds: 200), () => HapticFeedback.heavyImpact());
         break;
-      case ZoneType.yellow:
+      case ZoneType.caution:
         HapticFeedback.mediumImpact();
         break;
-      case ZoneType.greenInner:
-      case ZoneType.greenOuter:
+      case ZoneType.safe:
         HapticFeedback.lightImpact();
         break;
       default:

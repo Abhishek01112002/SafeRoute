@@ -1,8 +1,11 @@
 // lib/services/database_service.dart
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:saferoute/models/tourist_model.dart';
 import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/models/trail_graph_model.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -22,7 +25,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'saferoute_v2.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -80,28 +83,17 @@ class DatabaseService {
       )
     ''');
 
-    // Create Mesh Tables for version 2
-    if (version >= 2) {
-      await _createMeshTables(db);
-    }
-    
-    // Create Map Tile Table for version 3
-    if (version >= 3) {
-      await _createMapTileTable(db);
-    }
-
-    if (version >= 4) {
-      await _createIndexes(db);
-    }
-
-    if (version >= 5) {
-      await _createGeofenceTable(db);
-    }
+    if (version >= 2) await _createMeshTables(db);
+    if (version >= 3) await _createMapTileTable(db);
+    if (version >= 4) await _createIndexes(db);
+    if (version >= 5) await _createGeofenceTable(db);
+    if (version >= 7) await _createZonesTable(db);
+    if (version >= 8) await _createTrailGraphsTable(db);
   }
 
   Future<void> _createGeofenceTable(Database db) async {
     await db.execute('''
-      CREATE TABLE geofence_zones (
+      CREATE TABLE IF NOT EXISTS geofence_zones (
         id TEXT PRIMARY KEY,
         name TEXT,
         type TEXT,
@@ -110,6 +102,41 @@ class DatabaseService {
         radius REAL,
         points TEXT,
         state TEXT
+      )
+    ''');
+  }
+
+  Future<void> _createZonesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS zones (
+        id TEXT PRIMARY KEY,
+        destination_id TEXT NOT NULL,
+        authority_id TEXT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        shape TEXT NOT NULL DEFAULT 'CIRCLE',
+        center_lat REAL,
+        center_lng REAL,
+        radius_m REAL,
+        polygon_json TEXT DEFAULT '[]',
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_zones_dest ON zones(destination_id, is_active)'
+    );
+  }
+
+  Future<void> _createTrailGraphsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS trail_graphs (
+        id TEXT PRIMARY KEY,
+        destination_id TEXT UNIQUE NOT NULL,
+        version INTEGER DEFAULT 1,
+        graph_json TEXT NOT NULL,
+        created_at TEXT
       )
     ''');
   }
@@ -160,48 +187,54 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await _createMeshTables(db);
-    }
-    if (oldVersion < 3) {
-      await _createMapTileTable(db);
-    }
-    if (oldVersion < 4) {
-      await _createIndexes(db);
-    }
-    if (oldVersion < 5) {
-      await _createGeofenceTable(db);
-    }
-    if (oldVersion < 6) {
-      await db.execute('ALTER TABLE tourists ADD COLUMN bloodGroup TEXT');
-    }
+    if (oldVersion < 2) await _createMeshTables(db);
+    if (oldVersion < 3) await _createMapTileTable(db);
+    if (oldVersion < 4) await _createIndexes(db);
+    if (oldVersion < 5) await _createGeofenceTable(db);
+    if (oldVersion < 6) await db.execute('ALTER TABLE tourists ADD COLUMN bloodGroup TEXT');
+    if (oldVersion < 7) await _createZonesTable(db);
+    if (oldVersion < 8) await _createTrailGraphsTable(db);
   }
 
-  // Geofence Methods
-  Future<void> saveGeofenceZones(List<dynamic> zones, String state) async {
+  // ── Zone Methods (canonical schema) ──────────────────────────────────────
+
+  Future<void> saveZones(String destinationId, List<ZoneModel> zones) async {
     final db = await database;
     await db.transaction((txn) async {
-      // Clear existing zones for this state
-      await txn.delete('geofence_zones', where: 'state = ?', whereArgs: [state]);
-      
-      for (var zone in zones) {
-        await txn.insert('geofence_zones', {
-          'id': zone['id'] ?? zone['destination_id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-          'name': zone['name'],
-          'type': zone['type'] ?? 'SAFE',
-          'lat': zone['lat'] ?? (zone['center'] != null ? zone['center']['lat'] : 0.0),
-          'lng': zone['lng'] ?? (zone['center'] != null ? zone['center']['lng'] : 0.0),
-          'radius': zone['radius'] ?? 500.0,
-          'points': zone['points'] != null ? zone['points'].toString() : null,
-          'state': state,
-        });
+      await txn.delete('zones', where: 'destination_id = ?', whereArgs: [destinationId]);
+      for (final z in zones) {
+        await txn.insert('zones', z.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
   }
 
-  Future<List<Map<String, dynamic>>> getCachedZones(String state) async {
+  Future<List<ZoneModel>> getZonesForDestination(String destinationId) async {
     final db = await database;
-    return await db.query('geofence_zones', where: 'state = ?', whereArgs: [state]);
+    final rows = await db.query(
+      'zones',
+      where: 'destination_id = ? AND is_active = 1',
+      whereArgs: [destinationId],
+    );
+    return rows.map((r) => ZoneModel.fromMap(r)).toList();
+  }
+
+  // ── Trail Graph Methods ────────────────────────────────────────────────────
+
+  Future<void> saveTrailGraph(TrailGraph graph) async {
+    final db = await database;
+    await db.insert('trail_graphs', graph.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<TrailGraph?> getTrailGraph(String destinationId) async {
+    final db = await database;
+    final rows = await db.query(
+      'trail_graphs',
+      where: 'destination_id = ?',
+      whereArgs: [destinationId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return TrailGraph.fromMap(rows.first);
   }
 
   // Mesh Packet Methods

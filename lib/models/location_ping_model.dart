@@ -1,42 +1,9 @@
+// lib/models/location_ping_model.dart
+// ZoneType has moved to zone_model.dart — import from there.
 import 'package:flutter/material.dart';
+import 'package:saferoute/models/zone_model.dart';
+export 'package:saferoute/models/zone_model.dart' show ZoneType, ZoneTypeExtension;
 
-enum ZoneType { red, yellow, greenInner, greenOuter, none }
-
-extension ZoneTypeExtension on ZoneType {
-  String get displayName {
-    switch (this) {
-      case ZoneType.red: return 'RESTRICTED';
-      case ZoneType.yellow: return 'CAUTION';
-      case ZoneType.greenInner: return 'SAFE (INNER)';
-      case ZoneType.greenOuter: return 'SAFE';
-      case ZoneType.none: return 'UNKNOWN';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case ZoneType.red: return Colors.red;
-      case ZoneType.yellow: return Colors.amber;
-      case ZoneType.greenInner: return Colors.green.shade400;
-      case ZoneType.greenOuter: return Colors.green;
-      case ZoneType.none: return Colors.grey;
-    }
-  }
-
-  static ZoneType fromString(String value) {
-    String normalized = value.trim().toUpperCase();
-    
-    // Legacy mapping (Production Safety)
-    if (normalized == 'SAFE') return ZoneType.greenOuter;
-    if (normalized == 'CAUTION') return ZoneType.yellow;
-    if (normalized == 'RESTRICTED') return ZoneType.red;
-    
-    return ZoneType.values.firstWhere(
-      (e) => e.name.toUpperCase() == normalized,
-      orElse: () => ZoneType.none,
-    );
-  }
-}
 
 class LocationPing {
   final int? id;

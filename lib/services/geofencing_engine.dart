@@ -1,108 +1,144 @@
+// lib/services/geofencing_engine.dart
+// Dynamic geofencing — zones are always synced from the backend and cached in
+// local SQLite. No coordinates are ever hardcoded here.
+//
+// Zone priority (highest wins): RESTRICTED > CAUTION > SAFE > UNKNOWN
+
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/models/zone_model.dart';
 import 'package:saferoute/services/api_service.dart';
-import 'dart:math' as math;
+import 'package:saferoute/services/database_service.dart';
 
 class GeofencingEngine {
-  List<LatLng> _greenOuterZone = [];
-  List<LatLng> _greenInnerZone = [];
-  List<LatLng> _yellowZone = [];
-  List<LatLng> _redZone = [];
-  List<Map<String, dynamic>> _dynamicZones = [];
+  List<ZoneModel> _zones = [];
+  String? _loadedDestinationId;
+  bool _isLoaded = false;
 
-  GeofencingEngine() {
-    // Load defaults if empty
-    _loadStaticDefaults();
-  }
+  bool get isLoaded => _isLoaded;
+  String? get loadedDestinationId => _loadedDestinationId;
 
-  void _loadStaticDefaults() {
-    _greenOuterZone = const [
-      LatLng(30.3369583, 77.8696472), LatLng(30.3367083, 77.8702083),
-      LatLng(30.3364306, 77.8709528), LatLng(30.3356667, 77.8710083),
-      LatLng(30.3345111, 77.8709083), LatLng(30.3350556, 77.8692028),
-      LatLng(30.3355472, 77.8684444), LatLng(30.3361194, 77.8689889),
-      LatLng(30.3365111, 77.8685583), LatLng(30.3364694, 77.8688333),
-      LatLng(30.3362750, 77.8690833), LatLng(30.3366222, 77.8693694),
-      LatLng(30.3369583, 77.8696472),
-    ];
-    _greenInnerZone = const [
-      LatLng(30.3374333, 77.8687000), LatLng(30.3373222, 77.8689667),
-      LatLng(30.3371500, 77.8692639), LatLng(30.3370833, 77.8684083),
-      LatLng(30.3367222, 77.8681639), LatLng(30.3374333, 77.8687000),
-    ];
-    _yellowZone = const [
-      LatLng(30.3371500, 77.8692639), LatLng(30.3369583, 77.8696472),
-      LatLng(30.3366222, 77.8693694), LatLng(30.3362750, 77.8690833),
-      LatLng(30.3364694, 77.8688333), LatLng(30.3365111, 77.8685583),
-      LatLng(30.3371500, 77.8692639),
-    ];
-    _redZone = const [
-      LatLng(30.3367222, 77.8681639), LatLng(30.3365111, 77.8685583),
-      LatLng(30.3361194, 77.8689889), LatLng(30.3355472, 77.8684444),
-      LatLng(30.3358361, 77.8679139), LatLng(30.3363389, 77.8678833),
-      LatLng(30.3367222, 77.8681639),
-    ];
-  }
+  // ── Public API ─────────────────────────────────────────────────────────────
 
-  Future<void> loadZonesFromApi(ApiService api) async {
+  /// Load zones for a destination.
+  /// Priority: API (live) → local SQLite cache → operate in UNKNOWN mode.
+  Future<void> loadForDestination(String destinationId) async {
+    if (_loadedDestinationId == destinationId && _isLoaded) return;
+
+    final api = ApiService();
+    final db  = DatabaseService();
+
+    // 1. Try API first
     try {
-      final zones = await api.getActiveTouristZones();
-      _dynamicZones = zones.cast<Map<String, dynamic>>();
-      debugPrint("🛰️ GeofencingEngine: \${_dynamicZones.length} dynamic zones loaded from API.");
+      final zones = await api.getZonesForDestination(destinationId);
+      if (zones.isNotEmpty) {
+        _zones = zones;
+        _loadedDestinationId = destinationId;
+        _isLoaded = true;
+        await db.saveZones(destinationId, zones);
+        debugPrint('🗺️ GeofencingEngine: ${zones.length} zones loaded from API for $destinationId');
+        return;
+      }
     } catch (e) {
-      debugPrint("⚠️ GeofencingEngine: API loading failed: $e");
+      debugPrint('⚠️ GeofencingEngine: API failed: $e — trying cache');
     }
+
+    // 2. Fall back to local cache
+    final cached = await db.getZonesForDestination(destinationId);
+    if (cached.isNotEmpty) {
+      _zones = cached;
+      _loadedDestinationId = destinationId;
+      _isLoaded = true;
+      debugPrint('💾 GeofencingEngine: ${cached.length} zones loaded from cache for $destinationId');
+      return;
+    }
+
+    // 3. No data — operate in unknown mode (never falsely label anything SAFE)
+    _zones = [];
+    _loadedDestinationId = destinationId;
+    _isLoaded = true;
+    debugPrint('❓ GeofencingEngine: No zone data for $destinationId — UNKNOWN mode');
   }
 
-  ZoneType getZone(LatLng point) {
-    // 1. Check Dynamic Zones (Circles) first
-    for (var zone in _dynamicZones) {
-      final center = LatLng(zone['lat'], zone['lng']);
-      final radius = zone['radius'] as num;
-      
-      final distance = _calculateDistance(point, center);
-      if (distance <= radius) {
-        return zone['type'] == 'RESTRICTED' ? ZoneType.red : ZoneType.greenInner;
+  /// Evaluate zone type for a GPS point.
+  /// Returns the highest-priority matching zone type.
+  ZoneType getZoneType(LatLng point) {
+    if (!_isLoaded || _zones.isEmpty) return ZoneType.unknown;
+
+    // Priority: RESTRICTED(3) > CAUTION(2) > SAFE(1)
+    const priority = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
+    ZoneType result = ZoneType.unknown;
+    int best = 0;
+
+    for (final zone in _zones) {
+      if (!zone.isActive) continue;
+      if (_pointInZone(point, zone)) {
+        final p = priority[zone.type] ?? 0;
+        if (p > best) {
+          best = p;
+          result = zone.type;
+        }
       }
     }
 
-    // 2. Fallback to Static Polygons
-    if (_isInsidePolygon(point, _redZone)) return ZoneType.red;
-    if (_isInsidePolygon(point, _yellowZone)) return ZoneType.yellow;
-    if (_isInsidePolygon(point, _greenInnerZone)) return ZoneType.greenInner;
-    if (_isInsidePolygon(point, _greenOuterZone)) return ZoneType.greenOuter;
-    
-    return ZoneType.none;
+    return result;
   }
 
-  double _calculateDistance(LatLng p1, LatLng p2) {
-    const double r = 6371e3; // Earth radius in meters
-    final phi1 = p1.latitude * math.pi / 180;
-    final phi2 = p2.latitude * math.pi / 180;
-    final deltaPhi = (p2.latitude - p1.latitude) * math.pi / 180;
-    final deltaLambda = (p2.longitude - p1.longitude) * math.pi / 180;
-
-    final a = math.sin(deltaPhi / 2) * math.sin(deltaPhi / 2) +
-        math.cos(phi1) * math.cos(phi2) *
-            math.sin(deltaLambda / 2) * math.sin(deltaLambda / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-
-    return r * c;
+  /// Return the matching ZoneModel (for UI detail — name, type).
+  ZoneModel? getZoneModel(LatLng point) {
+    if (!_isLoaded || _zones.isEmpty) return null;
+    const priority = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
+    ZoneModel? best;
+    int bestP = -1;
+    for (final zone in _zones) {
+      if (!zone.isActive) continue;
+      if (_pointInZone(point, zone)) {
+        final p = priority[zone.type] ?? 0;
+        if (p > bestP) { bestP = p; best = zone; }
+      }
+    }
+    return best;
   }
 
-  bool _isInsidePolygon(LatLng point, List<LatLng> polygon) {
-    if (polygon.isEmpty) return false;
-    int i, j = polygon.length - 1;
+  /// Inject zones directly (e.g. from sync_service after a bulk sync).
+  void setZones(List<ZoneModel> zones, String destinationId) {
+    _zones = zones;
+    _loadedDestinationId = destinationId;
+    _isLoaded = true;
+    debugPrint('🛰️ GeofencingEngine: ${zones.length} zones injected for $destinationId');
+  }
+
+  // ── Internal geometry ──────────────────────────────────────────────────────
+
+  bool _pointInZone(LatLng point, ZoneModel zone) {
+    return zone.shape == ZoneShape.circle
+        ? _pointInCircle(point, zone)
+        : _pointInPolygon(point, zone.polygonPoints);
+  }
+
+  bool _pointInCircle(LatLng point, ZoneModel zone) {
+    if (zone.centerLat == null || zone.centerLng == null || zone.radiusM == null) {
+      return false;
+    }
+    final dist = _haversineM(
+      point.latitude, point.longitude,
+      zone.centerLat!, zone.centerLng!,
+    );
+    return dist <= zone.radiusM!;
+  }
+
+  bool _pointInPolygon(LatLng point, List<ZonePoint> polygon) {
+    if (polygon.length < 3) return false;
     bool inside = false;
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].longitude > point.longitude) !=
-              (polygon[j].longitude > point.longitude) &&
-          (point.latitude <
-              (polygon[j].latitude - polygon[i].latitude) *
-                      (point.longitude - polygon[i].longitude) /
-                      (polygon[j].longitude - polygon[i].longitude) +
-                  polygon[i].latitude)) {
+    int j = polygon.length - 1;
+    for (int i = 0; i < polygon.length; i++) {
+      final xi = polygon[i].lng;
+      final yi = polygon[i].lat;
+      final xj = polygon[j].lng;
+      final yj = polygon[j].lat;
+      if ((yi > point.latitude) != (yj > point.latitude) &&
+          point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi) {
         inside = !inside;
       }
       j = i;
@@ -110,18 +146,15 @@ class GeofencingEngine {
     return inside;
   }
 
-  // Method to allow dynamic injection from cached database (Issue #14)
-  void setDynamicZones(List<Map<String, dynamic>> zones) {
-    _dynamicZones = zones;
-    debugPrint("🛰️ GeofencingEngine: Updated dynamic zones (\${_dynamicZones.length})");
+  double _haversineM(double lat1, double lng1, double lat2, double lng2) {
+    const R = 6371000.0;
+    final dLat = _rad(lat2 - lat1);
+    final dLng = _rad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_rad(lat1)) * math.cos(_rad(lat2)) *
+            math.sin(dLng / 2) * math.sin(dLng / 2);
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  ZoneType _parseZoneType(String? type) {
-    switch (type?.toUpperCase()) {
-      case 'RED': return ZoneType.red;
-      case 'YELLOW': return ZoneType.yellow;
-      case 'GREEN': return ZoneType.greenInner;
-      default: return ZoneType.greenOuter;
-    }
-  }
+  double _rad(double deg) => deg * math.pi / 180;
 }

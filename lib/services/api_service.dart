@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/models/tourist_model.dart';
 import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/models/trail_graph_model.dart';
+import 'package:saferoute/models/emergency_contact_model.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saferoute/utils/constants.dart';
@@ -180,9 +183,10 @@ class ApiService {
   /// Recover tourist data using ID
   Future<Map<String, dynamic>> loginTourist(String touristId) async {
     try {
-      final response = await _dio.get('/tourist/$touristId');
+      final response = await _dio.post('/tourist/login', data: {'tourist_id': touristId});
       return {
-        'tourist': Tourist.fromJson(response.data),
+        'tourist': Tourist.fromJson(response.data['tourist']),
+        'token':   response.data['token'],
       };
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -267,14 +271,53 @@ class ApiService {
     }
   }
 
+  /// Typed zone fetch for a specific destination
+  Future<List<ZoneModel>> getZonesForDestination(String destinationId) async {
+    try {
+      final response = await _dio.get('/zones', queryParameters: {'destination_id': destinationId});
+      return (response.data as List)
+          .map((j) => ZoneModel.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Fetch trail graph for a destination (offline pathfinding)
+  Future<TrailGraph?> getTrailGraph(String destinationId) async {
+    try {
+      final response = await _dio.get('/destinations/$destinationId/trail-graph');
+      return TrailGraph.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw _handleDioError(e);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Fetch emergency contacts for a destination
+  Future<List<EmergencyContact>> getEmergencyContacts(String destinationId) async {
+    try {
+      final response = await _dio.get('/destinations/$destinationId/detail');
+      final contacts = response.data['emergency_contacts'] as List? ?? [];
+      return contacts
+          .map((c) => EmergencyContact.fromJson(c as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<dynamic>> getStates() async {
     try {
       final response = await _dio.get('/destinations/states');
       return response.data;
     } catch (e) {
       debugPrint("API Error fetching states: $e");
-      // Fallback for offline or dev mode
-      return ["Uttarakhand", "Meghalaya", "Arunachal Pradesh"];
+      return <String>[];   // no hardcoded fallbacks — use DB cache instead
     }
   }
 
@@ -284,24 +327,7 @@ class ApiService {
       return response.data;
     } catch (e) {
       debugPrint("API Error fetching destinations: $e");
-      // Fallback/Mock data for the requested state if backend is down
-      if (state == "Uttarakhand") {
-        return [
-          {"id": "UK_KED_001", "name": "Kedarnath Temple", "district": "Rudraprayag", "altitude_m": 3553, "difficulty": "HIGH", "connectivity": "POOR"},
-          {"id": "UK_TUN_002", "name": "Tungnath Temple", "district": "Rudraprayag", "altitude_m": 3680, "difficulty": "MODERATE", "connectivity": "POOR"},
-          {"id": "UK_BAD_003", "name": "Badrinath Temple", "district": "Chamoli", "altitude_m": 3133, "difficulty": "MODERATE", "connectivity": "MODERATE"}
-        ];
-      } else if (state == "Meghalaya") {
-        return [
-          {"id": "ML_CHE_001", "name": "Cherrapunji (Sohra)", "district": "East Khasi Hills", "altitude_m": 1484, "difficulty": "MODERATE", "connectivity": "POOR"},
-          {"id": "ML_LIV_002", "name": "Living Root Bridge", "district": "East Khasi Hills", "altitude_m": 1100, "difficulty": "EASY", "connectivity": "NONE"}
-        ];
-      } else if (state == "Arunachal Pradesh") {
-        return [
-          {"id": "AR_TAW_001", "name": "Tawang Monastery", "district": "Tawang", "altitude_m": 3048, "difficulty": "HIGH", "connectivity": "VERY_POOR"}
-        ];
-      }
-      return [];
+      return <dynamic>[];  // caller handles offline via DB cache
     }
   }
 
@@ -324,4 +350,24 @@ class ApiService {
       throw ApiException("Request failed: $e");
     }
   }
+
+  /// Authority — list SOS events in jurisdiction
+  Future<List<dynamic>> getSosEvents() async {
+    try {
+      final response = await _dio.get('/sos/events');
+      return response.data as List;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Authority — respond to and close an SOS event
+  Future<void> respondToSos(int sosId) async {
+    try {
+      await _dio.post('/sos/events/$sosId/respond');
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
 }
+

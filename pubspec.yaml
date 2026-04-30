@@ -48,5 +48,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/trail_graph.json
+  # Trail graphs are loaded from the backend API and cached in SQLite.
+  # No bundled graph assets needed.
