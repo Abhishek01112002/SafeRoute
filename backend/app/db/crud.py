@@ -281,6 +281,52 @@ async def delete_zone(db: AsyncSession, zone_id: str, authority_id: str):
         zone.is_active = False
         await db.flush()
 
+async def count_all_zones(db: AsyncSession) -> int:
+    from sqlalchemy import func as sqlfunc
+    result = await db.execute(select(sqlfunc.count()).where(Zone.is_active == True))
+    return result.scalar() or 0
+
+async def get_destination_by_id(db: AsyncSession, destination_id: str) -> Optional[dict]:
+    result = await db.execute(select(Destination).where(Destination.id == destination_id))
+    dest = result.scalar_one_or_none()
+    return _destination_to_dict(dest) if dest else None
+
+async def get_dashboard_metrics(db: AsyncSession) -> dict:
+    """Aggregate metrics for the Command Center overview card."""
+    from sqlalchemy import func as sqlfunc
+    
+    zone_count_result = await db.execute(
+        select(sqlfunc.count()).select_from(Zone).where(Zone.is_active == True)
+    )
+    zone_count = zone_count_result.scalar() or 0
+
+    # Tourist count from legacy SQLite (in-memory map is always current)
+    tourist_count = len(sqlite_legacy.tourists_db)
+
+    # SOS counts from legacy (persisted to SQLite)
+    sos_events = sqlite_legacy.get_sos_events_legacy()
+    active_sos = sum(1 for e in sos_events if e.get("is_synced") == 0)
+    resolved_sos = sum(1 for e in sos_events if e.get("is_synced") == 1)
+
+    return {
+        "active_zones": zone_count,
+        "registered_tourists": tourist_count,
+        "active_sos": active_sos,
+        "resolved_sos": resolved_sos,
+    }
+
+async def get_tourist_last_locations(limit: int = 200) -> list:
+    """Return the most recent location ping for each tourist from the rolling deque."""
+    seen = {}
+    # Iterate in reverse so we get the newest ping per tourist
+    for ping in reversed(list(sqlite_legacy.location_logs)):
+        tid = ping.get("tourist_id")
+        if tid and tid not in seen:
+            seen[tid] = ping
+        if len(seen) >= limit:
+            break
+    return list(seen.values())
+
 # ---------------------------------------------------------------------------
 # SOS & Location Helpers
 # ---------------------------------------------------------------------------

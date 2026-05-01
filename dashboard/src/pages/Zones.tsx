@@ -1,6 +1,6 @@
 // dashboard/src/pages/Zones.tsx
 import { useEffect, useState } from 'react';
-import { Trash2, Plus, MapPin } from 'lucide-react';
+import { Trash2, Plus, MapPin, QrCode, X } from 'lucide-react';
 import api from '../api';
 import './Zones.css';
 import ZoneMap from '../components/ZoneMap';
@@ -35,6 +35,8 @@ const Zones = () => {
   });
 
   const [mapPoints, setMapPoints] = useState<{lat: number, lng: number}[]>([]);
+  const [qrBundle, setQrBundle] = useState<{token: string; zone_count: number} | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   let authority: any = {};
   try {
@@ -118,6 +120,19 @@ const Zones = () => {
   const currentDest = destinations.find(d => d.id === selectedDest);
   const mapCenter: [number, number] = currentDest ? [currentDest.center_lat, currentDest.center_lng] : [30.7352, 79.0669];
 
+  const handleGenerateQR = async () => {
+    if (!selectedDest) return;
+    setQrLoading(true);
+    try {
+      const res = await api.get(`/onboard/preview/${selectedDest}`);
+      setQrBundle({ token: res.data.qr_token, zone_count: res.data.zone_count });
+    } catch (err) {
+      alert('Failed to generate QR token');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
   return (
     <div className="zones-container">
       <header className="page-header">
@@ -126,20 +141,50 @@ const Zones = () => {
             <h1 className="neon-text-cyan">Zone Manager</h1>
             <p className="subtitle">Configure jurisdiction boundaries</p>
           </div>
-          <button className="btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
-            <Plus size={18} /> NEW ZONE
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn-secondary" onClick={handleGenerateQR} disabled={qrLoading || !selectedDest}>
+              <QrCode size={18} /> {qrLoading ? 'GENERATING...' : 'GENERATE QR'}
+            </button>
+            <button className="btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+              <Plus size={18} /> NEW ZONE
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="dest-selector glass-panel">
         <label>TARGET DESTINATION:</label>
-        <select value={selectedDest} onChange={(e) => setSelectedDest(e.target.value)}>
+        <select value={selectedDest} onChange={(e) => { setSelectedDest(e.target.value); setQrBundle(null); }}>
           {destinations.map(d => (
             <option key={d.id} value={d.id}>{d.name} ({d.id})</option>
           ))}
         </select>
       </div>
+
+      {qrBundle && (
+        <div className="qr-panel glass-panel">
+          <div className="qr-panel-header">
+            <div>
+              <h3 className="neon-text-cyan" style={{ marginBottom: '0.25rem' }}>ONBOARDING QR CODE</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {qrBundle.zone_count} zone(s) bundled · Tourists scan this to download zone data offline
+              </p>
+            </div>
+            <button className="delete-btn" onClick={() => setQrBundle(null)} title="Close"><X size={18} /></button>
+          </div>
+          <div className="qr-panel-body">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrBundle.token)}&bgcolor=0d0d1a&color=00ffcc&qzone=2`}
+              alt="Zone QR Code"
+              className="qr-image"
+            />
+            <div className="qr-token-box">
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.5rem', letterSpacing: '1px' }}>RAW TOKEN (for testing)</p>
+              <code style={{ fontSize: '0.65rem', wordBreak: 'break-all', color: 'var(--accent-cyan)', opacity: 0.8 }}>{qrBundle.token}</code>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ZoneMap 
         center={mapCenter}

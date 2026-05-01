@@ -13,12 +13,57 @@
   align-items: center;
 }
 
-.header-flex .btn-primary {
-  display: flex;
+.header-flex .btn-primary,
+.header-flex .btn-secondary {
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
 }
+
+/* QR Panel */
+.qr-panel {
+  padding: 1.5rem 2rem;
+  border-top: 3px solid var(--accent-cyan);
+  animation: fadeSlideIn 0.3s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.qr-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.qr-panel-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.qr-image {
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  border: 2px solid var(--accent-cyan-dim);
+  image-rendering: pixelated;
+}
+
+.qr-token-box {
+  flex: 1;
+  min-width: 220px;
+  background: rgba(0, 229, 255, 0.04);
+  border: 1px solid var(--accent-cyan-dim);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
 
 .dest-selector {
   padding: 1.5rem;
