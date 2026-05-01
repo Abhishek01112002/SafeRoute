@@ -1,6 +1,5 @@
 // lib/services/safety_engine.dart
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:saferoute/models/location_ping_model.dart';
 
 enum SafetyRiskLevel { low, medium, high }
@@ -22,7 +21,8 @@ class SafetyEngine {
     if (batteryLevel < 0.10) return SafetyRiskLevel.high;
 
     // 3. Yellow Zone or Extreme Battery Warning (Medium)
-    if (zone == ZoneType.yellow || batteryLevel < 0.25) return SafetyRiskLevel.medium;
+    if (zone == ZoneType.yellow || batteryLevel < 0.25)
+      return SafetyRiskLevel.medium;
 
     // 4. Connectivity Loss (Medium)
     if (!isMeshConnected) return SafetyRiskLevel.medium;

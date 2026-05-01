@@ -7,7 +7,13 @@ class NotificationService {
   static Future<void> init() async {
     if (_initialized) return;
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: android));
+    const darwin = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    await _plugin.initialize(
+        const InitializationSettings(android: android, iOS: darwin));
     _initialized = true;
   }
 
@@ -22,12 +28,17 @@ class NotificationService {
           'General Alerts',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
         ),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
+      payload: 'saferoute://alerts',
     );
   }
 
-  static Future<void> showDistanceAlert(String memberName, double distKm) async {
+  static Future<void> showDistanceAlert(
+      String memberName, double distKm) async {
     await _plugin.show(
       memberName.hashCode,
       '⚠️ Group Member Far Away',
@@ -38,8 +49,12 @@ class NotificationService {
           'Group Alerts',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
         ),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
+      payload: 'saferoute://group',
     );
   }
 }

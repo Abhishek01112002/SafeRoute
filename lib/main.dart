@@ -1,4 +1,7 @@
 // lib/main.dart
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
@@ -14,6 +17,8 @@ import 'package:saferoute/screens/onboarding_screen.dart';
 import 'package:saferoute/screens/main_screen.dart';
 import 'package:saferoute/services/background_service.dart';
 import 'package:saferoute/services/notification_service.dart';
+import 'package:saferoute/services/database_tile_provider.dart';
+import 'package:saferoute/services/telemetry_service.dart';
 
 import 'package:saferoute/utils/permission_helper.dart';
 import 'package:saferoute/providers/theme_provider.dart';
@@ -21,6 +26,7 @@ import 'package:saferoute/utils/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureTelemetry();
 
   // Initialize notifications
   await NotificationService.init();
@@ -45,7 +51,18 @@ void main() async {
     PermissionHelper.requestAllPermissions();
   });
 
+  // Pre-populate offline map tiles (Issue #3 fix)
+  Future.delayed(const Duration(seconds: 2), () async {
+    try {
+      await DatabaseTileProvider.prePopulateOfflineTiles();
+    } catch (e) {
+      debugPrint('Failed to pre-populate offline tiles: $e');
+    }
+  });
+
   final bool isRegistered = prefs.getBool('is_registered') ?? false;
+  final bool onboardingCompleted =
+      prefs.getBool('onboarding_completed') ?? false;
   final String? touristId = prefs.getString('tourist_id');
 
   // Initialize background service
@@ -85,7 +102,8 @@ void main() async {
           update: (_, location, safety) {
             final pos = location.currentPosition;
             safety!.updateState(
-              position: pos != null ? LatLng(pos.latitude, pos.longitude) : null,
+              position:
+                  pos != null ? LatLng(pos.latitude, pos.longitude) : null,
               zone: location.zoneStatus,
               batteryLevel: location.batteryLevel,
               speedKmh: (pos?.speed ?? 0) * 3.6,
@@ -97,15 +115,39 @@ void main() async {
         ),
         ChangeNotifierProvider.value(value: meshProvider),
       ],
-      child: SafeRouteApp(isRegistered: isRegistered),
+      child: SafeRouteApp(showMain: isRegistered || onboardingCompleted),
     ),
   );
 }
 
-class SafeRouteApp extends StatelessWidget {
-  final bool isRegistered;
+void _configureTelemetry() {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    unawaited(
+      TelemetryService().reportError(
+        details.exception,
+        stackTrace: details.stack,
+        context: 'Flutter framework',
+      ),
+    );
+  };
 
-  const SafeRouteApp({super.key, required this.isRegistered});
+  ui.PlatformDispatcher.instance.onError = (error, stackTrace) {
+    unawaited(
+      TelemetryService().reportError(
+        error,
+        stackTrace: stackTrace,
+        context: 'Uncaught platform error',
+      ),
+    );
+    return true;
+  };
+}
+
+class SafeRouteApp extends StatelessWidget {
+  final bool showMain;
+
+  const SafeRouteApp({super.key, required this.showMain});
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +162,7 @@ class SafeRouteApp extends StatelessWidget {
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             themeMode: themeProvider.themeMode,
-            home: isRegistered ? const MainScreen() : const OnboardingScreen(),
+            home: showMain ? const MainScreen() : const OnboardingScreen(),
           ),
         );
       },

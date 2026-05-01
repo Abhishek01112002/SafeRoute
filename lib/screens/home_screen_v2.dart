@@ -17,18 +17,21 @@ import '../models/location_ping_model.dart';
 import 'package:saferoute/services/database_tile_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
-import 'package:saferoute/screens/tactical_ar_screen.dart';
 import 'package:saferoute/services/safety_engine.dart';
 import 'dart:ui';
+import 'package:saferoute/models/tourist_model.dart';
+import 'package:saferoute/screens/registration_screen.dart';
 
 class HomeScreenV2 extends StatelessWidget {
   const HomeScreenV2({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final tourist = context.watch<TouristProvider>().tourist;
-    
-    if (tourist == null) {
+    final touristProvider = context.watch<TouristProvider>();
+    final tourist = touristProvider.tourist;
+    final userState = touristProvider.userState;
+
+    if (tourist == null && userState != UserState.GUEST) {
       return const _LoadingHomeState();
     }
 
@@ -51,9 +54,10 @@ class _HomeContent extends StatefulWidget {
   State<_HomeContent> createState() => _HomeContentState();
 }
 
-class _HomeContentState extends State<_HomeContent> with SingleTickerProviderStateMixin {
+class _HomeContentState extends State<_HomeContent>
+    with SingleTickerProviderStateMixin {
   late AnimationController _staggerCtrl;
-  
+
   @override
   void initState() {
     super.initState();
@@ -81,11 +85,9 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tourist = context.read<TouristProvider>().tourist!;
-    
-    final tripDayCount = DateTime.now().difference(tourist.tripStartDate).inDays + 1;
-    final totalTripDays = tourist.tripEndDate.difference(tourist.tripStartDate).inDays + 1;
-    final tripProgress = (tripDayCount / totalTripDays.clamp(1, 1000)).clamp(0.0, 1.0);
+    final touristProvider = context.watch<TouristProvider>();
+    final tourist = touristProvider.tourist;
+    final userState = touristProvider.userState;
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
@@ -107,7 +109,12 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 60),
-                
+
+                if (userState == UserState.GUEST) ...[
+                  const _GuestAccessBanner(),
+                  const SizedBox(height: 24),
+                ],
+
                 // Welcome Message
                 FadeTransition(
                   opacity: _step(0),
@@ -116,16 +123,19 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     children: [
                       Text(
                         'Welcome Back,',
-                        style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.5)),
                       ),
                       Text(
-                        tourist.fullName.split(' ').first,
-                        style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900),
+                        tourist?.fullName.split(' ').first ?? 'Guest Explorer',
+                        style: theme.textTheme.displaySmall
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
 
                 // Zone Status
@@ -133,7 +143,8 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                   opacity: _step(1),
                   child: Selector<LocationProvider, ZoneType>(
                     selector: (_, provider) => provider.zoneStatus,
-                    builder: (context, status, __) => ZoneStatusCard(status: status),
+                    builder: (context, status, __) =>
+                        ZoneStatusCard(status: status),
                   ),
                 ),
 
@@ -187,7 +198,11 @@ class _HomeContentState extends State<_HomeContent> with SingleTickerProviderSta
                     children: [
                       const Text(
                         'SAFETY MISSION CONTROL',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: AppColors.primary),
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                            color: AppColors.primary),
                       ),
                       const SizedBox(height: 16),
                       _QuickActionsGrid(),
@@ -213,17 +228,17 @@ class _MiniMapCard extends StatelessWidget {
     final locProv = context.watch<LocationProvider>();
     final themeProvider = context.watch<ThemeProvider>();
     final pos = locProv.currentPosition;
-    
+
     return EliteSurface(
       padding: EdgeInsets.zero,
       height: 200,
       child: Stack(
         children: [
-           AbsorbPointer(
+          AbsorbPointer(
             child: FlutterMap(
               options: MapOptions(
-                initialCenter: pos != null 
-                    ? LatLng(pos.latitude, pos.longitude) 
+                initialCenter: pos != null
+                    ? LatLng(pos.latitude, pos.longitude)
                     : const LatLng(26.1445, 91.7362),
                 initialZoom: 14.0,
               ),
@@ -241,7 +256,7 @@ class _MiniMapCard extends StatelessWidget {
                         width: 80,
                         height: 80,
                         child: PulseMarker(
-                          color: AppColors.primary, 
+                          color: AppColors.primary,
                           size: 14,
                           speed: pos.speed, // SPEED DISPLAYED HERE
                         ),
@@ -261,11 +276,17 @@ class _MiniMapCard extends StatelessWidget {
               color: Colors.black54,
               child: Row(
                 children: [
-                  const Icon(Icons.satellite_alt_rounded, size: 12, color: AppColors.accent),
+                  const Icon(Icons.satellite_alt_rounded,
+                      size: 12, color: AppColors.accent),
                   const SizedBox(width: 6),
                   Text(
-                    themeProvider.mapMode == MapMode.satellite ? 'SAT-ACTIVE' : 'VECTOR-ACTIVE',
-                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    themeProvider.mapMode == MapMode.satellite
+                        ? 'SAT-ACTIVE'
+                        : 'VECTOR-ACTIVE',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -339,7 +360,11 @@ class _QuickActionCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label.toUpperCase(),
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1, color: color),
+            style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+                color: color),
           ),
         ],
       ),
@@ -368,17 +393,22 @@ class _SafetyScoreCard extends StatelessWidget {
 
     // Calculate heuristic safety score
     double score = 0.7; // Base score
-    if (locProv.zoneStatus == ZoneType.red) score -= 0.4;
-    else if (locProv.zoneStatus == ZoneType.yellow) score -= 0.15;
+    if (locProv.zoneStatus == ZoneType.red)
+      score -= 0.4;
+    else if (locProv.zoneStatus == ZoneType.yellow)
+      score -= 0.15;
     else if (locProv.zoneStatus == ZoneType.greenInner) score += 0.25;
 
     if (meshProv.isMeshActive) {
       score += (meshProv.nearbyNodes.length * 0.05).clamp(0.0, 0.15);
     }
-    
+
     score = score.clamp(0.1, 1.0);
-    final String label = score > 0.8 ? 'OPTIMAL' : (score > 0.4 ? 'STABLE' : 'CRITICAL');
-    final Color scoreColor = score > 0.8 ? AppColors.success : (score > 0.4 ? AppColors.warning : AppColors.danger);
+    final String label =
+        score > 0.8 ? 'OPTIMAL' : (score > 0.4 ? 'STABLE' : 'CRITICAL');
+    final Color scoreColor = score > 0.8
+        ? AppColors.success
+        : (score > 0.4 ? AppColors.warning : AppColors.danger);
 
     return EliteSurface(
       padding: const EdgeInsets.all(20),
@@ -388,9 +418,13 @@ class _SafetyScoreCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-               const Text(
+              const Text(
                 'SECURITY ARCHITECTURE',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.primary),
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: AppColors.primary),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -401,7 +435,10 @@ class _SafetyScoreCard extends StatelessWidget {
                 ),
                 child: Text(
                   label,
-                  style: TextStyle(color: scoreColor, fontSize: 8, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: scoreColor,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -413,9 +450,17 @@ class _SafetyScoreCard extends StatelessWidget {
                 flex: 3,
                 child: Column(
                   children: [
-                     _buildMetricRow('Network Mesh nodes', '${meshProv.nearbyNodes.length}', meshProv.isMeshActive ? AppColors.success : Colors.grey, isDark),
-                     const SizedBox(height: 12),
-                     _buildMetricRow('Geofence Integrity', locProv.isTracking ? 'LOCKED' : 'IDLE', locProv.isTracking ? AppColors.primary : Colors.grey, isDark),
+                    _buildMetricRow(
+                        'Network Mesh nodes',
+                        '${meshProv.nearbyNodes.length}',
+                        meshProv.isMeshActive ? AppColors.success : Colors.grey,
+                        isDark),
+                    const SizedBox(height: 12),
+                    _buildMetricRow(
+                        'Geofence Integrity',
+                        locProv.isTracking ? 'LOCKED' : 'IDLE',
+                        locProv.isTracking ? AppColors.primary : Colors.grey,
+                        isDark),
                   ],
                 ),
               ),
@@ -457,8 +502,12 @@ class _SafetyScoreCard extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black54)),
-        Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11, color: isDark ? Colors.white54 : Colors.black54)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
       ],
     );
   }
@@ -474,9 +523,9 @@ class _TacticalStatusHUD extends StatelessWidget {
     final pos = locProv.currentPosition;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    final lastSync = pos != null 
-        ? DateFormat('HH:mm:ss').format(pos.timestamp) 
+
+    final lastSync = pos != null
+        ? DateFormat('HH:mm:ss').format(pos.timestamp)
         : 'SCANNING...';
 
     return EliteSurface(
@@ -486,8 +535,10 @@ class _TacticalStatusHUD extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildHudItem('LATITUDE', pos?.latitude.toStringAsFixed(6) ?? '---.------', isDark),
-              _buildHudItem('LONGITUDE', pos?.longitude.toStringAsFixed(6) ?? '---.------', isDark),
+              _buildHudItem('LATITUDE',
+                  pos?.latitude.toStringAsFixed(6) ?? '---.------', isDark),
+              _buildHudItem('LONGITUDE',
+                  pos?.longitude.toStringAsFixed(6) ?? '---.------', isDark),
             ],
           ),
           const SizedBox(height: 12),
@@ -496,7 +547,8 @@ class _TacticalStatusHUD extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildHudItem('ACCURACY', '${pos?.accuracy.toStringAsFixed(1) ?? "--"} m', isDark),
+              _buildHudItem('ACCURACY',
+                  '${pos?.accuracy.toStringAsFixed(1) ?? "--"} m', isDark),
               _buildHudItem('LAST SYNC', lastSync, isDark, isHighlight: true),
             ],
           ),
@@ -505,7 +557,8 @@ class _TacticalStatusHUD extends StatelessWidget {
     );
   }
 
-  Widget _buildHudItem(String label, String value, bool isDark, {bool isHighlight = false}) {
+  Widget _buildHudItem(String label, String value, bool isDark,
+      {bool isHighlight = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -525,8 +578,8 @@ class _TacticalStatusHUD extends StatelessWidget {
             fontSize: 14,
             fontFamily: 'monospace',
             fontWeight: FontWeight.bold,
-            color: isHighlight 
-                ? AppColors.primary 
+            color: isHighlight
+                ? AppColors.primary
                 : (isDark ? Colors.white : Colors.black87),
           ),
         ),
@@ -544,7 +597,7 @@ class _SafetyAdvisorCard extends StatelessWidget {
     final safetyProv = context.watch<SafetySystemProvider>();
     final riskLevel = safetyProv.currentRisk;
     final theme = Theme.of(context);
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -563,7 +616,8 @@ class _SafetyAdvisorCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.psychology_outlined, color: SafetyEngine.getRiskColor(riskLevel), size: 28),
+          Icon(Icons.psychology_outlined,
+              color: SafetyEngine.getRiskColor(riskLevel), size: 28),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -571,7 +625,11 @@ class _SafetyAdvisorCard extends StatelessWidget {
               children: [
                 const Text(
                   'TACTICAL ADVISOR',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.primary),
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: AppColors.primary),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -585,12 +643,16 @@ class _SafetyAdvisorCard extends StatelessWidget {
                 StreamBuilder<SafetyEvent>(
                   stream: safetyProv.eventStream,
                   builder: (context, snapshot) {
-                    if (snapshot.hasData && snapshot.data!.type == SafetyEventType.riskUpdated) {
+                    if (snapshot.hasData &&
+                        snapshot.data!.type == SafetyEventType.riskUpdated) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           'EVENT: ${snapshot.data!.message}',
-                          style: const TextStyle(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 9,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold),
                         ),
                       );
                     }
@@ -621,11 +683,16 @@ class _MissionChronology extends StatelessWidget {
       children: [
         const Text(
           'MISSION CHRONOLOGY',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: AppColors.primary),
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              color: AppColors.primary),
         ),
         const SizedBox(height: 16),
         if (timeline.isEmpty)
-          const Text('Awaiting initial system scan...', style: TextStyle(color: Colors.white24, fontSize: 12)),
+          const Text('Awaiting initial system scan...',
+              style: TextStyle(color: Colors.white24, fontSize: 12)),
         ...timeline.map((event) => _buildTimelineItem(event, theme)).toList(),
       ],
     );
@@ -657,10 +724,12 @@ class _MissionChronology extends StatelessWidget {
             width: 6,
             height: 6,
             decoration: BoxDecoration(
-              color: _getEventColor(event.type), 
+              color: _getEventColor(event.type),
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: _getEventColor(event.type).withOpacity(0.5), blurRadius: 4),
+                BoxShadow(
+                    color: _getEventColor(event.type).withOpacity(0.5),
+                    blurRadius: 4),
               ],
             ),
           ),
@@ -671,7 +740,8 @@ class _MissionChronology extends StatelessWidget {
               borderRadius: 12,
               child: Text(
                 event.message,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.3),
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, height: 1.3),
               ),
             ),
           ),
@@ -682,11 +752,67 @@ class _MissionChronology extends StatelessWidget {
 
   Color _getEventColor(SafetyEventType type) {
     switch (type) {
-      case SafetyEventType.sosTriggered: return Colors.redAccent;
-      case SafetyEventType.riskUpdated: return Colors.orangeAccent;
-      case SafetyEventType.zoneChanged: return AppColors.primary;
-      case SafetyEventType.nodeDetected: return Colors.greenAccent;
-      default: return Colors.grey;
+      case SafetyEventType.sosTriggered:
+        return Colors.redAccent;
+      case SafetyEventType.riskUpdated:
+        return Colors.orangeAccent;
+      case SafetyEventType.zoneChanged:
+        return AppColors.primary;
+      case SafetyEventType.nodeDetected:
+        return Colors.greenAccent;
+      default:
+        return Colors.grey;
     }
+  }
+}
+
+class _GuestAccessBanner extends StatelessWidget {
+  const _GuestAccessBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return EliteSurface(
+      color: theme.colorScheme.primary.withOpacity(0.1),
+      padding: const EdgeInsets.all(AppSpacing.l),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded,
+              color: theme.colorScheme.primary, size: 24),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "GUEST MODE ACTIVE",
+                  style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 1),
+                ),
+                Text(
+                  "Register to enable full safety features like SOS identity sharing.",
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                ),
+              ],
+            ),
+          ),
+          EliteButton(
+            width: 100,
+            height: 32,
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const RegistrationScreen()));
+            },
+            child: const Text("REGISTER", style: TextStyle(fontSize: 10)),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -20,26 +20,26 @@ class TacticalARScreen extends StatefulWidget {
   State<TacticalARScreen> createState() => _TacticalARScreenState();
 }
 
-class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBindingObserver {
+class _TacticalARScreenState extends State<TacticalARScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   bool _isInitialized = false;
   bool _isInitializing = false;
   String? _errorMessage;
-  
+
   // Navigation State
   double _smoothHeading = 0.0;
-  DateTime _lastMoveTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Hard Constraint: Lock Portrait
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-    
+
     _initCamera();
   }
 
@@ -50,7 +50,7 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
     try {
       final cameras = await availableCameras();
       if (!mounted) return;
-      
+
       if (cameras.isEmpty) {
         setState(() => _errorMessage = "No camera hardware detected.");
         return;
@@ -58,16 +58,16 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
 
       // Medium resolution for battery/performance balance
       _controller = CameraController(
-        cameras.first, 
+        cameras.first,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.jpeg, 
+        imageFormatGroup: ImageFormatGroup.jpeg,
       );
 
       await _controller!.initialize();
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _isInitialized = true;
         _errorMessage = null;
@@ -75,7 +75,8 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
     } catch (e) {
       debugPrint("AR Camera Error: $e");
       if (mounted) {
-        setState(() => _errorMessage = "Camera initialization failed. Check permissions.");
+        setState(() =>
+            _errorMessage = "Camera initialization failed. Check permissions.");
       }
     } finally {
       _isInitializing = false;
@@ -86,7 +87,8 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_controller == null || !_controller!.value.isInitialized) return;
 
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _controller?.dispose();
     } else if (state == AppLifecycleState.resumed) {
       _initCamera();
@@ -96,14 +98,14 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    
+
     // Hard Constraint: Restore Orientations
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    
+
     _controller?.dispose();
     super.dispose();
   }
@@ -111,13 +113,15 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   @override
   Widget build(BuildContext context) {
     final locProv = context.watch<LocationProvider>();
-    
+
     // Safety Guard: Battery Exit (< 10%)
     if (locProv.batteryLevel < 0.10) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("AR Terminated: Critical Battery Level"), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text("AR Terminated: Critical Battery Level"),
+                backgroundColor: Colors.red),
           );
           Navigator.pop(context);
         }
@@ -125,12 +129,16 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
     }
 
     // Safety Guard: Idle Exit (> 30s)
-    final idleSeconds = DateTime.now().difference(locProv.currentPosition?.timestamp ?? DateTime.now()).inSeconds;
+    final idleSeconds = DateTime.now()
+        .difference(locProv.currentPosition?.timestamp ?? DateTime.now())
+        .inSeconds;
     if (idleSeconds > 30) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("AR Terminated: No movement detected for 30s"), backgroundColor: Colors.orange),
+            const SnackBar(
+                content: Text("AR Terminated: No movement detected for 30s"),
+                backgroundColor: Colors.orange),
           );
           Navigator.pop(context);
         }
@@ -142,7 +150,9 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
     }
 
     if (!_isInitialized || _controller == null) {
-      return const Scaffold(backgroundColor: Colors.black, body: Center(child: GlimmerLoader(width: 200, height: 2)));
+      return const Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(child: GlimmerLoader(width: 200, height: 2)));
     }
 
     return Scaffold(
@@ -187,7 +197,11 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
                 onPressed: () => Navigator.pop(context),
                 backgroundColor: Colors.redAccent.withOpacity(0.8),
                 icon: const Icon(Icons.close, color: Colors.white),
-                label: const Text('TERMINATE SCAN', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1)),
+                label: const Text('TERMINATE SCAN',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 1)),
               ),
             ),
           ),
@@ -203,13 +217,21 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.compass_calibration_rounded, size: 80, color: AppColors.accent),
+            const Icon(Icons.compass_calibration_rounded,
+                size: 80, color: AppColors.accent),
             const SizedBox(height: 24),
-            Text("MISSION ADVISOR FALLBACK", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 2)),
+            Text("MISSION ADVISOR FALLBACK",
+                style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 2)),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(error, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              child: Text(error,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14)),
             ),
             const SizedBox(height: 32),
             if (error.contains("permission"))
@@ -245,19 +267,40 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('TACTICAL OVERLAY V2.0', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-                  Text('BATTERY: ${(loc.batteryLevel * 100).toInt()}%', style: TextStyle(color: loc.batteryLevel < 0.2 ? Colors.redAccent : Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
+                  const Text('TACTICAL OVERLAY V2.0',
+                      style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5)),
+                  Text('BATTERY: ${(loc.batteryLevel * 100).toInt()}%',
+                      style: TextStyle(
+                          color: loc.batteryLevel < 0.2
+                              ? Colors.redAccent
+                              : Colors.white54,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
               const Divider(color: Colors.white10, height: 20),
               Row(
                 children: [
-                  const Icon(Icons.gps_fixed, size: 14, color: Colors.greenAccent),
+                  const Icon(Icons.gps_fixed,
+                      size: 14, color: Colors.greenAccent),
                   const SizedBox(width: 8),
-                  Text('GPS STRENGTH: ${loc.currentPosition?.accuracy.toStringAsFixed(1) ?? "0"}m', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(
+                      'GPS STRENGTH: ${loc.currentPosition?.accuracy.toStringAsFixed(1) ?? "0"}m',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
                   const Spacer(),
                   if ((loc.currentPosition?.accuracy ?? 100) > 20)
-                    const Text('⚠️ DRIFT DETECTED', style: TextStyle(color: Colors.orangeAccent, fontSize: 9, fontWeight: FontWeight.w900)),
+                    const Text('⚠️ DRIFT DETECTED',
+                        style: TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900)),
                 ],
               ),
             ],
@@ -270,9 +313,9 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   Widget _buildTacticalArrow(LocationProvider loc) {
     final pos = loc.currentPosition;
     if (pos == null || widget.targetDestination == null) {
-       // Points North by default if no target
-       final double h = (pos?.heading ?? 0.0).toDouble();
-       return _renderArrow((0.0 - h) * (math.pi / 180));
+      // Points North by default if no target
+      final double h = (pos?.heading ?? 0.0).toDouble();
+      return _renderArrow((0.0 - h) * (math.pi / 180));
     }
 
     // Constraint: Filter Accuracy > 20m
@@ -285,17 +328,17 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
 
     // Calculation: targetBearing = atan2(dy, dx)
     final double bearing = Geolocator.bearingBetween(
-      pos.latitude, 
-      pos.longitude, 
-      widget.targetDestination!.latitude, 
+      pos.latitude,
+      pos.longitude,
+      widget.targetDestination!.latitude,
       widget.targetDestination!.longitude,
     );
 
     // Final Rotation: bearing - heading
     final targetRotation = (bearing - pos.heading) * (math.pi / 180);
-    
+
     // Smoothing (Interpolation)
-    _smoothHeading = targetRotation; 
+    _smoothHeading = targetRotation;
 
     return _renderArrow(targetRotation);
   }
@@ -320,20 +363,35 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
                 children: [
                   // Pulse ring
                   Container(
-                    width: 200, height: 200,
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 1)),
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: AppColors.primary.withOpacity(0.2),
+                            width: 1)),
                   ),
                   // The Arrow body
                   Container(
-                    width: 45, height: 160,
+                    width: 45,
+                    height: 160,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [AppColors.primary, AppColors.primary.withOpacity(0)],
-                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0)
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+                      borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30)),
                       boxShadow: [
-                        BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 30, spreadRadius: 10),
+                        BoxShadow(
+                            color: AppColors.primary.withOpacity(0.4),
+                            blurRadius: 30,
+                            spreadRadius: 10),
                       ],
                     ),
                   ),
@@ -343,7 +401,12 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
             if (warning != null)
               Padding(
                 padding: const EdgeInsets.only(top: 20),
-                child: EliteSurface(child: Text(warning, style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w900))),
+                child: EliteSurface(
+                    child: Text(warning,
+                        style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900))),
               ),
           ],
         );
@@ -354,10 +417,16 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   Widget _buildTelemetryPanel(LocationProvider loc) {
     final pos = loc.currentPosition;
     String distance = "SEARCHING...";
-    
+
     if (pos != null && widget.targetDestination != null) {
-      final d = Geolocator.distanceBetween(pos.latitude, pos.longitude, widget.targetDestination!.latitude, widget.targetDestination!.longitude);
-      distance = d > 1000 ? "${(d/1000).toStringAsFixed(2)} KM" : "${d.toInt()} METERS";
+      final d = Geolocator.distanceBetween(
+          pos.latitude,
+          pos.longitude,
+          widget.targetDestination!.latitude,
+          widget.targetDestination!.longitude);
+      distance = d > 1000
+          ? "${(d / 1000).toStringAsFixed(2)} KM"
+          : "${d.toInt()} METERS";
     }
 
     return EliteSurface(
@@ -378,9 +447,19 @@ class _TacticalARScreenState extends State<TacticalARScreen> with WidgetsBinding
   Widget _telemetryItem(String label, String value) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace')),
       ],
     );
   }

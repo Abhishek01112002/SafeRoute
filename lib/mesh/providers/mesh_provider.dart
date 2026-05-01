@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/mesh_node.dart';
 import '../models/mesh_packet.dart';
 import '../services/mesh_service.dart';
+import 'package:saferoute/services/analytics_service.dart';
 
 class MeshProvider extends ChangeNotifier {
   final MeshService _meshService = MeshService();
@@ -12,6 +13,8 @@ class MeshProvider extends ChangeNotifier {
   
   List<MeshNode> get nearbyNodes => _nearbyNodes;
   bool get isMeshActive => _isMeshActive;
+  bool _isGuest = false;
+  void setGuestMode(bool isGuest) => _isGuest = isGuest;
 
   StreamSubscription? _nodesSub;
   StreamSubscription? _packetSub;
@@ -48,6 +51,8 @@ class MeshProvider extends ChangeNotifier {
     
     if (packet.type == MeshPacketType.SOS_ALERT) {
       debugPrint("MESH ALERT: SOS received from ${packet.sourceId}");
+      // Analytics: Tracking mesh robustness
+      AnalyticsService().logEvent(AnalyticsEvent.meshPacketRelayed, properties: {'type': 'SOS', 'source': packet.sourceId});
     }
     // Update UI
     notifyListeners();
@@ -63,6 +68,9 @@ class MeshProvider extends ChangeNotifier {
   }
 
   Future<void> sendSosRelay(double lat, double lng) async {
+    if (_isGuest) {
+      debugPrint("🛡️ Mesh Safety: Guest originating SOS relay. Identity will be limited on backend.");
+    }
     final packet = MeshPacket(
       sourceId: _meshService.myUserId ?? "unknown",
       type: MeshPacketType.SOS_ALERT,
@@ -78,6 +86,7 @@ class MeshProvider extends ChangeNotifier {
 
   Future<void> broadcastLocation(double lat, double lng) async {
     if (!_isMeshActive) return;
+    // Guests CAN broadcast location for safety/breadcrumb features
     final packet = MeshPacket(
       sourceId: _meshService.myUserId ?? "unknown",
       type: MeshPacketType.LOCATION_UPDATE,

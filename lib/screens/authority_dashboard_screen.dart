@@ -5,17 +5,16 @@ import 'package:provider/provider.dart';
 import 'package:saferoute/providers/location_provider.dart';
 import 'package:saferoute/providers/safety_system_provider.dart';
 import 'package:saferoute/providers/tourist_provider.dart';
-import 'package:saferoute/services/safety_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
 import 'package:saferoute/widgets/connectivity_chip.dart';
-import 'package:saferoute/services/simulation_engine.dart';
 
 class AuthorityDashboardScreen extends StatefulWidget {
   const AuthorityDashboardScreen({super.key});
 
   @override
-  State<AuthorityDashboardScreen> createState() => _AuthorityDashboardScreenState();
+  State<AuthorityDashboardScreen> createState() =>
+      _AuthorityDashboardScreenState();
 }
 
 class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
@@ -30,9 +29,11 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Authority Command Center", style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text("JURISDICTION: SAFETY NETWORK COMMAND - ${state.toUpperCase()}", 
-                  style: const TextStyle(fontSize: 10, letterSpacing: 1)),
+                Text("Authority Command Center",
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                    "JURISDICTION: SAFETY NETWORK COMMAND - ${state.toUpperCase()}",
+                    style: const TextStyle(fontSize: 10, letterSpacing: 1)),
               ],
             );
           },
@@ -53,7 +54,7 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
         children: [
           // 2A: Top Stats Bar
           _buildStatsBar(),
-          
+
           // 2B: Live Map (Expanded)
           Expanded(
             child: Container(
@@ -70,8 +71,10 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
                     Consumer2<LocationProvider, SafetySystemProvider>(
                       builder: (context, locProv, safetyProv, _) {
                         final pos = locProv.currentPosition;
-                        final center = pos != null ? LatLng(pos.latitude, pos.longitude) : const LatLng(30.1467, 79.2140);
-                        
+                        final center = pos != null
+                            ? LatLng(pos.latitude, pos.longitude)
+                            : const LatLng(30.1467, 79.2140);
+
                         return FlutterMap(
                           options: MapOptions(
                             initialCenter: center,
@@ -79,7 +82,8 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
                           ),
                           children: [
                             TileLayer(
-                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                               userAgentPackageName: 'com.saferoute.app',
                             ),
                             MarkerLayer(
@@ -87,24 +91,27 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
                                 // Current User Node
                                 Marker(
                                   point: center,
-                                  child: const Icon(Icons.my_location, color: Colors.blue, size: 24),
+                                  child: const Icon(Icons.my_location,
+                                      color: Colors.blue, size: 24),
                                 ),
                                 // Deterministic Simulated Nodes
-                                ...safetyProv.nearbyNodes.map((node) => Marker(
-                                  point: node.position,
-                                  child: Icon(
-                                    Icons.person_pin_circle, 
-                                    color: node.status == "CAUTION" ? Colors.orange : Colors.green, 
-                                    size: 30
-                                  ),
-                                )).toList(),
+                                ...safetyProv.nearbyNodes
+                                    .map((node) => Marker(
+                                          point: node.position,
+                                          child: Icon(Icons.person_pin_circle,
+                                              color: node.status == "CAUTION"
+                                                  ? Colors.orange
+                                                  : Colors.green,
+                                              size: 30),
+                                        ))
+                                    .toList(),
                               ],
                             ),
                           ],
                         );
                       },
                     ),
-                    
+
                     // 2C: SOS Alert Overlay (Bottom)
                     _buildSOSAlertPanel(),
                   ],
@@ -121,14 +128,18 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
     return Consumer<SafetySystemProvider>(
       builder: (context, safetyProv, _) {
         final nodes = safetyProv.nearbyNodes;
-        final sosCount = safetyProv.activityLog.where((e) => e.type == SafetyEventType.sosTriggered).length;
-        
+        final sosCount = safetyProv.activityLog
+            .where((e) => e.type == SafetyEventType.sosTriggered)
+            .length;
+
         return Container(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               _statItem("TOTAL TOURISTS", "${nodes.length + 120}", Colors.blue),
-              _statItem("ACTIVE SOS", sosCount.toString().padLeft(2, '0'), Colors.red, isUrgent: sosCount > 0),
+              _statItem(
+                  "ACTIVE SOS", sosCount.toString().padLeft(2, '0'), Colors.red,
+                  isUrgent: sosCount > 0),
               _statItem("PENDING ID", "04", Colors.orange),
             ],
           ),
@@ -137,7 +148,8 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
     );
   }
 
-  Widget _statItem(String label, String value, Color color, {bool isUrgent = false}) {
+  Widget _statItem(String label, String value, Color color,
+      {bool isUrgent = false}) {
     return Expanded(
       child: Card(
         elevation: 0,
@@ -150,8 +162,12 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             children: [
-              Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-              Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.bold, color: color)),
             ],
           ),
         ),
@@ -163,7 +179,9 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
     return Consumer<SafetySystemProvider>(
       builder: (context, safetyProv, _) {
         final recentAlerts = safetyProv.activityLog
-            .where((e) => e.type == SafetyEventType.sosTriggered || e.type == SafetyEventType.riskUpdated)
+            .where((e) =>
+                e.type == SafetyEventType.sosTriggered ||
+                e.type == SafetyEventType.riskUpdated)
             .take(2)
             .toList();
 
@@ -188,20 +206,26 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Colors.red, size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      "LIVE COMMAND ALERTS", 
-                      style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1)
-                    ),
+                    Text("LIVE COMMAND ALERTS",
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            letterSpacing: 1)),
                   ],
                 ),
                 const SizedBox(height: 8),
-                ...recentAlerts.map((event) => _sosAlertTile(
-                  event.type == SafetyEventType.sosTriggered ? "DEMO_USER_01" : "SYSTEM_NODE",
-                  event.message,
-                  "${DateTime.now().difference(event.timestamp).inSeconds}s ago"
-                )).toList(),
+                ...recentAlerts
+                    .map((event) => _sosAlertTile(
+                        event.type == SafetyEventType.sosTriggered
+                            ? "DEMO_USER_01"
+                            : "SYSTEM_NODE",
+                        event.message,
+                        "${DateTime.now().difference(event.timestamp).inSeconds}s ago"))
+                    .toList(),
               ],
             ),
           ),
@@ -220,7 +244,9 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(backgroundColor: Colors.red, child: const Icon(Icons.sos, color: Colors.white)),
+          CircleAvatar(
+              backgroundColor: Colors.red,
+              child: const Icon(Icons.sos, color: Colors.white)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -233,7 +259,8 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () {},
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text("RESPOND"),
           ),
         ],
@@ -246,9 +273,11 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout from the Command Center?"),
+        content: const Text(
+            "Are you sure you want to logout from the Command Center?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
               final prefs = await SharedPreferences.getInstance();

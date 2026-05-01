@@ -16,7 +16,9 @@ class RoomProvider extends ChangeNotifier {
   bool _isLoading = false;
   StreamSubscription? _membersSub;
   StreamSubscription? _locationSub;
-  bool _isSharingLocation = true;
+  Timer? _heartbeatTimer;
+  Position? _lastSharedPosition;
+  bool _isSharingLocation = false;
   final _secureStorage = SecureStorageService();
 
   List<RoomMember> get members => _members;
@@ -29,6 +31,7 @@ class RoomProvider extends ChangeNotifier {
     _isSharingLocation = value;
     if (!_isSharingLocation) {
       _locationSub?.cancel();
+      _heartbeatTimer?.cancel();
     } else if (_isInRoom) {
       _startLocationSharing();
     }
@@ -103,6 +106,7 @@ class RoomProvider extends ChangeNotifier {
 
   void _startLocationSharing() {
     _locationSub?.cancel();
+    _heartbeatTimer?.cancel();
     _locationSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -110,6 +114,14 @@ class RoomProvider extends ChangeNotifier {
       ),
     ).listen((pos) {
       if (_isSharingLocation) {
+        _lastSharedPosition = pos;
+        _roomService.sendLocation(lat: pos.latitude, lng: pos.longitude);
+      }
+    });
+
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      final pos = _lastSharedPosition;
+      if (_isSharingLocation && pos != null) {
         _roomService.sendLocation(lat: pos.latitude, lng: pos.longitude);
       }
     });
@@ -118,7 +130,8 @@ class RoomProvider extends ChangeNotifier {
   void leaveRoom() {
     _membersSub?.cancel();
     _locationSub?.cancel();
-    _roomService.dispose();
+    _heartbeatTimer?.cancel();
+    _roomService.disconnect();
     _isInRoom = false;
     _roomId = null;
     _members = [];
@@ -129,6 +142,7 @@ class RoomProvider extends ChangeNotifier {
   void dispose() {
     _membersSub?.cancel();
     _locationSub?.cancel();
+    _heartbeatTimer?.cancel();
     _roomService.dispose();
     super.dispose();
   }

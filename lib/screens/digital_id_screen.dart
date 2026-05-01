@@ -27,11 +27,14 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
       final isMock = locProv.isMockMode;
       locProv.setMockMode(!isMock);
       _devTapCount = 0;
-      
+
       HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(!isMock ? "DEMO MODE: FORCED MOCK ACTIVE" : "LIVE MODE: GPS RESTORED", 
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10)),
+        content: Text(
+            !isMock
+                ? "DEMO MODE: FORCED MOCK ACTIVE"
+                : "LIVE MODE: GPS RESTORED",
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10)),
         backgroundColor: !isMock ? AppColors.zoneYellow : AppColors.zoneGreen,
         behavior: SnackBarBehavior.floating,
       ));
@@ -50,7 +53,8 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.l, vertical: AppSpacing.xl),
       child: Column(
         children: [
           // ── Premium Crystal ID Card ───────────────────────────────────────
@@ -73,10 +77,10 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
                   Positioned.fill(
                     child: Opacity(
                       opacity: 0.1,
-                      child: CustomPaint(painter: _HolographicPainter(isDark: isDark)),
+                      child: CustomPaint(
+                          painter: _HolographicPainter(isDark: isDark)),
                     ),
                   ),
-                  
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.xl),
                     child: Column(
@@ -84,64 +88,96 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.shield_rounded, color: theme.colorScheme.primary, size: 28),
+                            Icon(Icons.shield_rounded,
+                                color: theme.colorScheme.primary, size: 28),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withOpacity(0.1),
+                                color:
+                                    theme.colorScheme.primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+                                border: Border.all(
+                                    color: theme.colorScheme.primary
+                                        .withOpacity(0.2)),
                               ),
                               child: Text(
                                 "VERIFIED IDENTITY",
-                                style: TextStyle(color: theme.colorScheme.primary, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                                style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.2), blurRadius: 20)],
+                            boxShadow: [
+                              BoxShadow(
+                                  color: theme.colorScheme.primary
+                                      .withOpacity(0.2),
+                                  blurRadius: 20)
+                            ],
                           ),
                           child: CircleAvatar(
                             radius: 50,
-                            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                            backgroundColor:
+                                theme.colorScheme.primary.withOpacity(0.1),
                             child: tourist.photoBase64.isEmpty
-                                ? Icon(Icons.person_rounded, size: 48, color: theme.colorScheme.primary.withOpacity(0.5))
+                                ? Icon(Icons.person_rounded,
+                                    size: 48,
+                                    color: theme.colorScheme.primary
+                                        .withOpacity(0.5))
                                 : CircleAvatar(
                                     radius: 48,
-                                    backgroundImage: MemoryImage(base64Decode(tourist.photoBase64)),
+                                    backgroundImage: MemoryImage(
+                                        base64Decode(tourist.photoBase64)),
                                   ),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        
                         Text(
                           tourist.fullName.toUpperCase(),
-                          style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                          style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           tourist.touristId,
-                          style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.3), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 3),
+                          style: TextStyle(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.3),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3),
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        
-                        Divider(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+                        Divider(
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.08)),
                         const SizedBox(height: AppSpacing.l),
-                        
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _idDetail(context, "LOCATION", tourist.destinationState),
+                            _idDetail(
+                                context, "LOCATION", tourist.destinationState),
                             _idDetail(context, "BLOOD", tourist.bloodGroup),
-                            _idDetail(context, "VITALITY", tourist.riskLevel, isRisk: true),
-                            _idDetail(context, "EXPIRES", DateFormat('dd MMM yy').format(tourist.tripEndDate)),
+                            _idDetail(context, "VITALITY", tourist.riskLevel,
+                                isRisk: true),
+                            _idDetail(
+                                context,
+                                "EXPIRES",
+                                DateFormat('dd MMM yy')
+                                    .format(tourist.tripEndDate)),
                           ],
                         ),
                       ],
@@ -151,7 +187,7 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
               ),
             ),
           ),
-          
+
           if (tourist.offlineModeRequired || isMock)
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.l),
@@ -160,12 +196,22 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
                 padding: const EdgeInsets.all(AppSpacing.m),
                 child: Row(
                   children: [
-                    Icon(Icons.offline_pin_rounded, color: isMock ? AppColors.zoneRed : AppColors.zoneYellow, size: 18),
+                    Icon(Icons.offline_pin_rounded,
+                        color:
+                            isMock ? AppColors.zoneRed : AppColors.zoneYellow,
+                        size: 18),
                     const SizedBox(width: AppSpacing.m),
                     Expanded(
                       child: Text(
-                        isMock ? "FORCED MOCK MODE ACTIVE. SYSTEM EMULATING OFFLINE STATE." : "OFFLINE PROTECTION ACTIVE. POOR CONNECTIVITY DETECTED.",
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isMock ? AppColors.zoneRed : AppColors.zoneYellow),
+                        isMock
+                            ? "FORCED MOCK MODE ACTIVE. SYSTEM EMULATING OFFLINE STATE."
+                            : "OFFLINE PROTECTION ACTIVE. POOR CONNECTIVITY DETECTED.",
+                        style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: isMock
+                                ? AppColors.zoneRed
+                                : AppColors.zoneYellow),
                       ),
                     ),
                   ],
@@ -175,29 +221,40 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          ...tourist.selectedDestinations.map((dest) => EliteSurface(
-                margin: const EdgeInsets.only(bottom: AppSpacing.s),
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: Row(
-                  children: [
-                    Icon(Icons.push_pin_rounded, color: theme.colorScheme.primary, size: 16),
-                    const SizedBox(width: AppSpacing.m),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(dest.name.toUpperCase(), style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 12)),
-                          Text(
-                            "${DateFormat('MMM dd').format(dest.visitDateFrom)} — ${DateFormat('MMM dd').format(dest.visitDateTo)}",
-                            style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.4), fontWeight: FontWeight.bold),
+          ...tourist.selectedDestinations
+              .map((dest) => EliteSurface(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.s),
+                    padding: const EdgeInsets.all(AppSpacing.m),
+                    child: Row(
+                      children: [
+                        Icon(Icons.push_pin_rounded,
+                            color: theme.colorScheme.primary, size: 16),
+                        const SizedBox(width: AppSpacing.m),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(dest.name.toUpperCase(),
+                                  style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12)),
+                              Text(
+                                "${DateFormat('MMM dd').format(dest.visitDateFrom)} — ${DateFormat('MMM dd').format(dest.visitDateTo)}",
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.4),
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              )).toList(),
-          
+                  ))
+              .toList(),
+
           const SizedBox(height: AppSpacing.xl),
 
           EliteSurface(
@@ -207,33 +264,50 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.m),
                   decoration: BoxDecoration(
-                    color: Colors.white, 
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusM),
                   ),
                   child: QrImageView(
                     data: tourist.qrData,
                     version: QrVersions.auto,
+                    errorCorrectionLevel: QrErrorCorrectLevel.M,
                     size: 160.0,
                     gapless: true,
-                    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.midnight),
-                    dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: AppColors.midnight),
+                    eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square, color: AppColors.midnight),
+                    dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: AppColors.midnight),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.l),
                 Text(
                   "SECURE IDENTITY TOKEN",
-                  style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.3), fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 2),
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 10,
+                      letterSpacing: 2),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Divider(color: theme.colorScheme.onSurface.withOpacity(0.08)),
                 ExpansionTile(
-                  title: Text("SECURE HASH", style: TextStyle(color: theme.colorScheme.primary.withOpacity(0.6), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                  title: Text("SECURE HASH",
+                      style: TextStyle(
+                          color: theme.colorScheme.primary.withOpacity(0.6),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5)),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: AppSpacing.m),
                       child: SelectableText(
                         tourist.blockchainHash,
-                        style: TextStyle(fontSize: 9, color: theme.colorScheme.onSurface.withOpacity(0.4), fontFamily: 'monospace'),
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                            fontFamily: 'monospace'),
                       ),
                     ),
                   ],
@@ -241,9 +315,9 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: AppSpacing.xxl),
-          
+
           EliteButton(
             onPressed: () => _confirmLogout(context),
             isPrimary: false,
@@ -252,20 +326,29 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
               children: [
                 const Icon(Icons.logout_rounded, size: 16),
                 const SizedBox(width: AppSpacing.m),
-                Text("TERMINATE SESSION", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1, color: theme.colorScheme.primary)),
+                Text("TERMINATE SESSION",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10,
+                        letterSpacing: 1,
+                        color: theme.colorScheme.primary)),
               ],
             ),
           ),
-          
+
           const SizedBox(height: AppSpacing.xl),
-          
+
           GestureDetector(
             onTap: _handleDevTap,
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.m),
               child: Text(
                 "SAFEROUTE ELITE v1.0.4 PROD",
-                style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.05), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1),
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.05),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1),
               ),
             ),
           ),
@@ -280,14 +363,27 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusM)),
-        title: const Text("TERMINATE SESSION?", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-        content: const Text("Tracking will stop and local data will be purged.", style: TextStyle(color: Colors.white54, fontSize: 12)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusM)),
+        title: const Text("TERMINATE SESSION?",
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900)),
+        content: const Text("Tracking will stop and local data will be purged.",
+            style: TextStyle(color: Colors.white54, fontSize: 12)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("NO", style: TextStyle(color: Colors.white24, fontSize: 11))),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("YES, LOGOUT", style: TextStyle(color: AppColors.zoneRed, fontWeight: FontWeight.w900, fontSize: 11)),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("NO",
+                  style: TextStyle(color: Colors.white24, fontSize: 11))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("YES, LOGOUT",
+                style: TextStyle(
+                    color: AppColors.zoneRed,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11)),
           ),
         ],
       ),
@@ -304,21 +400,29 @@ class _DigitalIdScreenState extends State<DigitalIdScreen> {
     }
   }
 
-  Widget _idDetail(BuildContext context, String label, String value, {bool isRisk = false}) {
+  Widget _idDetail(BuildContext context, String label, String value,
+      {bool isRisk = false}) {
     final theme = Theme.of(context);
     Color valueColor = theme.colorScheme.onSurface;
     if (isRisk) {
       if (value == "MODERATE") valueColor = AppColors.zoneYellow;
-      if (value == "HIGH" || value == "CRITICAL") valueColor = AppColors.zoneRed;
+      if (value == "HIGH" || value == "CRITICAL")
+        valueColor = AppColors.zoneRed;
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.3), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text(label,
+            style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
         const SizedBox(height: 4),
         Text(
           value.toUpperCase(),
-          style: TextStyle(color: valueColor, fontWeight: FontWeight.w900, fontSize: 12),
+          style: TextStyle(
+              color: valueColor, fontWeight: FontWeight.w900, fontSize: 12),
         ),
       ],
     );

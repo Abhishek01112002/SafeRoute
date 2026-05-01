@@ -44,15 +44,7 @@ class RoomService {
   void _connectInternal() {
     if (_intentionallyDisconnected) return;
 
-    // Convert http:// to ws:// for WebSocket
-    final wsBase = kBaseUrl.replaceFirst('http://', 'ws://');
-    var uriString = '$wsBase/ws/$_currentRoomId/$_currentUserId';
-    
-    if (_authToken != null) {
-      uriString += '?token=$_authToken';
-    }
-    
-    final uri = Uri.parse(uriString);
+    final uri = _buildWebSocketUri();
 
     debugPrint('[WS] Connecting to: $uri (attempt #${_reconnectAttempts + 1})');
 
@@ -83,6 +75,21 @@ class RoomService {
     }
   }
 
+  Uri _buildWebSocketUri() {
+    final apiUri = Uri.parse(kBaseUrl);
+    final scheme = apiUri.scheme == 'https' ? 'wss' : 'ws';
+    final basePath = apiUri.path.endsWith('/')
+        ? apiUri.path.substring(0, apiUri.path.length - 1)
+        : apiUri.path;
+    final wsPath = '$basePath/rooms/ws/$_currentRoomId/$_currentUserId';
+
+    return apiUri.replace(
+      scheme: scheme,
+      path: wsPath,
+      queryParameters: _authToken == null ? null : {'token': _authToken},
+    );
+  }
+
   /// FIX: Exponential back-off reconnection — critical for mountain connectivity.
   void _scheduleReconnect() {
     if (_intentionallyDisconnected) return;
@@ -94,10 +101,12 @@ class RoomService {
     _reconnectTimer?.cancel();
     // Exponential back-off: 2s, 4s, 8s … capped at 60s
     final delay = Duration(
-      seconds: (_reconnectBaseDelay.inSeconds * (1 << _reconnectAttempts)).clamp(2, 60),
+      seconds: (_reconnectBaseDelay.inSeconds * (1 << _reconnectAttempts))
+          .clamp(2, 60),
     );
     _reconnectAttempts++;
-    debugPrint('[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
+    debugPrint(
+        '[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
 
     _reconnectTimer = Timer(delay, () {
       if (!_intentionallyDisconnected) {
@@ -111,6 +120,15 @@ class RoomService {
       final json = jsonDecode(data as String);
 
       if (json['type'] == 'location_update' || json['type'] == 'member_left') {
+        if (json['type'] == 'member_left' &&
+            json['user_id'] != null &&
+            json['user_id'] != _currentUserId) {
+          NotificationService.showNotification(
+            'Group signal lost',
+            'A group member is no longer reachable.',
+          );
+        }
+
         final members = (json['members'] as List)
             .map((m) => RoomMember.fromJson(m))
             .toList();
@@ -151,12 +169,16 @@ class RoomService {
     }
   }
 
-  void dispose() {
+  void disconnect() {
     _intentionallyDisconnected = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _channel?.sink.close();
     _channel = null;
+  }
+
+  void dispose() {
+    disconnect();
     _membersController.close();
   }
 }

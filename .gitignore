@@ -7,6 +7,11 @@ local.properties
 *.class
 *.log
 *.pyc
+__pycache__/
+*.pem
+*.db
+backend/data/
+backend/uploads/
 *.swp
 .DS_Store
 .atom/

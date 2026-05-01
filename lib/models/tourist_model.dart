@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 
 enum DocumentType { AADHAAR, PASSPORT }
 
+enum UserState { GUEST, AUTHENTICATED, REGISTERED }
+
 class DestinationVisit {
   final String destinationId;
   final String name;

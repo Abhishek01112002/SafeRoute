@@ -31,6 +31,7 @@ class LocationProvider with ChangeNotifier {
   Timer? _safetyTimer;
   
   List<LocationPing> _unsyncedPings = [];
+  String? _activeTouristId;
   
   StreamSubscription<Position>? _positionSubscription;
 
@@ -76,6 +77,7 @@ class LocationProvider with ChangeNotifier {
     
     // 0. Pre-load Geofences (Issue #14) - Offline First
     final prefs = await SharedPreferences.getInstance();
+    _activeTouristId = prefs.getString('tourist_id') ?? (await _dbService.getTourist())?.touristId;
     final state = prefs.getString('destination_state');
     if (state != null) {
       final cachedZones = await _dbService.getCachedZones(state);
@@ -223,11 +225,18 @@ class LocationProvider with ChangeNotifier {
   }
 
   Future<void> _triggerSave(Position pos) async {
+    final touristId = _activeTouristId ?? (await _dbService.getTourist())?.touristId;
+    if (touristId == null || touristId.isEmpty) {
+      debugPrint("LocationProvider: skipping ping save because no tourist is registered.");
+      return;
+    }
+    _activeTouristId = touristId;
+
     _lastSavedPosition = pos;
     _lastSaveTime = DateTime.now();
     
     final ping = LocationPing(
-      touristId: "demo_user", 
+      touristId: touristId,
       latitude: pos.latitude,
       longitude: pos.longitude,
       speedKmh: pos.speed * 3.6,

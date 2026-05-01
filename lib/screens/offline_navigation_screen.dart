@@ -14,18 +14,18 @@ class OfflineNavigationScreen extends StatefulWidget {
   const OfflineNavigationScreen({super.key});
 
   @override
-  State<OfflineNavigationScreen> createState() => _OfflineNavigationScreenState();
+  State<OfflineNavigationScreen> createState() =>
+      _OfflineNavigationScreenState();
 }
 
-class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with TickerProviderStateMixin {
+class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
+    with TickerProviderStateMixin {
   final PathfindingService _pathfinder = PathfindingService();
   final MapController _mapController = MapController();
 
   Position? _currentPosition;
   NavigationResult? _navResult;
   bool _isLoading = true;
-  bool _isMapReady = false;      // NEW: State separation
-  bool _isLocationReady = false; // NEW: State separation
   bool _isNavigating = false;
 
   late AnimationController _pulseController;
@@ -40,46 +40,55 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.2, end: 1.0).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
-    
+    _pulseController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.2, end: 1.0).animate(
+        CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+
     _initialize();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       final prov = context.read<LocationProvider>();
-       _lastAlertedZone = prov.zoneStatus;
-       prov.addListener(_onZoneChangeAlert);
+      final prov = context.read<LocationProvider>();
+      _lastAlertedZone = prov.zoneStatus;
+      prov.addListener(_onZoneChangeAlert);
     });
   }
 
   void _onZoneChangeAlert() {
-     if (!mounted) return;
-     final prov = context.read<LocationProvider>();
-     if (prov.zoneStatus != _lastAlertedZone) {
-         _lastAlertedZone = prov.zoneStatus;
-         _showZoneSnackbar(_lastAlertedZone);
-     }
+    if (!mounted) return;
+    final prov = context.read<LocationProvider>();
+    if (prov.zoneStatus != _lastAlertedZone) {
+      _lastAlertedZone = prov.zoneStatus;
+      _showZoneSnackbar(_lastAlertedZone);
+    }
   }
 
   void _showZoneSnackbar(ZoneType z) {
-     String msg = "";
-     if (z == ZoneType.red) msg = "⚠️ You entered a High-Risk Zone";
-     else if (z == ZoneType.yellow) msg = "⚠️ You entered a Caution Zone";
-     else if (z == ZoneType.greenInner || z == ZoneType.greenOuter) msg = "✅ You are in a Safe Zone";
-     else return;
+    String msg = "";
+    if (z == ZoneType.red)
+      msg = "⚠️ You entered a High-Risk Zone";
+    else if (z == ZoneType.yellow)
+      msg = "⚠️ You entered a Caution Zone";
+    else if (z == ZoneType.greenInner || z == ZoneType.greenOuter)
+      msg = "✅ You are in a Safe Zone";
+    else
+      return;
 
-     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-       content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-       backgroundColor: const Color(0xFF1B2332),
-       behavior: SnackBarBehavior.floating,
-       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-       duration: const Duration(seconds: 3),
-     ));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.white)),
+      backgroundColor: const Color(0xFF1B2332),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   Future<void> _initialize() async {
     debugPrint('[Offline] Starting Initialization...');
-    
+
     // 1. Load graph in background
     Future.microtask(() async {
       await _pathfinder.loadGraph();
@@ -89,8 +98,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
     // 2. Ready to show map core immediately
     if (mounted) {
       setState(() {
-        _isMapReady = true;
-        _isLoading = false; 
+        _isLoading = false;
       });
     }
 
@@ -104,20 +112,19 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       ).timeout(const Duration(seconds: 3));
-      
+
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          _isLocationReady = true;
         });
-        _mapController.move(LatLng(position.latitude, position.longitude), 16.0);
+        _mapController.move(
+            LatLng(position.latitude, position.longitude), 16.0);
         debugPrint('[Offline] Position locked.');
       }
     } catch (e) {
       debugPrint('[Offline] GPS Lock failed or timeout. Using Mock Engine.');
       if (mounted) {
         setState(() {
-          _isLocationReady = true;
           _currentPosition = Position(
             longitude: _mockLng,
             latitude: _mockLat,
@@ -138,15 +145,16 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
 
   void _findSafeRoute() {
     if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Awaiting GPS Array...")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Awaiting GPS Array...")));
       return;
     }
-    
+
     setState(() {
       _isNavigating = true;
       _navResult = null; // Clear old
     });
-    
+
     final result = _pathfinder.findRouteToSafety(
       currentLat: _currentPosition!.latitude,
       currentLng: _currentPosition!.longitude,
@@ -158,7 +166,9 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
     });
 
     if (result.pathFound && result.offlineGeometries.isNotEmpty) {
-      final points = result.offlineGeometries.map((n) => LatLng(n['lat']!, n['lng']!)).toList();
+      final points = result.offlineGeometries
+          .map((n) => LatLng(n['lat']!, n['lng']!))
+          .toList();
       try {
         _mapController.fitCamera(CameraFit.bounds(
           bounds: LatLngBounds.fromPoints(points),
@@ -171,52 +181,56 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
   }
 
   void _findSafeBacktrack() {
-     final locProv = context.read<LocationProvider>();
-     if (locProv.trail.isEmpty) return;
-     
-     setState(() => _isNavigating = true);
-     
-     List<LatLng> reversePath = [];
-     bool hitGreen = false;
-     
-     for (var dot in locProv.trail.reversed) {
-        reversePath.add(LatLng(dot.latitude, dot.longitude));
-        if (dot.zoneStatus == ZoneType.greenOuter || dot.zoneStatus == ZoneType.greenInner) {
-          hitGreen = true;
-          break;
-        }
-     }
-     
-     if (reversePath.length > 1) { 
-        final distance = const Distance();
-        double totalDist = 0;
-        for (int i=0; i<reversePath.length - 1; i++) {
-           totalDist += distance(reversePath[i], reversePath[i+1]);
-        }
-        
-        setState(() {
-          _isNavigating = false;
-          _navResult = NavigationResult(
-            path: [],
-            offlineGeometries: reversePath.map((e) => {'lat': e.latitude, 'lng': e.longitude}).toList(),
-            totalDistanceMeters: totalDist,
-            estimatedMinutes: (totalDist / 1000 / 4.0 * 60).ceil(),
-            pathFound: true,
-            message: hitGreen ? "Follow glowing footprints back." : "No safety cache.",
-          );
-        });
-        
-        try {
-          _mapController.fitCamera(CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints(reversePath),
-            padding: const EdgeInsets.all(80),
-          ));
-        } catch (e) {
-          // ignore
-        }
-     } else {
-        setState(() => _isNavigating = false);
-     }
+    final locProv = context.read<LocationProvider>();
+    if (locProv.trail.isEmpty) return;
+
+    setState(() => _isNavigating = true);
+
+    List<LatLng> reversePath = [];
+    bool hitGreen = false;
+
+    for (var dot in locProv.trail.reversed) {
+      reversePath.add(LatLng(dot.latitude, dot.longitude));
+      if (dot.zoneStatus == ZoneType.greenOuter ||
+          dot.zoneStatus == ZoneType.greenInner) {
+        hitGreen = true;
+        break;
+      }
+    }
+
+    if (reversePath.length > 1) {
+      final distance = const Distance();
+      double totalDist = 0;
+      for (int i = 0; i < reversePath.length - 1; i++) {
+        totalDist += distance(reversePath[i], reversePath[i + 1]);
+      }
+
+      setState(() {
+        _isNavigating = false;
+        _navResult = NavigationResult(
+          path: [],
+          offlineGeometries: reversePath
+              .map((e) => {'lat': e.latitude, 'lng': e.longitude})
+              .toList(),
+          totalDistanceMeters: totalDist,
+          estimatedMinutes: (totalDist / 1000 / 4.0 * 60).ceil(),
+          pathFound: true,
+          message:
+              hitGreen ? "Follow glowing footprints back." : "No safety cache.",
+        );
+      });
+
+      try {
+        _mapController.fitCamera(CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(reversePath),
+          padding: const EdgeInsets.all(80),
+        ));
+      } catch (e) {
+        // ignore
+      }
+    } else {
+      setState(() => _isNavigating = false);
+    }
   }
 
   @override
@@ -230,7 +244,9 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14), // Deep tactical black/navy
       appBar: AppBar(
-        title: const Text("Tactical Offline Radar", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 18)),
+        title: const Text("Tactical Offline Radar",
+            style: TextStyle(
+                fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 18)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -243,16 +259,16 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: const LatLng(_mockLat, _mockLng),
-              initialZoom: 15.0,
-              minZoom: 5.0,
-              maxZoom: 18.0,
-              backgroundColor: const Color(0xFF070B14)
-            ),
+                initialCenter: const LatLng(_mockLat, _mockLng),
+                initialZoom: 15.0,
+                minZoom: 5.0,
+                maxZoom: 18.0,
+                backgroundColor: const Color(0xFF070B14)),
             children: [
               // Standard OSM Fallback (even if offline, it handles the "No Internet" UI better)
               TileLayer(
-                urlTemplate: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                urlTemplate:
+                    'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
                 userAgentPackageName: 'com.shivalik.saferoute',
                 tileProvider: DatabaseTileProvider(), // PERSISTENT CACHE
               ),
@@ -262,7 +278,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                 CircleLayer(
                   circles: [
                     CircleMarker(
-                      point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                      point: LatLng(_currentPosition!.latitude,
+                          _currentPosition!.longitude),
                       color: Colors.transparent,
                       borderColor: const Color(0xFF00D4AA).withOpacity(0.05),
                       borderStrokeWidth: 2,
@@ -270,7 +287,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                       useRadiusInMeter: true,
                     ),
                     CircleMarker(
-                      point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                      point: LatLng(_currentPosition!.latitude,
+                          _currentPosition!.longitude),
                       color: Colors.transparent,
                       borderColor: const Color(0xFF00D4AA).withOpacity(0.1),
                       borderStrokeWidth: 2,
@@ -279,25 +297,29 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                     ),
                   ],
                 ),
-                
+
               // ── FAANG Decoupled Trail (Consumer restricts rebuild memory) ──
               Consumer<LocationProvider>(
                 builder: (context, locProv, child) {
                   final trail = locProv.trail;
                   if (trail.isEmpty) return const SizedBox.shrink();
-                  
+
                   return CircleLayer(
                     circles: List.generate(trail.length, (i) {
                       final p = trail[i];
                       Color c = Colors.grey;
-                      if (p.zoneStatus == ZoneType.red) c = Colors.redAccent;
-                      else if (p.zoneStatus == ZoneType.yellow) c = Colors.amberAccent;
-                      else if (p.zoneStatus == ZoneType.greenInner) c = Colors.green.shade400;
-                      else if (p.zoneStatus == ZoneType.greenOuter) c = Colors.green;
-                      
+                      if (p.zoneStatus == ZoneType.red)
+                        c = Colors.redAccent;
+                      else if (p.zoneStatus == ZoneType.yellow)
+                        c = Colors.amberAccent;
+                      else if (p.zoneStatus == ZoneType.greenInner)
+                        c = Colors.green.shade400;
+                      else if (p.zoneStatus == ZoneType.greenOuter)
+                        c = Colors.green;
+
                       // Fade effect logic
                       double op = ((i + 1) / trail.length).clamp(0.2, 1.0);
-                      
+
                       return CircleMarker(
                         point: LatLng(p.latitude, p.longitude),
                         color: c.withOpacity(op),
@@ -312,37 +334,47 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
               ),
 
               // ── Entry Point Markers ──
-              Consumer<LocationProvider>(
-                builder: (context, locProv, child) {
-                   final trail = locProv.trail;
-                   if (trail.isEmpty) return const SizedBox.shrink();
+              Consumer<LocationProvider>(builder: (context, locProv, child) {
+                final trail = locProv.trail;
+                if (trail.isEmpty) return const SizedBox.shrink();
 
-                   final markers = <Marker>[];
-                   ZoneType? prevZ;
+                final markers = <Marker>[];
+                ZoneType? prevZ;
 
-                   for (int i=0; i<trail.length; i++) {
-                      final p = trail[i];
-                      final z = p.zoneStatus;
+                for (int i = 0; i < trail.length; i++) {
+                  final p = trail[i];
+                  final z = p.zoneStatus;
 
-                      if (prevZ != null && prevZ != z && z != ZoneType.none) {
-                          Color c = Colors.grey;
-                          IconData ic = Icons.location_on;
-                          if (z == ZoneType.red) { c = Colors.redAccent; ic = Icons.warning_rounded; }
-                          else if (z == ZoneType.yellow) { c = Colors.amberAccent; ic = Icons.error_outline; }
-                          else if (z == ZoneType.greenInner) { c = Colors.green.shade400; ic = Icons.verified_user; }
-                          else if (z == ZoneType.greenOuter) { c = Colors.green; ic = Icons.verified_user; }
+                  if (prevZ != null && prevZ != z && z != ZoneType.none) {
+                    Color c = Colors.grey;
+                    IconData ic = Icons.location_on;
+                    if (z == ZoneType.red) {
+                      c = Colors.redAccent;
+                      ic = Icons.warning_rounded;
+                    } else if (z == ZoneType.yellow) {
+                      c = Colors.amberAccent;
+                      ic = Icons.error_outline;
+                    } else if (z == ZoneType.greenInner) {
+                      c = Colors.green.shade400;
+                      ic = Icons.verified_user;
+                    } else if (z == ZoneType.greenOuter) {
+                      c = Colors.green;
+                      ic = Icons.verified_user;
+                    }
 
-                          markers.add(Marker(
-                            point: LatLng(p.latitude, p.longitude),
-                            width: 34, height: 34,
-                            child: Icon(ic, color: c, size: 30, shadows: const [Shadow(color: Colors.black, blurRadius: 4)]),
-                          ));
-                      }
-                      prevZ = z;
-                   }
-                   return MarkerLayer(markers: markers);
+                    markers.add(Marker(
+                      point: LatLng(p.latitude, p.longitude),
+                      width: 34,
+                      height: 34,
+                      child: Icon(ic, color: c, size: 30, shadows: const [
+                        Shadow(color: Colors.black, blurRadius: 4)
+                      ]),
+                    ));
+                  }
+                  prevZ = z;
                 }
-              ),
+                return MarkerLayer(markers: markers);
+              }),
 
               // 2. Extracted Polylines drawn dynamically via offlineGeometries curves
               if (_navResult != null && _navResult!.pathFound)
@@ -350,32 +382,42 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                   polylines: [
                     // Outer neon glow
                     Polyline(
-                      points: _navResult!.offlineGeometries.map((n) => LatLng(n['lat']!, n['lng']!)).toList(),
+                      points: _navResult!.offlineGeometries
+                          .map((n) => LatLng(n['lat']!, n['lng']!))
+                          .toList(),
                       color: const Color(0xFF00D4AA).withOpacity(0.3),
                       strokeWidth: 14,
                     ),
                     // Inner dense line
                     Polyline(
-                      points: _navResult!.offlineGeometries.map((n) => LatLng(n['lat']!, n['lng']!)).toList(),
+                      points: _navResult!.offlineGeometries
+                          .map((n) => LatLng(n['lat']!, n['lng']!))
+                          .toList(),
                       color: const Color(0xFF00D4AA),
                       strokeWidth: 6,
                       isDotted: false,
                     ),
                   ],
                 ),
-                
+
               // ZONE POLYGONS (Hackathon Demo Layer)
               PolygonLayer(
                 polygons: [
                   // 1. GREEN ZONE (Outer Boundary) - Base Region
                   Polygon(
                     points: const [
-                      LatLng(30.3369583, 77.8696472), LatLng(30.3367083, 77.8702083),
-                      LatLng(30.3364306, 77.8709528), LatLng(30.3356667, 77.8710083),
-                      LatLng(30.3345111, 77.8709083), LatLng(30.3350556, 77.8692028),
-                      LatLng(30.3355472, 77.8684444), LatLng(30.3361194, 77.8689889),
-                      LatLng(30.3365111, 77.8685583), LatLng(30.3364694, 77.8688333),
-                      LatLng(30.3362750, 77.8690833), LatLng(30.3366222, 77.8693694),
+                      LatLng(30.3369583, 77.8696472),
+                      LatLng(30.3367083, 77.8702083),
+                      LatLng(30.3364306, 77.8709528),
+                      LatLng(30.3356667, 77.8710083),
+                      LatLng(30.3345111, 77.8709083),
+                      LatLng(30.3350556, 77.8692028),
+                      LatLng(30.3355472, 77.8684444),
+                      LatLng(30.3361194, 77.8689889),
+                      LatLng(30.3365111, 77.8685583),
+                      LatLng(30.3364694, 77.8688333),
+                      LatLng(30.3362750, 77.8690833),
+                      LatLng(30.3366222, 77.8693694),
                       LatLng(30.3369583, 77.8696472),
                     ],
                     isFilled: true,
@@ -387,9 +429,12 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                   // 2. GREEN ZONE (Inner Region)
                   Polygon(
                     points: const [
-                      LatLng(30.3374333, 77.8687000), LatLng(30.3373222, 77.8689667),
-                      LatLng(30.3371500, 77.8692639), LatLng(30.3370833, 77.8684083),
-                      LatLng(30.3367222, 77.8681639), LatLng(30.3374333, 77.8687000),
+                      LatLng(30.3374333, 77.8687000),
+                      LatLng(30.3373222, 77.8689667),
+                      LatLng(30.3371500, 77.8692639),
+                      LatLng(30.3370833, 77.8684083),
+                      LatLng(30.3367222, 77.8681639),
+                      LatLng(30.3374333, 77.8687000),
                     ],
                     isFilled: true,
                     color: Colors.green.shade400.withOpacity(0.25),
@@ -400,9 +445,12 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                   // 3. YELLOW ZONE (Moderate Risk)
                   Polygon(
                     points: const [
-                      LatLng(30.3371500, 77.8692639), LatLng(30.3369583, 77.8696472),
-                      LatLng(30.3366222, 77.8693694), LatLng(30.3362750, 77.8690833),
-                      LatLng(30.3364694, 77.8688333), LatLng(30.3365111, 77.8685583),
+                      LatLng(30.3371500, 77.8692639),
+                      LatLng(30.3369583, 77.8696472),
+                      LatLng(30.3366222, 77.8693694),
+                      LatLng(30.3362750, 77.8690833),
+                      LatLng(30.3364694, 77.8688333),
+                      LatLng(30.3365111, 77.8685583),
                       LatLng(30.3371500, 77.8692639),
                     ],
                     isFilled: true,
@@ -414,9 +462,12 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                   // 4. RED ZONE (High Risk) - Topmost layer
                   Polygon(
                     points: const [
-                      LatLng(30.3367222, 77.8681639), LatLng(30.3365111, 77.8685583),
-                      LatLng(30.3361194, 77.8689889), LatLng(30.3355472, 77.8684444),
-                      LatLng(30.3358361, 77.8679139), LatLng(30.3363389, 77.8678833),
+                      LatLng(30.3367222, 77.8681639),
+                      LatLng(30.3365111, 77.8685583),
+                      LatLng(30.3361194, 77.8689889),
+                      LatLng(30.3355472, 77.8684444),
+                      LatLng(30.3358361, 77.8679139),
+                      LatLng(30.3363389, 77.8678833),
                       LatLng(30.3367222, 77.8681639),
                     ],
                     isFilled: true,
@@ -426,34 +477,42 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                   ),
                 ],
               ),
-                
+
               // 3. Mathematical topological markers
               MarkerLayer(
                 markers: [
                   ..._pathfinder.nodes.values.map((node) => Marker(
-                    width: 20,
-                    height: 20,
-                    point: LatLng(node.lat, node.lng),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: (node.zone == ZoneType.greenInner || node.zone == ZoneType.greenOuter) ? Colors.greenAccent.withOpacity(0.4) : 
-                               node.zone == ZoneType.red ? Colors.redAccent.withOpacity(0.4) : Colors.orangeAccent.withOpacity(0.4),
-                        border: Border.all(
-                          color: (node.zone == ZoneType.greenInner || node.zone == ZoneType.greenOuter) ? Colors.greenAccent : 
-                                 node.zone == ZoneType.red ? Colors.redAccent : Colors.orangeAccent,
-                          width: 1.5,
-                        )
-                      ),
-                    ),
-                  )),
-                  
+                        width: 20,
+                        height: 20,
+                        point: LatLng(node.lat, node.lng),
+                        child: Container(
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: (node.zone == ZoneType.greenInner ||
+                                      node.zone == ZoneType.greenOuter)
+                                  ? Colors.greenAccent.withOpacity(0.4)
+                                  : node.zone == ZoneType.red
+                                      ? Colors.redAccent.withOpacity(0.4)
+                                      : Colors.orangeAccent.withOpacity(0.4),
+                              border: Border.all(
+                                color: (node.zone == ZoneType.greenInner ||
+                                        node.zone == ZoneType.greenOuter)
+                                    ? Colors.greenAccent
+                                    : node.zone == ZoneType.red
+                                        ? Colors.redAccent
+                                        : Colors.orangeAccent,
+                                width: 1.5,
+                              )),
+                        ),
+                      )),
+
                   // GPS Tracker Node
                   if (_currentPosition != null)
                     Marker(
                       width: 60,
                       height: 60,
-                      point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                      point: LatLng(_currentPosition!.latitude,
+                          _currentPosition!.longitude),
                       child: AnimatedBuilder(
                         animation: _pulseAnimation,
                         builder: (context, child) => Stack(
@@ -464,20 +523,24 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                               height: 60 * _pulseAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF00D4AA).withOpacity(0.4 * (1.0 - _pulseAnimation.value)),
+                                color: const Color(0xFF00D4AA).withOpacity(
+                                    0.4 * (1.0 - _pulseAnimation.value)),
                               ),
                             ),
                             Container(
                               width: 16,
                               height: 16,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00D4AA),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: const [
-                                  BoxShadow(color: Color(0xFF00D4AA), blurRadius: 8, spreadRadius: 2)
-                                ]
-                              ),
+                                  color: const Color(0xFF00D4AA),
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                        color: Color(0xFF00D4AA),
+                                        blurRadius: 8,
+                                        spreadRadius: 2)
+                                  ]),
                             ),
                           ],
                         ),
@@ -487,12 +550,13 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
               ),
             ],
           ),
-          
+
           if (_isLoading) ...[
-             Container(color: const Color(0xFF070B14)),
-             const Center(child: CircularProgressIndicator(color: Color(0xFF00D4AA))),
+            Container(color: const Color(0xFF070B14)),
+            const Center(
+                child: CircularProgressIndicator(color: Color(0xFF00D4AA))),
           ],
-          
+
           // HUD for Offline Status
           Positioned(
             top: 50,
@@ -507,7 +571,11 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                 children: [
                   Icon(Icons.wifi_off, color: Colors.white, size: 14),
                   SizedBox(width: 6),
-                  Text("OFFLINE MODE — RADAR ACTIVE", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("OFFLINE MODE — RADAR ACTIVE",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -539,15 +607,28 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text("Distance", style: TextStyle(color: Colors.white54, fontSize: 12)),
-                                Text("\${_navResult!.totalDistanceMeters.toStringAsFixed(0)}M", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                const Text("Distance",
+                                    style: TextStyle(
+                                        color: Colors.white54, fontSize: 12)),
+                                Text(
+                                    "\${_navResult!.totalDistanceMeters.toStringAsFixed(0)}M",
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text("ETA", style: TextStyle(color: Colors.white54, fontSize: 12)),
-                                Text("\${_navResult!.estimatedMinutes} MIN", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                const Text("ETA",
+                                    style: TextStyle(
+                                        color: Colors.white54, fontSize: 12)),
+                                Text("\${_navResult!.estimatedMinutes} MIN",
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],
@@ -563,14 +644,23 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                             backgroundColor: const Color(0xFF00D4AA),
                             foregroundColor: Colors.black,
                             elevation: 8,
-                            shadowColor: const Color(0xFF00D4AA).withOpacity(0.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shadowColor:
+                                const Color(0xFF00D4AA).withOpacity(0.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: _isNavigating 
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                          child: _isNavigating
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.black, strokeWidth: 2))
                               : const Text(
                                   "ENGAGE SAFE ROUTE",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.5),
                                 ),
                         ),
                       ),
@@ -584,11 +674,15 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen> with 
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.black,
                             elevation: 8,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                           ),
                           child: const Text(
-                             "RETRACE TO SAFETY",
-                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                            "RETRACE TO SAFETY",
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5),
                           ),
                         ),
                       ),

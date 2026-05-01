@@ -18,29 +18,44 @@ class GeofencingEngine {
 
   void _loadStaticDefaults() {
     _greenOuterZone = const [
-      LatLng(30.3369583, 77.8696472), LatLng(30.3367083, 77.8702083),
-      LatLng(30.3364306, 77.8709528), LatLng(30.3356667, 77.8710083),
-      LatLng(30.3345111, 77.8709083), LatLng(30.3350556, 77.8692028),
-      LatLng(30.3355472, 77.8684444), LatLng(30.3361194, 77.8689889),
-      LatLng(30.3365111, 77.8685583), LatLng(30.3364694, 77.8688333),
-      LatLng(30.3362750, 77.8690833), LatLng(30.3366222, 77.8693694),
+      LatLng(30.3369583, 77.8696472),
+      LatLng(30.3367083, 77.8702083),
+      LatLng(30.3364306, 77.8709528),
+      LatLng(30.3356667, 77.8710083),
+      LatLng(30.3345111, 77.8709083),
+      LatLng(30.3350556, 77.8692028),
+      LatLng(30.3355472, 77.8684444),
+      LatLng(30.3361194, 77.8689889),
+      LatLng(30.3365111, 77.8685583),
+      LatLng(30.3364694, 77.8688333),
+      LatLng(30.3362750, 77.8690833),
+      LatLng(30.3366222, 77.8693694),
       LatLng(30.3369583, 77.8696472),
     ];
     _greenInnerZone = const [
-      LatLng(30.3374333, 77.8687000), LatLng(30.3373222, 77.8689667),
-      LatLng(30.3371500, 77.8692639), LatLng(30.3370833, 77.8684083),
-      LatLng(30.3367222, 77.8681639), LatLng(30.3374333, 77.8687000),
+      LatLng(30.3374333, 77.8687000),
+      LatLng(30.3373222, 77.8689667),
+      LatLng(30.3371500, 77.8692639),
+      LatLng(30.3370833, 77.8684083),
+      LatLng(30.3367222, 77.8681639),
+      LatLng(30.3374333, 77.8687000),
     ];
     _yellowZone = const [
-      LatLng(30.3371500, 77.8692639), LatLng(30.3369583, 77.8696472),
-      LatLng(30.3366222, 77.8693694), LatLng(30.3362750, 77.8690833),
-      LatLng(30.3364694, 77.8688333), LatLng(30.3365111, 77.8685583),
+      LatLng(30.3371500, 77.8692639),
+      LatLng(30.3369583, 77.8696472),
+      LatLng(30.3366222, 77.8693694),
+      LatLng(30.3362750, 77.8690833),
+      LatLng(30.3364694, 77.8688333),
+      LatLng(30.3365111, 77.8685583),
       LatLng(30.3371500, 77.8692639),
     ];
     _redZone = const [
-      LatLng(30.3367222, 77.8681639), LatLng(30.3365111, 77.8685583),
-      LatLng(30.3361194, 77.8689889), LatLng(30.3355472, 77.8684444),
-      LatLng(30.3358361, 77.8679139), LatLng(30.3363389, 77.8678833),
+      LatLng(30.3367222, 77.8681639),
+      LatLng(30.3365111, 77.8685583),
+      LatLng(30.3361194, 77.8689889),
+      LatLng(30.3355472, 77.8684444),
+      LatLng(30.3358361, 77.8679139),
+      LatLng(30.3363389, 77.8678833),
       LatLng(30.3367222, 77.8681639),
     ];
   }
@@ -49,7 +64,8 @@ class GeofencingEngine {
     try {
       final zones = await api.getActiveTouristZones();
       _dynamicZones = zones.cast<Map<String, dynamic>>();
-      debugPrint("🛰️ GeofencingEngine: \${_dynamicZones.length} dynamic zones loaded from API.");
+      debugPrint(
+          "GeofencingEngine: ${_dynamicZones.length} dynamic zones loaded from API.");
     } catch (e) {
       debugPrint("⚠️ GeofencingEngine: API loading failed: $e");
     }
@@ -60,10 +76,10 @@ class GeofencingEngine {
     for (var zone in _dynamicZones) {
       final center = LatLng(zone['lat'], zone['lng']);
       final radius = zone['radius'] as num;
-      
+
       final distance = _calculateDistance(point, center);
       if (distance <= radius) {
-        return zone['type'] == 'RESTRICTED' ? ZoneType.red : ZoneType.greenInner;
+        return _parseZoneType(zone['type']?.toString());
       }
     }
 
@@ -72,7 +88,7 @@ class GeofencingEngine {
     if (_isInsidePolygon(point, _yellowZone)) return ZoneType.yellow;
     if (_isInsidePolygon(point, _greenInnerZone)) return ZoneType.greenInner;
     if (_isInsidePolygon(point, _greenOuterZone)) return ZoneType.greenOuter;
-    
+
     return ZoneType.none;
   }
 
@@ -84,8 +100,10 @@ class GeofencingEngine {
     final deltaLambda = (p2.longitude - p1.longitude) * math.pi / 180;
 
     final a = math.sin(deltaPhi / 2) * math.sin(deltaPhi / 2) +
-        math.cos(phi1) * math.cos(phi2) *
-            math.sin(deltaLambda / 2) * math.sin(deltaLambda / 2);
+        math.cos(phi1) *
+            math.cos(phi2) *
+            math.sin(deltaLambda / 2) *
+            math.sin(deltaLambda / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
 
     return r * c;
@@ -113,15 +131,20 @@ class GeofencingEngine {
   // Method to allow dynamic injection from cached database (Issue #14)
   void setDynamicZones(List<Map<String, dynamic>> zones) {
     _dynamicZones = zones;
-    debugPrint("🛰️ GeofencingEngine: Updated dynamic zones (\${_dynamicZones.length})");
+    debugPrint(
+        "GeofencingEngine: Updated dynamic zones (${_dynamicZones.length})");
   }
 
   ZoneType _parseZoneType(String? type) {
     switch (type?.toUpperCase()) {
-      case 'RED': return ZoneType.red;
-      case 'YELLOW': return ZoneType.yellow;
-      case 'GREEN': return ZoneType.greenInner;
-      default: return ZoneType.greenOuter;
+      case 'RED':
+        return ZoneType.red;
+      case 'YELLOW':
+        return ZoneType.yellow;
+      case 'GREEN':
+        return ZoneType.greenInner;
+      default:
+        return ZoneType.greenOuter;
     }
   }
 }

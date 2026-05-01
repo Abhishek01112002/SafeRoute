@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:saferoute/models/location_ping_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/services/sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
@@ -21,12 +22,21 @@ void onStart(ServiceInstance service) async {
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  await flutterLocalNotificationsPlugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    ),
+  );
 
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
 
   int failedGpsCount = 0;
+  int networkErrorCount = 0;
+  const int maxNetworkErrors = 5;
+  const int maxGpsErrors = 3;
 
   // Main background loop
   Timer.periodic(const Duration(seconds: 30), (timer) async {
@@ -50,9 +60,9 @@ void onStart(ServiceInstance service) async {
         failedGpsCount = 0; // Reset on success
       } catch (e) {
         failedGpsCount++;
-        debugPrint("Background GPS Fail ($failedGpsCount): $e");
-        
-        if (failedGpsCount >= 3) {
+        debugPrint("Background GPS Fail ($failedGpsCount/$maxGpsErrors): $e");
+
+        if (failedGpsCount >= maxGpsErrors) {
           flutterLocalNotificationsPlugin.show(
             889,
             '🚨 GPS Signal Unavailable',
@@ -83,28 +93,46 @@ void onStart(ServiceInstance service) async {
 
       final apiService = ApiService();
       final dbService = DatabaseService();
+      final syncService = SyncService();
 
       // 3. Try to POST to API
-      bool success = await apiService.sendLocationPing(ping);
+      bool success = false;
+      try {
+        success = await apiService.sendLocationPing(ping);
+        if (success) {
+          networkErrorCount = 0; // Reset on success
+        } else {
+          networkErrorCount++;
+        }
+      } catch (e) {
+        networkErrorCount++;
+        debugPrint(
+            "Network error during ping: $e (Count: $networkErrorCount/$maxNetworkErrors)");
+      }
 
+      // 4. If offline, queue for later sync
       if (!success) {
-        await dbService.savePing(ping);
+        try {
+          await dbService.savePing(ping);
+        } catch (e) {
+          debugPrint("Failed to save ping to DB: $e");
+        }
       } else {
-        final unsynced = await dbService.getUnsyncedPings();
-        for (var p in unsynced) {
-          bool synced = await apiService.sendLocationPing(p);
-          if (synced && p.id != null) {
-            await dbService.markPingSynced(p.id!);
-          }
+        // 5. If online, attempt to sync any pending data
+        try {
+          await syncService.syncOfflineData();
+        } catch (e) {
+          debugPrint("Error during sync cycle: $e");
         }
       }
 
-      // FIX: capture now() once — two separate calls could straddle a minute boundary
+      // 6. Show persistent notification
       final now = DateTime.now();
+      final statusText = success ? "✅ Online" : "⚠️ Queued";
       flutterLocalNotificationsPlugin.show(
         888,
-        'SafeRoute Active',
-        'Last sync: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+        'SafeRoute Active $statusText',
+        'Last sync: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} | Errors: $networkErrorCount',
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'saferoute_foreground',
@@ -114,8 +142,29 @@ void onStart(ServiceInstance service) async {
           ),
         ),
       );
+
+      // 7. Alert user if too many network errors
+      if (networkErrorCount >= maxNetworkErrors) {
+        debugPrint(
+            "🚨 Too many network errors ($networkErrorCount). Showing alert.");
+        flutterLocalNotificationsPlugin.show(
+          890,
+          '⚠️ Network Issues',
+          'SafeRoute cannot reach the server. Your location is being saved locally and will sync when connection is restored.',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'saferoute_alerts',
+              'SafeRoute Critical Alerts',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
+        // Reset counter to prevent spamming
+        networkErrorCount = 0;
+      }
     } catch (e) {
-      debugPrint("Background task error: $e");
+      debugPrint("🛑 Background task critical error: $e");
     }
   });
 }

@@ -79,6 +79,72 @@ class DatabaseTileProvider extends TileProvider {
       return 0;
     }
   }
+
+  /// Pre-populates offline tiles for key regions during app initialization.
+  /// Addresses Issue #3: Offline Map Database Not Pre-populated
+  static Future<void> prePopulateOfflineTiles() async {
+    final db = DatabaseService();
+    final dio = Dio();
+
+    // Define key regions for North East India trekking
+    final regions = [
+      // Kedarnath region
+      {'name': 'Kedarnath', 'center': const LatLng(30.735, 79.066), 'zoom': 13, 'radius': 2},
+      // Tungnath region  
+      {'name': 'Tungnath', 'center': const LatLng(30.49, 79.22), 'zoom': 13, 'radius': 2},
+      // Badrinath region
+      {'name': 'Badrinath', 'center': const LatLng(30.74, 79.49), 'zoom': 13, 'radius': 2},
+    ];
+
+    const urlTemplate = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+
+    for (final region in regions) {
+      final center = region['center'] as LatLng;
+      final zoom = region['zoom'] as int;
+      final radius = region['radius'] as int;
+
+      debugPrint('[Offline] Pre-populating tiles for ${region['name']}');
+
+      // Calculate tile coordinates for the region
+      final z = zoom;
+      final centerX = ((center.longitude + 180) / 360 * (1 << z)).toInt();
+      final centerY = ((1 - (math.log(math.tan(center.latitude * math.pi / 180) + 1 / math.cos(center.latitude * math.pi / 180)) / math.pi)) / 2 * (1 << z)).toInt();
+
+      // Download tiles in a radius around center
+      for (int dx = -radius; dx <= radius; dx++) {
+        for (int dy = -radius; dy <= radius; dy++) {
+          final x = centerX + dx;
+          final y = centerY + dy;
+          final tileKey = '$z-$x-$y';
+
+          // Check if already cached
+          final existing = await db.getTile(tileKey);
+          if (existing != null) continue;
+
+          // Download tile
+          final url = urlTemplate
+              .replaceFirst('{z}', z.toString())
+              .replaceFirst('{x}', x.toString())
+              .replaceFirst('{y}', y.toString());
+
+          try {
+            final response = await dio.get<List<int>>(
+              url,
+              options: Options(responseType: ResponseType.bytes, receiveTimeout: const Duration(seconds: 10)),
+            );
+            if (response.data != null) {
+              await db.saveTile(tileKey, response.data!);
+              debugPrint('[Offline] Cached tile $tileKey for ${region['name']}');
+            }
+          } catch (e) {
+            debugPrint('[Offline] Failed to cache tile $tileKey: $e');
+          }
+        }
+      }
+    }
+
+    debugPrint('[Offline] Tile pre-population complete');
+  }
 }
 
 class _DatabaseImageProvider extends ImageProvider<TileCoordinates> {

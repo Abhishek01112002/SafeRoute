@@ -32,7 +32,8 @@ class EliteButton extends StatefulWidget {
   State<EliteButton> createState() => _EliteButtonState();
 }
 
-class _EliteButtonState extends State<EliteButton> with SingleTickerProviderStateMixin {
+class _EliteButtonState extends State<EliteButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
 
@@ -59,7 +60,7 @@ class _EliteButtonState extends State<EliteButton> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isPrimary = widget.isPrimary;
-    
+
     return GestureDetector(
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
@@ -84,7 +85,10 @@ class _EliteButtonState extends State<EliteButton> with SingleTickerProviderStat
           decoration: BoxDecoration(
             color: widget.onPressed == null
                 ? theme.disabledColor.withOpacity(0.12)
-                : (widget.color ?? (isPrimary ? theme.colorScheme.primary : Colors.transparent)),
+                : (widget.color ??
+                    (isPrimary
+                        ? theme.colorScheme.primary
+                        : Colors.transparent)),
             borderRadius: BorderRadius.circular(AppSpacing.radiusM),
             border: !isPrimary && widget.onPressed != null
                 ? Border.all(color: theme.colorScheme.primary.withOpacity(0.5))
@@ -101,13 +105,17 @@ class _EliteButtonState extends State<EliteButton> with SingleTickerProviderStat
                 Icon(
                   widget.icon,
                   size: 18,
-                  color: isPrimary ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
+                  color: isPrimary
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.primary,
                 ),
                 const SizedBox(width: AppSpacing.s),
               ],
               DefaultTextStyle(
                 style: TextStyle(
-                  color: isPrimary ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
+                  color: isPrimary
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
@@ -138,7 +146,8 @@ class GlimmerLoader extends StatefulWidget {
   State<GlimmerLoader> createState() => _GlimmerLoaderState();
 }
 
-class _GlimmerLoaderState extends State<GlimmerLoader> with SingleTickerProviderStateMixin {
+class _GlimmerLoaderState extends State<GlimmerLoader>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _align;
   bool _shouldShow = false;
@@ -147,7 +156,9 @@ class _GlimmerLoaderState extends State<GlimmerLoader> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat();
     _align = Tween<double>(begin: -2.5, end: 2.5).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine),
     );
@@ -166,11 +177,16 @@ class _GlimmerLoaderState extends State<GlimmerLoader> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    if (!_shouldShow) return SizedBox(width: widget.width, height: widget.height);
+    if (!_shouldShow)
+      return SizedBox(width: widget.width, height: widget.height);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF334155).withOpacity(0.5) : const Color(0xFFE2E8F0);
-    final highlightColor = isDark ? const Color(0xFF475569).withOpacity(0.5) : const Color(0xFFF1F5F9);
+    final baseColor = isDark
+        ? const Color(0xFF334155).withOpacity(0.5)
+        : const Color(0xFFE2E8F0);
+    final highlightColor = isDark
+        ? const Color(0xFF475569).withOpacity(0.5)
+        : const Color(0xFFF1F5F9);
 
     return AnimatedBuilder(
       animation: _align,
@@ -228,14 +244,15 @@ class EliteSurface extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final r = borderRadius ?? AppSpacing.radiusXL;
-    
+
     Widget content = Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(r),
-        boxShadow: hasGlassEffect ? [] : AppStyle.aura(theme.colorScheme.primary),
+        boxShadow:
+            hasGlassEffect ? [] : AppStyle.aura(theme.colorScheme.primary),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
@@ -244,20 +261,24 @@ class EliteSurface extends StatelessWidget {
           child: Container(
             padding: padding ?? const EdgeInsets.all(AppSpacing.m),
             decoration: BoxDecoration(
-              color: color ?? (isDark 
-                  ? AppColors.surfaceDark.withOpacity(0.7) 
-                  : AppColors.surfaceLight.withOpacity(0.85)),
+              color: color ??
+                  (isDark
+                      ? AppColors.surfaceDark.withOpacity(0.7)
+                      : AppColors.surfaceLight.withOpacity(0.85)),
               borderRadius: BorderRadius.circular(r),
               border: Border.all(
-                color: borderColor ?? (isDark 
-                    ? Colors.white.withOpacity(borderOpacity ?? 0.1) 
-                    : Colors.black.withOpacity(borderOpacity ?? 0.15)),
+                color: borderColor ??
+                    (isDark
+                        ? Colors.white.withOpacity(borderOpacity ?? 0.1)
+                        : Colors.black.withOpacity(borderOpacity ?? 0.15)),
                 width: 1.5,
               ),
             ),
             child: DefaultTextStyle(
               style: theme.textTheme.bodyMedium!.copyWith(
-                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimaryLight,
               ),
               child: child,
             ),
@@ -288,7 +309,8 @@ class AuroraBackground extends StatefulWidget {
   State<AuroraBackground> createState() => _AuroraBackgroundState();
 }
 
-class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerProviderStateMixin {
+class _AuroraBackgroundState extends State<AuroraBackground>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
@@ -309,7 +331,7 @@ class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
@@ -340,7 +362,8 @@ class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerPr
               // 🧪 Layer 3: Dynamic Glow
               Center(
                 child: _AuraLayer(
-                  color: AppColors.primaryHighContrast.withOpacity(isDark ? 0.04 : 0.015),
+                  color: AppColors.primaryHighContrast
+                      .withOpacity(isDark ? 0.04 : 0.015),
                   size: 800,
                 ),
               ),
@@ -382,8 +405,8 @@ class PulseMarker extends StatefulWidget {
   final double? heading; // Added heading support for pointing direction
 
   const PulseMarker({
-    super.key, 
-    required this.color, 
+    super.key,
+    required this.color,
     this.size = 20,
     this.speed,
     this.heading,
@@ -393,7 +416,8 @@ class PulseMarker extends StatefulWidget {
   State<PulseMarker> createState() => _PulseMarkerState();
 }
 
-class _PulseMarkerState extends State<PulseMarker> with SingleTickerProviderStateMixin {
+class _PulseMarkerState extends State<PulseMarker>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _pulse;
   late Animation<double> _opacity;
@@ -401,7 +425,9 @@ class _PulseMarkerState extends State<PulseMarker> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2000))
+      ..repeat();
     _pulse = Tween<double>(begin: 1.0, end: 3.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOutQuart),
     );
@@ -418,9 +444,6 @@ class _PulseMarkerState extends State<PulseMarker> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Center(
       child: Stack(
         clipBehavior: Clip.none,
@@ -446,9 +469,8 @@ class _PulseMarkerState extends State<PulseMarker> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: widget.color.withOpacity(_opacity.value), 
-                    width: 2
-                  ),
+                      color: widget.color.withOpacity(_opacity.value),
+                      width: 2),
                 ),
               );
             },
@@ -463,10 +485,9 @@ class _PulseMarkerState extends State<PulseMarker> with SingleTickerProviderStat
               border: Border.all(color: Colors.white, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withOpacity(0.5), 
-                  blurRadius: 10, 
-                  spreadRadius: 2
-                ),
+                    color: widget.color.withOpacity(0.5),
+                    blurRadius: 10,
+                    spreadRadius: 2),
               ],
             ),
           ),
@@ -492,7 +513,8 @@ class _HeadingPainter extends CustomPainter {
     final path = Path()
       ..moveTo(size.width / 2, 0) // Tip
       ..lineTo(size.width * 0.7, size.height * 0.4)
-      ..quadraticBezierTo(size.width / 2, size.height * 0.3, size.width * 0.3, size.height * 0.4)
+      ..quadraticBezierTo(size.width / 2, size.height * 0.3, size.width * 0.3,
+          size.height * 0.4)
       ..close();
 
     canvas.drawPath(path, paint);
@@ -602,7 +624,8 @@ class OfflinePackCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.s),
                 decoration: BoxDecoration(
-                  color: (isComplete ? AppColors.success : AppColors.primary).withOpacity(0.1),
+                  color: (isComplete ? AppColors.success : AppColors.primary)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusS),
                 ),
                 child: Icon(
@@ -618,12 +641,15 @@ class OfflinePackCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          letterSpacing: 0.5),
                     ),
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 10, 
+                        fontSize: 10,
                         color: isDark ? Colors.white54 : Colors.black54,
                         fontWeight: FontWeight.w500,
                       ),
@@ -634,10 +660,12 @@ class OfflinePackCard extends StatelessWidget {
               if (!isComplete && !isDownloading)
                 IconButton(
                   onPressed: onDownload,
-                  icon: const Icon(Icons.download_for_offline, color: AppColors.primary),
+                  icon: const Icon(Icons.download_for_offline,
+                      color: AppColors.primary),
                 )
               else if (isComplete)
-                const Icon(Icons.check_circle, color: AppColors.success, size: 20)
+                const Icon(Icons.check_circle,
+                    color: AppColors.success, size: 20)
             ],
           ),
           if (isDownloading) ...[
@@ -650,7 +678,8 @@ class OfflinePackCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: progress,
                       backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppColors.primary),
                       minHeight: 2,
                     ),
                   ),
@@ -658,7 +687,8 @@ class OfflinePackCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.m),
                 Text(
                   "${(progress * 100).toInt()}%",
-                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                  style:
+                      const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
