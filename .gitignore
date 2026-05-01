@@ -52,9 +52,14 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will automatically add this build folder
-/android/app/build/
-/android/.gradle/
-/android/local.properties
+/mobile/android/app/build/
+/mobile/android/.gradle/
+/mobile/android/local.properties
+
+# Dashboard
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.env
 
 # Exception to above rules.
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages

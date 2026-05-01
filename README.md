@@ -1,17 +1,22 @@
-# saferoute
+# SafeRoute
 
-A new Flutter project.
+A tourist safety ecosystem for North East India using BLE Mesh, GPS, and Blockchain.
 
-## Getting Started
+## Monorepo Architecture
 
-This project is a starting point for a Flutter application.
+This repository is structured as a monorepo containing three main modules:
 
-A few resources to get you started if this is your first Flutter project:
+### 1. `mobile/`
+The Flutter mobile application used by tourists and authorities.
+- **Stack**: Flutter, Dart, SQLite, BLE Mesh, WebSocket
+- **Run**: `cd mobile && flutter run`
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### 2. `backend/`
+The Python FastAPI backend service that coordinates safety alerts and zone management.
+- **Stack**: Python, FastAPI, PostgreSQL (or SQLite locally), JWT
+- **Run**: `cd backend && uvicorn main:app --reload`
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### 3. `dashboard/`
+The React web application for authorities to manage zones and monitor SOS alerts.
+- **Stack**: React, Vite, TypeScript, Leaflet
+- **Run**: `cd dashboard && npm install && npm run dev`

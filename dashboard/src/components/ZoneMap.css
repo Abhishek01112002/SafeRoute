@@ -1,0 +1,67 @@
+/* dashboard/src/components/ZoneMap.css */
+.zone-map-wrapper {
+  overflow: hidden;
+  position: relative;
+  border: var(--border-neon);
+  margin-bottom: 2rem;
+}
+
+.map-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--bg-panel);
+  backdrop-filter: blur(8px);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent-pink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.control-button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.map-controls p {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.btn-small {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.7rem;
+}
+
+/* Fix leaflet popups and attribution for dark mode */
+.leaflet-container {
+  background: #000 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.7) !important;
+  color: #555 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #777 !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--bg-surface) !important;
+  color: var(--accent-cyan) !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--accent-cyan-dim) !important;
+}
