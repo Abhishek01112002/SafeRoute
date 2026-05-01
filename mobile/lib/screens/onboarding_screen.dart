@@ -2,11 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
+import 'package:provider/provider.dart';
+import 'package:saferoute/providers/tourist_provider.dart';
 
 // Screens
 import 'package:saferoute/screens/registration_screen.dart';
 import 'package:saferoute/screens/authority_login_screen.dart';
 import 'package:saferoute/screens/authority_registration_screen.dart';
+import 'package:saferoute/screens/permission_setup_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -20,7 +23,27 @@ class OnboardingScreen extends StatelessWidget {
         children: [
           // ── Premium Aurora Canvas ──
           Positioned.fill(child: AuroraBackground()),
-          
+
+          // ── Top Action Bar (Skip) ──
+          Positioned(
+            top: MediaQuery.of(context).padding.top + AppSpacing.s,
+            right: AppSpacing.m,
+            child: TextButton.icon(
+              onPressed: () => _handleSkip(context),
+              icon: const Icon(Icons.forward_rounded, size: 16),
+              label: const Text(
+                "SKIP TO DASHBOARD",
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    letterSpacing: 1),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+            ),
+          ),
+
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -29,7 +52,7 @@ class OnboardingScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 80),
-                    
+
                     // ── Mission Logo ──
                     Hero(
                       tag: 'app_logo',
@@ -38,40 +61,47 @@ class OnboardingScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: theme.colorScheme.primary.withOpacity(0.05),
-                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.15)),
+                          border: Border.all(
+                              color:
+                                  theme.colorScheme.primary.withOpacity(0.15)),
                           boxShadow: [
-                            BoxShadow(color: theme.colorScheme.primary.withOpacity(0.1), blurRadius: 40, spreadRadius: 5),
+                            BoxShadow(
+                                color:
+                                    theme.colorScheme.primary.withOpacity(0.1),
+                                blurRadius: 40,
+                                spreadRadius: 5),
                           ],
                         ),
-                        child: Icon(Icons.shield_rounded, size: 80, color: theme.colorScheme.primary),
+                        child: Icon(Icons.shield_rounded,
+                            size: 80, color: theme.colorScheme.primary),
                       ),
                     ),
-                    
+
                     const SizedBox(height: AppSpacing.xxl),
-                    
+
                     // ── Brand Identity ──
                     Text(
                       "SAFEROUTE",
                       style: theme.textTheme.headlineMedium?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 8.0,
-                          ),
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 8.0,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       "NEXT-GEN TOURIST GUARDIAN",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.4),
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
-                            fontSize: 9,
-                          ),
+                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        fontSize: 9,
+                      ),
                     ),
-                    
+
                     const SizedBox(height: 40),
-                    
+
                     // ── Mission Statement ──
                     EliteSurface(
                       color: theme.colorScheme.primary.withOpacity(0.05),
@@ -83,7 +113,8 @@ class OnboardingScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodySmall?.copyWith(
                               height: 1.6,
-                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -92,7 +123,8 @@ class OnboardingScreen extends StatelessWidget {
                             children: [
                               _featureBadge(Icons.hub_rounded, "MESH"),
                               const SizedBox(width: 8),
-                              _featureBadge(Icons.offline_pin_rounded, "OFFLINE"),
+                              _featureBadge(
+                                  Icons.offline_pin_rounded, "OFFLINE"),
                               const SizedBox(width: 8),
                               _featureBadge(Icons.sos_rounded, "SOS"),
                             ],
@@ -100,27 +132,34 @@ class OnboardingScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 100),
-                    
+
                     Text(
                       "INITIALIZE ACCESS ROLE",
-                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.15), letterSpacing: 3, fontWeight: FontWeight.w900, fontSize: 10),
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.15),
+                          letterSpacing: 3,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10),
                     ),
-                    
+
                     const SizedBox(height: AppSpacing.xl),
-                    
+
                     // ── Role Selection ──
                     _roleCard(
                       context,
                       "TOURIST MODULE",
                       "ENROLL & EXPLORE SAFELY",
                       Icons.person_pin_circle_rounded,
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegistrationScreen())),
+                      () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const RegistrationScreen())),
                     ),
-                    
+
                     const SizedBox(height: AppSpacing.m),
-                    
+
                     _roleCard(
                       context,
                       "AUTHORITY HUB",
@@ -128,7 +167,22 @@ class OnboardingScreen extends StatelessWidget {
                       Icons.security_rounded,
                       () => _showAuthorityOptions(context),
                     ),
-                    
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    TextButton(
+                      onPressed: () => _showLoginDialog(context),
+                      child: Text(
+                        "ALREADY REGISTERED? LOGIN",
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 60),
                   ],
                 ),
@@ -152,8 +206,17 @@ class OnboardingScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("AUTHORITY CLEARANCE", style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
-            Text("SECURE GATEWAY FOR PERSONNEL", style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.3), fontSize: 9, fontWeight: FontWeight.bold)),
+            Text("AUTHORITY CLEARANCE",
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0)),
+            Text("SECURE GATEWAY FOR PERSONNEL",
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSpacing.xl),
             _authorityTile(
               context,
@@ -162,7 +225,10 @@ class OnboardingScreen extends StatelessWidget {
               theme.colorScheme.primary,
               () {
                 Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthorityLoginScreen()));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AuthorityLoginScreen()));
               },
             ),
             const SizedBox(height: AppSpacing.m),
@@ -173,7 +239,10 @@ class OnboardingScreen extends StatelessWidget {
               AppColors.accent,
               () {
                 Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthorityRegistrationScreen()));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AuthorityRegistrationScreen()));
               },
             ),
           ],
@@ -182,7 +251,8 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 
-  Widget _authorityTile(BuildContext context, IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _authorityTile(BuildContext context, IconData icon, String label,
+      Color color, VoidCallback onTap) {
     final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
@@ -194,41 +264,158 @@ class OnboardingScreen extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(width: AppSpacing.m),
-            Text(label, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
+            Text(label,
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 0.5)),
             const Spacer(),
-            Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withOpacity(0.2), size: 20),
+            Icon(Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurface.withOpacity(0.2), size: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _roleCard(BuildContext context, String title, String subtitle, IconData icon, VoidCallback onTap) {
+  Widget _roleCard(BuildContext context, String title, String subtitle,
+      IconData icon, VoidCallback onTap) {
     final theme = Theme.of(context);
     final isTourist = title.contains("TOURIST");
-    
+
     return EliteSurface(
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.xl),
-      color: isTourist ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.l, vertical: AppSpacing.xl),
+      color: isTourist
+          ? theme.colorScheme.primary.withOpacity(0.1)
+          : Colors.transparent,
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(AppSpacing.m),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: (isTourist ? AppColors.primary : AppColors.accent).withOpacity(0.1)),
-            child: Icon(icon, color: isTourist ? AppColors.primary : AppColors.accent, size: 24),
+            decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: (isTourist ? AppColors.primary : AppColors.accent)
+                    .withOpacity(0.1)),
+            child: Icon(icon,
+                color: isTourist ? AppColors.primary : AppColors.accent,
+                size: 24),
           ),
           const SizedBox(width: AppSpacing.l),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-                Text(subtitle, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface.withOpacity(0.4))),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5)),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface.withOpacity(0.4))),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: isTourist ? AppColors.primary : AppColors.accent),
+          Icon(Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: isTourist ? AppColors.primary : AppColors.accent),
+        ],
+      ),
+    );
+  }
+
+  void _handleSkip(BuildContext context) async {
+    final touristProvider = context.read<TouristProvider>();
+    await touristProvider.setGuestMode();
+    if (context.mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PermissionSetupScreen()),
+      );
+    }
+  }
+
+  void _showLoginDialog(BuildContext context) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.black.withOpacity(0.9),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusL)),
+        title: const Text("SECURE LOGIN",
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Enter your 12-digit Identity Protocol ID to restore your authenticated session.",
+              style:
+                  TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+            ),
+            const SizedBox(height: AppSpacing.l),
+            EliteSurface(
+              child: TextField(
+                controller: controller,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
+                decoration: const InputDecoration(
+                  hintText: "TID-XXXX-XXXX",
+                  hintStyle: TextStyle(color: Colors.white24),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          EliteButton(
+            isFullWidth: false,
+            onPressed: () async {
+              final prov = context.read<TouristProvider>();
+              if (prov.isLocked) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          "Account locked. Try again in ${prov.remainingLockSeconds}s")),
+                );
+                return;
+              }
+
+              final id = controller.text.trim();
+              if (id.isEmpty) return;
+
+              final success = await prov.loginTouristSecure(id);
+              if (success && ctx.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PermissionSetupScreen()),
+                );
+              } else if (ctx.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(prov.errorMessage ??
+                        "Invalid ID or Authentication Failed"),
+                    backgroundColor: AppColors.zoneRed,
+                  ),
+                );
+              }
+            },
+            child: const Text("AUTHENTICATE"),
+          ),
         ],
       ),
     );
@@ -246,7 +433,11 @@ class OnboardingScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 10, color: AppColors.primary),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: AppColors.primary)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary)),
         ],
       ),
     );

@@ -4,6 +4,8 @@
 // Works with ZERO internet once cached. Only requires GPS.
 
 import 'dart:math';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:saferoute/models/trail_graph_model.dart';
 import 'package:saferoute/models/zone_model.dart';
@@ -64,8 +66,8 @@ class _AStarNode {
 
 class PathfindingService {
   TrailGraph? _graph;
-  Map<String, TrailNode>         _nodes     = {};
-  Map<String, List<TrailEdge>>   _adjacency = {};
+  Map<String, TrailNode> _nodes = {};
+  Map<String, List<TrailEdge>> _adjacency = {};
   String? _loadedDestinationId;
 
   bool get isLoaded => _graph != null && !_graph!.isEmpty;
@@ -80,7 +82,7 @@ class PathfindingService {
     // 1. Try API
     try {
       graph = await ApiService().getTrailGraph(destinationId);
-      if (!graph!.isEmpty) {
+      if (graph != null && !graph.isEmpty) {
         await DatabaseService().saveTrailGraph(graph);
         debugPrint('[Pathfinding] Graph loaded from API: ${graph.nodes.length} nodes for $destinationId');
       }
@@ -93,6 +95,18 @@ class PathfindingService {
       graph = await DatabaseService().getTrailGraph(destinationId);
       if (graph != null && !graph.isEmpty) {
         debugPrint('[Pathfinding] Graph loaded from cache: ${graph.nodes.length} nodes for $destinationId');
+      }
+    }
+
+    // 3. Last-ditch bundled fallback (Legacy)
+    if (graph == null || graph.isEmpty) {
+      try {
+        final String jsonStr = await rootBundle.loadString('assets/trail_graph.json');
+        final Map<String, dynamic> data = json.decode(jsonStr);
+        graph = TrailGraph.fromJson(data);
+        debugPrint('[Pathfinding] Graph loaded from bundled asset fallback');
+      } catch (e) {
+        debugPrint('[Pathfinding] Asset fallback failed: $e');
       }
     }
 
@@ -113,15 +127,18 @@ class PathfindingService {
 
     for (final edge in graph.edges) {
       _adjacency.putIfAbsent(edge.fromId, () => []).add(edge);
-      // Bidirectional — reverse the offline path
-      final reversedPath = edge.offlinePath.reversed
+      // Bidirectional — reverse the offline path if it exists
+      final List<Map<String, double>> reversedPath = edge.offlinePath
           .map((p) => <String, double>{'lat': p['lat']!, 'lng': p['lng']!})
+          .toList()
+          .reversed
           .toList();
+          
       _adjacency.putIfAbsent(edge.toId, () => []).add(TrailEdge(
-        fromId:       edge.toId,
-        toId:         edge.fromId,
+        fromId: edge.toId,
+        toId: edge.fromId,
         weightMeters: edge.weightMeters,
-        offlinePath:  reversedPath,
+        offlinePath: reversedPath,
       ));
     }
   }
@@ -153,22 +170,22 @@ class PathfindingService {
         .toList();
     if (safeNodes.isEmpty) return NavigationResult.noPath;
 
-    final goal    = _nearestAmong(start, safeNodes);
+    final goal = _nearestAmong(start, safeNodes);
     final rawPath = _aStar(start.id, goal.id);
     if (rawPath == null) return NavigationResult.noPath;
 
     double totalDist = 0;
-    final fullCurve  = <Map<String, double>>[];
+    final fullCurve = <Map<String, double>>[];
 
     if (rawPath.length == 1) {
       fullCurve.add({'lat': rawPath[0].lat, 'lng': rawPath[0].lng});
     }
 
     for (int i = 0; i < rawPath.length - 1; i++) {
-      final from   = rawPath[i];
-      final to     = rawPath[i + 1];
-      final edges  = _adjacency[from.id] ?? [];
-      final edge   = edges.where((e) => e.toId == to.id).firstOrNull;
+      final from = rawPath[i];
+      final to = rawPath[i + 1];
+      final edges = _adjacency[from.id] ?? [];
+      final edge = edges.where((e) => e.toId == to.id).firstOrNull;
 
       if (edge != null && edge.offlinePath.isNotEmpty) {
         for (final p in edge.offlinePath) {
@@ -185,20 +202,20 @@ class PathfindingService {
     final minutes = (totalDist / 1000 / 4.0 * 60).ceil();
 
     return NavigationResult(
-      path:                rawPath,
-      offlineGeometries:   fullCurve,
+      path: rawPath,
+      offlineGeometries: fullCurve,
       totalDistanceMeters: totalDist,
-      estimatedMinutes:    minutes,
-      pathFound:           true,
-      message:             'Head to ${goal.name}. ${totalDist.toStringAsFixed(0)}m, ~$minutes min.',
+      estimatedMinutes: minutes,
+      pathFound: true,
+      message: 'Head to ${goal.name}. ${totalDist.toStringAsFixed(0)}m, ~$minutes min.',
     );
   }
 
   // ── A* ────────────────────────────────────────────────────────────────────
 
   List<TrailNode>? _aStar(String startId, String goalId) {
-    final goal     = _nodes[goalId]!;
-    final openSet  = <String, _AStarNode>{};
+    final goal = _nodes[goalId]!;
+    final openSet = <String, _AStarNode>{};
     final closedSet = <String>{};
 
     openSet[startId] = _AStarNode(
@@ -220,13 +237,13 @@ class PathfindingService {
         if (neighbour == null) continue;
         // Penalise restricted zones 3× to route around them
         final penalty = neighbour.zoneType == ZoneType.restricted ? 3.0 : 1.0;
-        final newG    = current.gCost + edge.weightMeters * penalty;
+        final newG = current.gCost + edge.weightMeters * penalty;
         final existing = openSet[edge.toId];
         if (existing == null || newG < existing.gCost) {
           openSet[edge.toId] = _AStarNode(
-            id:     edge.toId,
-            gCost:  newG,
-            hCost:  _haversineM(neighbour.lat, neighbour.lng, goal.lat, goal.lng),
+            id: edge.toId,
+            gCost: newG,
+            hCost: _haversineM(neighbour.lat, neighbour.lng, goal.lat, goal.lng),
             parent: current,
           );
         }

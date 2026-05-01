@@ -32,7 +32,7 @@ class DigitalIDScreenV2 extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  
+
                   // 1. Digital Passport Card
                   EliteSurface(
                     padding: EdgeInsets.zero,
@@ -45,11 +45,16 @@ class DigitalIDScreenV2 extends StatelessWidget {
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: Color.lerp(
-                              Colors.transparent, 
-                              tourist.destinationState.contains("Uttarakhand") ? Colors.orange : AppColors.primary, 
-                              0.1
-                            ),
-                            border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
+                                Colors.transparent,
+                                tourist.destinationState.contains("Uttarakhand")
+                                    ? Colors.orange
+                                    : AppColors.primary,
+                                0.1),
+                            border: Border(
+                                bottom: BorderSide(
+                                    color: isDark
+                                        ? Colors.white10
+                                        : Colors.black12)),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -63,7 +68,9 @@ class DigitalIDScreenV2 extends StatelessWidget {
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
                                       letterSpacing: 2,
-                                      color: isDark ? Colors.white70 : Colors.black54,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black54,
                                     ),
                                   ),
                                   Text(
@@ -76,7 +83,8 @@ class DigitalIDScreenV2 extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const Icon(Icons.verified_user_rounded, color: AppColors.accent, size: 32),
+                              const Icon(Icons.verified_user_rounded,
+                                  color: AppColors.accent, size: 32),
                             ],
                           ),
                         ),
@@ -90,19 +98,25 @@ class DigitalIDScreenV2 extends StatelessWidget {
                               // Photo Section
                               _buildPhotoSection(tourist.photoBase64, isDark),
                               const SizedBox(width: 20),
-                              
+
                               // Info Section
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildInfoField('FULL NAME', tourist.fullName, isDark),
+                                    _buildInfoField(
+                                        'FULL NAME', tourist.fullName, isDark),
                                     const SizedBox(height: 12),
-                                    _buildInfoField('DOCUMENT ID', tourist.documentNumber, isDark),
+                                    _buildInfoField('DOCUMENT ID',
+                                        tourist.documentNumber, isDark),
                                     const SizedBox(height: 12),
-                                    _buildInfoField('VALID UNTIL', _formatDate(tourist.tripEndDate), isDark),
+                                    _buildInfoField(
+                                        'VALID UNTIL',
+                                        _formatDate(tourist.tripEndDate),
+                                        isDark),
                                     const SizedBox(height: 12),
-                                    _buildInfoField('BLOOD GROUP', tourist.bloodGroup, isDark),
+                                    _buildInfoField('BLOOD GROUP',
+                                        tourist.bloodGroup, isDark),
                                   ],
                                 ),
                               ),
@@ -115,7 +129,8 @@ class DigitalIDScreenV2 extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 30),
                           decoration: BoxDecoration(
                             color: isDark ? Colors.black26 : Colors.white24,
-                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(30)),
                           ),
                           child: Column(
                             children: [
@@ -134,6 +149,7 @@ class DigitalIDScreenV2 extends StatelessWidget {
                                 child: QrImageView(
                                   data: tourist.qrData,
                                   version: QrVersions.auto,
+                                  errorCorrectionLevel: QrErrorCorrectLevel.M,
                                   size: 180.0,
                                   gapless: false,
                                   foregroundColor: Colors.black,
@@ -146,7 +162,8 @@ class DigitalIDScreenV2 extends StatelessWidget {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 2,
-                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  color:
+                                      isDark ? Colors.white38 : Colors.black38,
                                 ),
                               ),
                             ],
@@ -165,7 +182,8 @@ class DigitalIDScreenV2 extends StatelessWidget {
                     borderOpacity: 0.3,
                     child: Row(
                       children: [
-                        const Icon(Icons.token_rounded, color: AppColors.success),
+                        const Icon(Icons.token_rounded,
+                            color: AppColors.success),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -179,22 +197,23 @@ class DigitalIDScreenV2 extends StatelessWidget {
                                   color: AppColors.success,
                                 ),
                               ),
-                                SelectableText(
-                                  tourist.blockchainHash,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontFamily: 'monospace',
-                                    color: isDark ? Colors.white70 : Colors.black87,
-                                    letterSpacing: 0.5,
-                                  ),
+                              SelectableText(
+                                tourist.blockchainHash,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontFamily: 'monospace',
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87,
+                                  letterSpacing: 0.5,
                                 ),
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 100), // Spacing for fab/dock
                 ],
               ),
@@ -212,7 +231,9 @@ class DigitalIDScreenV2 extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? Colors.white10 : Colors.black12,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.primary.withOpacity(0.5), width: 2), // High contrast border
+        border: Border.all(
+            color: AppColors.primary.withOpacity(0.5),
+            width: 2), // High contrast border
         image: base64.isNotEmpty
             ? DecorationImage(
                 image: MemoryImage(base64Decode(base64)),

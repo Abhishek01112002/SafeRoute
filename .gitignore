@@ -1,14 +1,80 @@
 .gradle/
 __pycache__/
 *.pyc
-.env
+__pycache__/
+*.pem
 *.db
-node_modules/
-build/
+backend/data/
+backend/uploads/
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.DS_Store
+*.swp
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains configuration for the workspace.
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
 .dart_tool/
 .packages
 .pub-cache/
 .pub/
-.vscode/
-.idea/
-*.iml
+/build/
+build/
+.metadata
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will automatically add this build folder
+/mobile/android/app/build/
+/mobile/android/.gradle/
+/mobile/android/local.properties
+
+# Dashboard
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.env
+
+# Exception to above rules.
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+
+# Custom project analysis and build logs (AI-generated, not part of source)
+analysis_*.txt
+build_output.txt
+
+# Environment variables
+*.env
+.env
+
+# AI-generated context/phase notes (not real project documentation)
+# These files are generated during development sessions for AI context only
+5_OUT_OF_5_COMPLETE.md
+ACHIEVEMENT_5_OUT_OF_5.md
+HACKATHON_SPRINT_PLAN.md
+INTEGRATION_CHECKLIST.md
+PHASE_1_JWT_COMPLETE.md
+PHASE_2_ALL_5_SCREENS_COMPLETE.md
+PHASE_2_SUMMARY.md
+PHASE_2_UI_COMPLETE.md
+QUICK_REFERENCE.md
+TEST_REPORT.md
+UI_REDESIGN_GUIDE.md

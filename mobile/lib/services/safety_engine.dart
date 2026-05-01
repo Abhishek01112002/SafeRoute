@@ -1,6 +1,7 @@
 // lib/services/safety_engine.dart
 import 'package:flutter/material.dart';
 import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/models/location_ping_model.dart';
 
 enum SafetyRiskLevel { low, medium, high }
 
@@ -15,13 +16,15 @@ class SafetyEngine {
     required DateTime lastMovementTime,
   }) {
     // 1. RESTRICTED zone — absolute maximum risk
-    if (zone == ZoneType.restricted) return SafetyRiskLevel.high;
+    if (zone == ZoneType.restricted || zone == ZoneType.red) return SafetyRiskLevel.high;
 
     // 2. Critical battery (< 10%) — still high
     if (batteryLevel < 0.10) return SafetyRiskLevel.high;
 
     // 3. CAUTION zone or low battery (< 25%)
-    if (zone == ZoneType.caution || batteryLevel < 0.25) return SafetyRiskLevel.medium;
+    if (zone == ZoneType.caution || zone == ZoneType.yellow || batteryLevel < 0.25) {
+      return SafetyRiskLevel.medium;
+    }
 
     // 4. No mesh connectivity
     if (!isMeshConnected) return SafetyRiskLevel.medium;

@@ -11,6 +11,7 @@ import 'package:saferoute/providers/auth_provider.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
+import 'package:saferoute/widgets/connectivity_chip.dart';
 
 class AuthorityDashboardScreen extends StatefulWidget {
   const AuthorityDashboardScreen({super.key});
@@ -84,6 +85,7 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
           ],
         ),
         actions: [
+          const ConnectivityChip(),
           IconButton(
             icon: const Icon(Icons.logout_rounded, size: 20),
             onPressed: _logout,
@@ -143,7 +145,6 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
   Future<void> _loadDestinations() async {
     setState(() { _loading = true; _error = null; });
     try {
-      // Get authority's state from AuthProvider (could also hit /destinations?authority_id=me)
       final states = await _api.getStates();
       final List<Map<String, dynamic>> all = [];
       for (final s in states) {
@@ -167,16 +168,13 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
   }
 
   Future<void> _deleteZone(String zoneId) async {
-    // TODO: call DELETE /zones/{zone_id} when authority API client is added
     setState(() => _zones.removeWhere((z) => z.id == zoneId));
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       children: [
-        // Destination selector
         Padding(
           padding: const EdgeInsets.all(12),
           child: _loading && _destinations.isEmpty
@@ -197,7 +195,6 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
         ),
         if (_error != null) _ErrorBanner(_error!),
 
-        // Zone list
         Expanded(
           child: _selectedDestId == null
               ? _EmptyHint('Select a destination to manage its zones')
@@ -260,8 +257,6 @@ class _ZoneCard extends StatelessWidget {
   }
 }
 
-// ── Tab 2: Tourist Overview ────────────────────────────────────────────────────
-
 class _TouristOverviewTab extends StatefulWidget {
   const _TouristOverviewTab();
   @override
@@ -269,8 +264,6 @@ class _TouristOverviewTab extends StatefulWidget {
 }
 
 class _TouristOverviewTabState extends State<_TouristOverviewTab> {
-  // NOTE: A dedicated GET /tourists?destination_id= endpoint will be added to the backend.
-  // For now we show a live map of location pings via the existing location_logs table.
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -289,8 +282,6 @@ class _TouristOverviewTabState extends State<_TouristOverviewTab> {
     );
   }
 }
-
-// ── Tab 3: SOS Events ─────────────────────────────────────────────────────────
 
 class _SosEventsTab extends StatefulWidget {
   const _SosEventsTab();
@@ -403,8 +394,6 @@ class _SosEventsTabState extends State<_SosEventsTab> {
     );
   }
 }
-
-// ── Tab 4: Trail Graph ────────────────────────────────────────────────────────
 
 class _TrailGraphTab extends StatefulWidget {
   const _TrailGraphTab();
@@ -555,8 +544,6 @@ class _GraphStat extends StatelessWidget {
     );
   }
 }
-
-// ── Shared helpers ─────────────────────────────────────────────────────────────
 
 class _EmptyHint extends StatelessWidget {
   final String text;

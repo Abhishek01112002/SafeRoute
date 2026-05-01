@@ -1,8 +1,8 @@
 # SafeRoute 🛡️
 
-**SafeRoute** is a comprehensive, end-to-end safety and navigation ecosystem engineered for tourists navigating remote, high-altitude, or low-connectivity environments. 
+**SafeRoute** is a comprehensive, end-to-end safety and navigation ecosystem engineered for tourists navigating remote, high-altitude, or low-connectivity environments (specifically optimized for North East India). 
 
-SafeRoute combines real-time geofencing, offline-capable pathfinding, and instant distress signaling into a robust platform.
+SafeRoute combines real-time geofencing, offline-capable pathfinding, and instant distress signaling into a robust platform using BLE Mesh, GPS, and Blockchain.
 
 ---
 
@@ -10,8 +10,8 @@ SafeRoute combines real-time geofencing, offline-capable pathfinding, and instan
 
 SafeRoute is structured as a monorepo containing three distinct, collaborative pillars:
 
-- **`backend/`** — A high-performance Python **FastAPI** server powered by SQLite. It manages the canonical source of truth for all destinations, zones, and SOS events.
-- **`mobile/`** — The **Flutter** mobile application for tourists. Designed with an offline-first methodology, relying on heavy local SQLite caching for continuous safety monitoring without an active internet connection.
+- **`backend/`** — A high-performance Python **FastAPI** server powered by SQLite/PostgreSQL. It manages the canonical source of truth for all destinations, zones, and SOS events.
+- **`mobile/`** — The **Flutter** mobile application for tourists. Designed with an offline-first methodology, relying on heavy local SQLite caching and BLE Mesh for continuous safety monitoring.
 - **`dashboard/`** — A **React + Vite** web command center featuring a premium "Dark Punk" aesthetic. Used by Zone Authorities to monitor active tourists, dispatch SOS responses, and draw active geofence boundaries.
 
 ---

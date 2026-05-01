@@ -31,6 +31,7 @@ class LocationProvider with ChangeNotifier {
   Timer? _safetyTimer;
   
   List<LocationPing> _unsyncedPings = [];
+  String? _activeTouristId;
   
   StreamSubscription<Position>? _positionSubscription;
 
@@ -74,16 +75,22 @@ class LocationProvider with ChangeNotifier {
   Future<void> startTracking() async {
     if (_isTracking) return;
     
-    // Pre-load zones for tourist's selected destination
     final prefs = await SharedPreferences.getInstance();
+    _activeTouristId = prefs.getString('tourist_id') ?? (await _dbService.getTourist())?.touristId;
+    
+    // Pre-load zones for tourist's selected destination
     final destinationId = prefs.getString('primary_destination_id');
     if (destinationId != null) {
       await _geofencing.loadForDestination(destinationId);
-    }
-    // Attempt fresh sync in background
-    if (destinationId != null) {
-      _geofencing.loadForDestination(destinationId).catchError(
-        (e) => debugPrint('Zone refresh failed: $e'));
+    } else {
+      // Fallback to state-based zones if primary destination is not set
+      final state = prefs.getString('destination_state');
+      if (state != null) {
+        final legacyZones = await _dbService.getGeofenceZones(state);
+        if (legacyZones.isNotEmpty) {
+          _geofencing.setDynamicZones(legacyZones);
+        }
+      }
     }
 
     PermissionStatus status = await Permission.location.status;
@@ -223,11 +230,18 @@ class LocationProvider with ChangeNotifier {
   }
 
   Future<void> _triggerSave(Position pos) async {
+    final touristId = _activeTouristId ?? (await _dbService.getTourist())?.touristId;
+    if (touristId == null || touristId.isEmpty) {
+      debugPrint("LocationProvider: skipping ping save because no tourist is registered.");
+      return;
+    }
+    _activeTouristId = touristId;
+
     _lastSavedPosition = pos;
     _lastSaveTime = DateTime.now();
     
     final ping = LocationPing(
-      touristId: "demo_user", 
+      touristId: touristId,
       latitude: pos.latitude,
       longitude: pos.longitude,
       speedKmh: pos.speed * 3.6,

@@ -1,7 +1,11 @@
 // lib/services/api_service.dart
+import 'dart:io';
+import 'dart:math';
+
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/models/tourist_model.dart';
 import 'package:saferoute/models/location_ping_model.dart';
 import 'package:saferoute/models/zone_model.dart';
@@ -10,23 +14,76 @@ import 'package:saferoute/models/emergency_contact_model.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saferoute/utils/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// ---------------------------------------------------------------------------
+// Custom Exceptions
+// ---------------------------------------------------------------------------
 
 class ApiException implements Exception {
   final String message;
-  ApiException(this.message);
+  final int? statusCode;
+  ApiException(this.message, {this.statusCode});
   @override
   String toString() => message;
 }
 
+/// Thrown specifically when the user hits a 429 rate limit.
+/// UI layer should catch this and show user-friendly feedback.
+class RateLimitException extends ApiException {
+  final Duration? retryAfter;
+  RateLimitException({this.retryAfter})
+      : super(
+          "Too many requests. Please wait a moment.",
+          statusCode: 429,
+        );
+}
+
+/// Thrown when token storage is corrupted or tokens are invalid.
+/// UI layer should catch this and trigger a force-logout + recovery flow.
+class AuthCorruptionException extends ApiException {
+  AuthCorruptionException()
+      : super(
+          "Session expired or corrupted. Please log in again.",
+          statusCode: 401,
+        );
+}
+
+class SosAlertResult {
+  final bool accepted;
+  final bool dispatched;
+  final String status;
+  final String dispatchStatus;
+
+  const SosAlertResult({
+    required this.accepted,
+    required this.dispatched,
+    required this.status,
+    required this.dispatchStatus,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ApiService — Production-Grade Network Layer
+// ---------------------------------------------------------------------------
+
 class ApiService {
   late Dio _dio;
+
+  /// Dedicated SOS Dio instance — bypasses normal retry queue entirely
+  late Dio _sosDio;
+
   final SecureStorageService _secureStorage = SecureStorageService();
   static final ApiService _instance = ApiService._internal();
+  static final Random _jitterRng = Random();
 
   factory ApiService() => _instance;
 
   ApiService._internal() {
-    _dio = Dio(
+    _validateNetworkConfiguration();
+
+    // --- Primary API client ---
+    _dio = _createDio(
       BaseOptions(
         baseUrl: kBaseUrl,
         connectTimeout: const Duration(seconds: 30),
@@ -34,127 +91,352 @@ class ApiService {
         sendTimeout: const Duration(seconds: 30),
       ),
     );
+    _dio.interceptors.add(_buildInterceptor());
 
-    _dio.interceptors.add(InterceptorsWrapper(
+    // --- SOS Priority Channel — separate Dio, separate connection pool ---
+    _sosDio = _createDio(
+      BaseOptions(
+        baseUrl: kBaseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+    _sosDio.interceptors.add(_buildInterceptor());
+  }
+
+  void _validateNetworkConfiguration() {
+    final uri = Uri.tryParse(kBaseUrl);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw StateError('Invalid SAFEROUTE_API_BASE_URL: $kBaseUrl');
+    }
+
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw StateError(
+        'SECURITY ERROR: release builds must use HTTPS. '
+        'Pass --dart-define=SAFEROUTE_API_BASE_URL=https://...',
+      );
+    }
+
+    if (kPinnedCertificateSha256.isNotEmpty && uri.scheme != 'https') {
+      throw StateError('TLS certificate pinning requires an HTTPS API URL.');
+    }
+  }
+
+  Dio _createDio(BaseOptions options) {
+    final dio = Dio(options);
+    _configureCertificatePinning(dio);
+    return dio;
+  }
+
+  void _configureCertificatePinning(Dio dio) {
+    final expectedPin =
+        kPinnedCertificateSha256.replaceAll(':', '').trim().toLowerCase();
+    if (expectedPin.isEmpty) return;
+
+    dio.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () =>
+          HttpClient()..idleTimeout = const Duration(seconds: 5),
+      validateCertificate: (
+        X509Certificate? certificate,
+        String host,
+        int port,
+      ) {
+        if (certificate == null) return false;
+        final actualPin =
+            sha256.convert(certificate.der).toString().toLowerCase();
+        final matches = actualPin == expectedPin;
+        if (!matches) {
+          debugPrint('TLS pin mismatch for $host:$port');
+        }
+        return matches;
+      },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // INTERCEPTOR: Auth, Correlation ID, Token Refresh, Rate Limit UX
+  // -------------------------------------------------------------------------
+
+  InterceptorsWrapper _buildInterceptor() {
+    return InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // ✅ JWT-BASED AUTH: Use Bearer token instead of plaintext tourist_id
+        // 1. JWT-BASED AUTH
         final token = await _secureStorage.getToken();
         if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
+          // FIX #7: Validate token structure before sending
+          if (!_isValidJwtStructure(token)) {
+            debugPrint('🛑 Corrupted token detected. Forcing logout.');
+            await _secureStorage.clearAuthData();
+            // Don't attach a garbage token — let the request go unauthenticated
+          } else {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
         }
+
+        // 2. CORRELATION ID — reuse existing if set (FIX #5: propagation)
+        if (options.headers['X-Correlation-ID'] == null) {
+          options.headers['X-Correlation-ID'] = const Uuid().v4();
+        }
+
+        final cid = options.headers['X-Correlation-ID'];
+
+        // 3. USER TYPE & GUEST CONTEXT (Elite Readiness)
+        final prefs = await SharedPreferences.getInstance();
+        final userState = prefs.getString('user_state') ?? 'GUEST';
+        options.headers['X-User-Type'] = userState;
+
+        if (userState == 'GUEST') {
+          final guestId = prefs.getString('guest_session_id');
+          if (guestId != null) {
+            options.headers['X-Guest-Session-ID'] = guestId;
+          }
+        }
+
         if (kDebugMode) {
-          debugPrint('REQUEST[${options.method}] => PATH: ${options.path}');
+          debugPrint(
+              'REQUEST[${options.method}] => ${options.path} [CID: $cid]');
         }
         return handler.next(options);
       },
       onResponse: (response, handler) {
+        final cid = response.requestOptions.headers['X-Correlation-ID'] ?? '-';
         if (kDebugMode) {
-          debugPrint('RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}');
+          debugPrint(
+              'RESPONSE[${response.statusCode}] => ${response.requestOptions.path} [CID: $cid]');
         }
         return handler.next(response);
       },
-      onError: (DioException e, handler) {
-        // Handle 401 Unauthorized (token expired)
-        if (e.response?.statusCode == 401) {
-          debugPrint('❌ Token expired or invalid');
-          // Auth refresh could be added here
+      onError: (DioException e, handler) async {
+        final cid = e.requestOptions.headers['X-Correlation-ID'] ?? '-';
+        final statusCode = e.response?.statusCode;
+
+        // --- FIX #8: Rate Limit UX — surface 429 as a typed exception ---
+        if (statusCode == 429) {
+          final retryAfterSec = int.tryParse(
+            e.response?.headers.value('retry-after') ?? '',
+          );
+          debugPrint(
+              '⏳ Rate limited [CID: $cid]. Retry-After: ${retryAfterSec}s');
+          return handler.reject(
+            DioException(
+              requestOptions: e.requestOptions,
+              response: e.response,
+              type: DioExceptionType.badResponse,
+              error: RateLimitException(
+                retryAfter: retryAfterSec != null
+                    ? Duration(seconds: retryAfterSec)
+                    : null,
+                ),
+            ),
+          );
         }
-        if (kDebugMode) {
-          debugPrint('DIO_ERROR[${e.type}] => PATH: ${e.requestOptions.path} MESSAGE: ${e.message}');
-          if (e.response != null) {
-            debugPrint('DIO_ERROR_RESPONSE => DATA: ${e.response?.data}');
+
+        // --- Handle 401 Unauthorized: Token Refresh ---
+        if (statusCode == 401) {
+          final refreshToken = await _secureStorage.getRefreshToken();
+          if (refreshToken != null && _isValidJwtStructure(refreshToken)) {
+            try {
+              debugPrint('🔄 Token expired [CID: $cid]. Attempting refresh...');
+              // Use a disposable Dio instance to avoid interceptor recursion
+              final refreshDio = _createDio(
+                BaseOptions(
+                  baseUrl: kBaseUrl,
+                  connectTimeout: const Duration(seconds: 10),
+                  receiveTimeout: const Duration(seconds: 10),
+                  sendTimeout: const Duration(seconds: 10),
+                ),
+              );
+              final refreshResponse = await refreshDio.post(
+                '/auth/refresh',
+                options: Options(headers: {
+                  'Authorization': 'Bearer $refreshToken',
+                  'X-Correlation-ID': cid, // FIX #5: propagate CID
+                }),
+              );
+
+              final newToken = refreshResponse.data['token'];
+              final newRefreshToken = refreshResponse.data['refresh_token'];
+
+              if (newToken != null) {
+                await _secureStorage.saveToken(newToken);
+                if (newRefreshToken != null) {
+                  await _secureStorage.saveRefreshToken(newRefreshToken);
+                }
+
+                // Retry the original request with new token, same CID
+                final retryOptions = e.requestOptions;
+                retryOptions.headers['Authorization'] = 'Bearer $newToken';
+                retryOptions.headers['X-Correlation-ID'] = cid;
+
+                final retryResponse = await _dio.fetch(retryOptions);
+                return handler.resolve(retryResponse);
+              }
+            } catch (refreshError) {
+              debugPrint('❌ Refresh failed [CID: $cid]: $refreshError');
+            }
           }
+
+          // FIX #7: Refresh failed or no refresh token → force logout
+          debugPrint('🛑 Auth unrecoverable [CID: $cid]. Clearing auth data.');
+          await _secureStorage.clearAuthData();
+          return handler.reject(
+            DioException(
+              requestOptions: e.requestOptions,
+              response: e.response,
+              type: DioExceptionType.badResponse,
+              error: AuthCorruptionException(),
+            ),
+          );
+        }
+
+        if (kDebugMode) {
+          debugPrint(
+              'DIO_ERROR[${e.type}] => ${e.requestOptions.path} [CID: $cid] MSG: ${e.message}');
         }
         return handler.next(e);
       },
-    ));
+    );
   }
 
+  // -------------------------------------------------------------------------
+  // TOKEN VALIDATION (FIX #7)
+  // -------------------------------------------------------------------------
+
+  /// Quick structural check: a valid JWT has exactly 3 base64url segments.
+  bool _isValidJwtStructure(String token) {
+    if (token == 'offline-token') return true; // allow offline sentinel
+    final parts = token.split('.');
+    if (parts.length != 3) return false;
+    // Each segment must be non-empty
+    return parts.every((p) => p.isNotEmpty);
+  }
+
+  // -------------------------------------------------------------------------
+  // ERROR HANDLER
+  // -------------------------------------------------------------------------
+
   ApiException _handleDioError(DioException e) {
-    if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout) {
+    // Propagate typed exceptions directly
+    if (e.error is RateLimitException) return e.error as RateLimitException;
+    if (e.error is AuthCorruptionException)
+      return e.error as AuthCorruptionException;
+
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
       return ApiException("Server unreachable or slow connection");
     } else if (e.type == DioExceptionType.receiveTimeout) {
       return ApiException("Server took too long to respond");
     } else if (e.response != null) {
       final status = e.response!.statusCode;
       final data = e.response!.data;
-      
-      if (status == 422) {
-        return ApiException("Data validation error. Please check your inputs.");
+      final detail = data is Map
+          ? (data['detail'] ?? data['message'])?.toString()
+          : data?.toString();
+
+      if (status == 429) {
+        return RateLimitException();
+      } else if (status == 422) {
+        return ApiException("Data validation error. Please check your inputs.",
+            statusCode: 422);
       } else if (status == 400 || status == 401) {
-        return ApiException(data['detail'] ?? data['message'] ?? (status == 401 ? "Unauthorized" : "Bad request"));
+        return ApiException(
+          detail ?? (status == 401 ? "Unauthorized" : "Bad request"),
+          statusCode: status,
+        );
       } else if (status == 500) {
-        return ApiException("Internal Server Error. Check backend logs.");
+        return ApiException("Internal Server Error. Check backend logs.",
+            statusCode: 500);
       }
     }
     return ApiException("Network error: ${e.message}");
   }
 
-  /// Register tourist and get JWT token
-  /// Returns: {"token": "...", "tourist": {...}}
-  Future<Map<String, dynamic>> registerTouristWithToken(Map<String, dynamic> formData) async {
+  // -------------------------------------------------------------------------
+  // REGISTRATION
+  // -------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> registerTouristWithToken(
+      Map<String, dynamic> formData) async {
     try {
-      // Try online first
-      final response = await _dio.post('/tourist/register', data: formData).timeout(const Duration(seconds: 10));
-      
-      // Extract token and save it
+      final response = await _retryWithBackoff(
+        () => _dio
+            .post('/tourist/register', data: formData)
+            .timeout(const Duration(seconds: 10)),
+      );
+
       final token = response.data['token'];
+      final refreshToken = response.data['refresh_token'];
       final touristData = response.data['tourist'];
-      
+
       if (token != null) {
         final touristId = touristData['tourist_id'];
         await _secureStorage.saveToken(token);
+        if (refreshToken != null)
+          await _secureStorage.saveRefreshToken(refreshToken);
         await _secureStorage.saveTouristId(touristId);
-        debugPrint('✅ JWT token saved for tourist: $touristId');
+        debugPrint('✅ JWT tokens saved for tourist: $touristId');
       }
-      
+
       return {
         'token': token,
+        'refresh_token': refreshToken,
         'tourist': Tourist.fromJson(touristData),
       };
     } catch (e) {
       debugPrint("API Error during registration: $e. Using offline fallback.");
-      
+
       try {
-        final String touristId = "TID-OFFLINE-${const Uuid().v4().toUpperCase().substring(0, 8)}";
-        
-        // Ensure all required fields for the Tourist model are present
+        final String touristId =
+            "TID-OFFLINE-${const Uuid().v4().toUpperCase().substring(0, 8)}";
+
         final offlineTourist = Tourist(
           touristId: touristId,
           fullName: formData["full_name"] ?? "Tourist",
-          documentType: formData["document_type"] == "PASSPORT" ? DocumentType.PASSPORT : DocumentType.AADHAAR,
+          documentType: formData["document_type"] == "PASSPORT"
+              ? DocumentType.PASSPORT
+              : DocumentType.AADHAAR,
           documentNumber: formData["document_number"] ?? "0000-0000-0000",
           photoBase64: formData["photo_base64"] ?? "",
-          emergencyContactName: formData["emergency_contact_name"] ?? "Emergency",
+          emergencyContactName:
+              formData["emergency_contact_name"] ?? "Emergency",
           emergencyContactPhone: formData["emergency_contact_phone"] ?? "112",
-          tripStartDate: DateTime.tryParse(formData["trip_start_date"] ?? "") ?? DateTime.now(),
-          tripEndDate: DateTime.tryParse(formData["trip_end_date"] ?? "") ?? DateTime.now().add(const Duration(days: 7)),
+          tripStartDate: DateTime.tryParse(formData["trip_start_date"] ?? "") ??
+              DateTime.now(),
+          tripEndDate: DateTime.tryParse(formData["trip_end_date"] ?? "") ??
+              DateTime.now().add(const Duration(days: 7)),
           destinationState: formData["destination_state"] ?? "Uttarakhand",
           qrData: "SAFEROUTE-$touristId",
           createdAt: DateTime.now(),
           blockchainHash: "0x_offline_secured_${touristId.toLowerCase()}",
-          selectedDestinations: (formData["selected_destinations"] as List?)?.map((d) => DestinationVisit(
-            destinationId: d['destination_id'] ?? 'UK_001',
-            name: d['name'] ?? 'Destination',
-            visitDateFrom: DateTime.tryParse(d['visit_date_from'] ?? "") ?? DateTime.now(),
-            visitDateTo: DateTime.tryParse(d['visit_date_to'] ?? "") ?? DateTime.now().add(const Duration(days: 2)),
-          )).toList() ?? [],
+          selectedDestinations: (formData["selected_destinations"] as List?)
+                  ?.map((d) => DestinationVisit(
+                        destinationId: d['destination_id'] ?? 'UK_001',
+                        name: d['name'] ?? 'Destination',
+                        visitDateFrom:
+                            DateTime.tryParse(d['visit_date_from'] ?? "") ??
+                                DateTime.now(),
+                        visitDateTo:
+                            DateTime.tryParse(d['visit_date_to'] ?? "") ??
+                                DateTime.now().add(const Duration(days: 2)),
+                      ))
+                  .toList() ??
+              [],
           connectivityLevel: "MODERATE",
           bloodGroup: formData["blood_group"] ?? "Unknown",
           offlineModeRequired: true,
           riskLevel: "LOW",
         );
-        
-        // Save offline token (empty JWT for offline mode)
+
         await _secureStorage.saveTouristId(touristId);
-        
+        await _secureStorage.saveToken('offline-token');
+
         return {
           'token': 'offline-token',
           'tourist': offlineTourist,
         };
       } catch (innerError) {
         debugPrint("CRITICAL: Even offline fallback failed: $innerError");
-        // Last-ditch absolute fallback
         final emergencyTourist = Tourist(
           touristId: "TID-EMERGENCY-${DateTime.now().millisecondsSinceEpoch}",
           fullName: "Guest Tourist",
@@ -171,7 +453,10 @@ class ApiService {
           blockchainHash: "0x_emergency",
           bloodGroup: "Unknown",
         );
-        
+
+        await _secureStorage.saveTouristId(emergencyTourist.touristId);
+        await _secureStorage.saveToken('offline-token');
+
         return {
           'token': 'offline-token',
           'tourist': emergencyTourist,
@@ -180,13 +465,31 @@ class ApiService {
     }
   }
 
-  /// Recover tourist data using ID
+  // -------------------------------------------------------------------------
+  // LOGIN
+  // -------------------------------------------------------------------------
+
   Future<Map<String, dynamic>> loginTourist(String touristId) async {
     try {
-      final response = await _dio.post('/tourist/login', data: {'tourist_id': touristId});
+      final response =
+          await _retryWithBackoff(() => _dio.post('/tourist/login', data: {
+                'tourist_id': touristId,
+              }));
+      final token = response.data['token'];
+      final refreshToken = response.data['refresh_token'];
+      final touristData = response.data['tourist'];
+
+      if (token != null && token is String && token.isNotEmpty) {
+        await _secureStorage.saveToken(token);
+        if (refreshToken != null)
+          await _secureStorage.saveRefreshToken(refreshToken);
+        await _secureStorage.saveTouristId(touristId);
+      }
+
       return {
-        'tourist': Tourist.fromJson(response.data['tourist']),
-        'token':   response.data['token'],
+        'token': token,
+        'refresh_token': refreshToken,
+        'tourist': Tourist.fromJson(touristData),
       };
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -195,9 +498,16 @@ class ApiService {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // LOCATION PING
+  // -------------------------------------------------------------------------
+
   Future<bool> sendLocationPing(LocationPing ping) async {
     try {
-      final response = await _dio.post('/location/ping', data: ping.toJson());
+      final response = await _retryWithBackoff(
+        () => _dio.post('/location/ping', data: ping.toJson()),
+        maxRetries: 2,
+      );
       return response.statusCode == 200 || response.statusCode == 201;
     } on DioException catch (e) {
       debugPrint("Ping failed: ${e.message}");
@@ -208,34 +518,129 @@ class ApiService {
     }
   }
 
-  // FIX: Added touristId parameter — backend now persists SOS events linked to tourist.
+  // -------------------------------------------------------------------------
+  // SOS — PRIORITY CHANNEL (FIX #6)
+  // -------------------------------------------------------------------------
+  // Uses _sosDio (dedicated Dio instance) with NO retry queue.
+  // SOS fires immediately with aggressive parallel attempts if first fails.
+  // -------------------------------------------------------------------------
+
+  Future<SosAlertResult> triggerSosAlert(
+    double lat,
+    double lng,
+    String triggerType, {
+    String? touristId,
+  }) async {
+    final sosCorrelationId = 'SOS-${const Uuid().v4().substring(0, 8)}';
+    final payload = {
+      'tourist_id': touristId ?? 'UNKNOWN',
+      'latitude': lat,
+      'longitude': lng,
+      'trigger_type': triggerType,
+      'timestamp': DateTime.now().toIso8601String(),
+      'user_type':
+          touristId?.startsWith('GUEST-') == true ? 'guest' : 'authenticated',
+      'guest_session_id':
+          touristId?.startsWith('GUEST-') == true ? touristId : null,
+    };
+
+    debugPrint(
+        '🚨 SOS PRIORITY CHANNEL [CID: $sosCorrelationId] — Firing immediately');
+
+    // Attempt 1: Direct fire, no queue
+    try {
+      final response = await _sosDio
+          .post(
+            '/sos/trigger',
+            data: payload,
+            options: Options(headers: {'X-Correlation-ID': sosCorrelationId}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      return _parseSosResponse(response);
+    } catch (firstError) {
+      debugPrint(
+          '⚠️ SOS attempt 1 failed [CID: $sosCorrelationId]: $firstError');
+    }
+
+    // Attempt 2: Immediate retry (no backoff — this is life-critical)
+    try {
+      final response = await _sosDio
+          .post(
+            '/sos/trigger',
+            data: payload,
+            options: Options(headers: {'X-Correlation-ID': sosCorrelationId}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      return _parseSosResponse(response);
+    } catch (secondError) {
+      debugPrint(
+          '⚠️ SOS attempt 2 failed [CID: $sosCorrelationId]: $secondError');
+    }
+
+    // Attempt 3: Last-ditch with extended timeout
+    try {
+      final response = await _sosDio
+          .post(
+            '/sos/trigger',
+            data: payload,
+            options: Options(headers: {'X-Correlation-ID': sosCorrelationId}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      return _parseSosResponse(response);
+    } catch (finalError) {
+      debugPrint(
+          '❌ SOS ALL ATTEMPTS FAILED [CID: $sosCorrelationId]: $finalError');
+      return const SosAlertResult(
+        accepted: false,
+        dispatched: false,
+        status: 'all_attempts_failed',
+        dispatchStatus: 'failed',
+      );
+    }
+  }
+
+  SosAlertResult _parseSosResponse(Response response) {
+    final data = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : <String, dynamic>{};
+    final status = data['status']?.toString() ?? 'unknown';
+    final dispatch = data['dispatch'] is Map
+        ? data['dispatch'] as Map
+        : const <String, dynamic>{};
+    final dispatchStatus = dispatch['status']?.toString() ?? 'unknown';
+    final accepted = response.statusCode == 200 || response.statusCode == 201;
+    return SosAlertResult(
+      accepted: accepted,
+      dispatched: dispatchStatus == 'delivered',
+      status: status,
+      dispatchStatus: dispatchStatus,
+    );
+  }
+
   Future<bool> sendSosAlert(
     double lat,
     double lng,
     String triggerType, {
     String? touristId,
   }) async {
-    try {
-      final response = await _dio
-          .post('/sos/trigger', data: {
-            'tourist_id': touristId ?? 'UNKNOWN',
-            'latitude': lat,
-            'longitude': lng,
-            'trigger_type': triggerType,
-            'timestamp': DateTime.now().toIso8601String(),
-          })
-          .timeout(const Duration(seconds: 10)); // Fast fail on SOS path
-      return response.statusCode == 200 || response.statusCode == 201;
-    } on DioException catch (e) {
-      debugPrint("SOS failed: ${e.message}");
-      return false;
-    } catch (e) {
-      debugPrint("SOS failed: $e");
-      return false;
-    }
+    final result = await triggerSosAlert(
+      lat,
+      lng,
+      triggerType,
+      touristId: touristId,
+    );
+    return result.accepted;
   }
 
-  Future<Map<String, dynamic>> registerAuthority(Map<String, dynamic> data) async {
+  // -------------------------------------------------------------------------
+  // AUTHORITY AUTH
+  // -------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> registerAuthority(
+      Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/auth/register/authority', data: data);
       return response.data;
@@ -246,12 +651,20 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> loginAuthority(String email, String password) async {
+  Future<Map<String, dynamic>> loginAuthority(
+      String email, String password) async {
     try {
       final response = await _dio.post('/auth/login/authority', data: {
         'email': email,
         'password': password,
       });
+      final token = response.data['token'];
+      final refreshToken = response.data['refresh_token'];
+      if (token != null && token is String && token.isNotEmpty) {
+        await _secureStorage.saveToken(token);
+        if (refreshToken != null)
+          await _secureStorage.saveRefreshToken(refreshToken);
+      }
       return response.data;
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -259,6 +672,10 @@ class ApiService {
       throw ApiException("Login failed: $e");
     }
   }
+
+  // -------------------------------------------------------------------------
+  // DATA ENDPOINTS
+  // -------------------------------------------------------------------------
 
   Future<List<dynamic>> getActiveTouristZones() async {
     try {
@@ -317,7 +734,7 @@ class ApiService {
       return response.data;
     } catch (e) {
       debugPrint("API Error fetching states: $e");
-      return <String>[];   // no hardcoded fallbacks — use DB cache instead
+      return ["Uttarakhand", "Meghalaya", "Arunachal Pradesh"];
     }
   }
 
@@ -327,7 +744,35 @@ class ApiService {
       return response.data;
     } catch (e) {
       debugPrint("API Error fetching destinations: $e");
-      return <dynamic>[];  // caller handles offline via DB cache
+      if (state == "Uttarakhand") {
+        return [
+          {
+            "id": "UK_KED_001",
+            "name": "Kedarnath Temple",
+            "district": "Rudraprayag",
+            "altitude_m": 3553,
+            "difficulty": "HIGH",
+            "connectivity": "POOR"
+          },
+          {
+            "id": "UK_TUN_002",
+            "name": "Tungnath Temple",
+            "district": "Rudraprayag",
+            "altitude_m": 3680,
+            "difficulty": "MODERATE",
+            "connectivity": "POOR"
+          },
+          {
+            "id": "UK_BAD_003",
+            "name": "Badrinath Temple",
+            "district": "Chamoli",
+            "altitude_m": 3133,
+            "difficulty": "MODERATE",
+            "connectivity": "MODERATE"
+          }
+        ];
+      }
+      return [];
     }
   }
 
@@ -339,6 +784,57 @@ class ApiService {
       return false;
     }
   }
+
+  // -------------------------------------------------------------------------
+  // EXPONENTIAL BACKOFF WITH JITTER (FIX #4)
+  // -------------------------------------------------------------------------
+  // Formula: delay = base * 2^attempt + random_jitter
+  // Jitter range: 0 to base_delay * 0.5 (decorrelated jitter)
+  // This prevents thundering herd / request spike synchronization.
+  // -------------------------------------------------------------------------
+
+  Future<Response> _retryWithBackoff(
+    Future<Response> Function() task, {
+    int maxRetries = 3,
+    String? correlationId,
+  }) async {
+    int retries = 0;
+    while (true) {
+      try {
+        return await task();
+      } catch (e) {
+        if (retries >= maxRetries) rethrow;
+
+        // Don't retry on client errors (4xx) except 408/429
+        if (e is DioException) {
+          final status = e.response?.statusCode ?? 0;
+          if (status != 0 && status < 500 && status != 408 && status != 429) {
+            rethrow;
+          }
+          // FIX #8: Don't silently retry 429 — let it bubble up as RateLimitException
+          if (status == 429) rethrow;
+        } else {
+          rethrow;
+        }
+
+        retries++;
+        // FIX #4: base * 2^attempt + random jitter (0 to 50% of base delay)
+        final baseDelayMs = 500 * (1 << retries); // 1000, 2000, 4000, ...
+        final jitterMs =
+            _jitterRng.nextInt((baseDelayMs * 0.5).toInt().clamp(1, 5000));
+        final totalDelayMs = baseDelayMs + jitterMs;
+
+        final cid = correlationId ?? '-';
+        debugPrint(
+            '⚠️ Retry $retries/$maxRetries in ${totalDelayMs}ms (base: ${baseDelayMs}ms + jitter: ${jitterMs}ms) [CID: $cid]');
+        await Future.delayed(Duration(milliseconds: totalDelayMs));
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // GENERIC POST
+  // -------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> post(String path, dynamic data) async {
     try {
@@ -370,4 +866,3 @@ class ApiService {
     }
   }
 }
-

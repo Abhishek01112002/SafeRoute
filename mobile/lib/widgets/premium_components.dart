@@ -29,7 +29,7 @@ class PremiumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -38,7 +38,8 @@ class PremiumCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: backgroundColor ?? theme.colorScheme.surface,
-            borderRadius: borderRadius ?? BorderRadius.circular(AppSpacing.radiusL),
+            borderRadius:
+                borderRadius ?? BorderRadius.circular(AppSpacing.radiusL),
             boxShadow: [
               BoxShadow(
                 color: theme.brightness == Brightness.dark
@@ -141,19 +142,20 @@ class _PremiumButtonState extends State<PremiumButton>
           child: ElevatedButton(
             onPressed: widget.onPressed,
             style: (widget.style ??
-                ElevatedButton.styleFrom(
-                  backgroundColor:
-                      widget.backgroundColor ?? Colors.transparent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusL),
-                  ),
-                )).copyWith(
+                    ElevatedButton.styleFrom(
+                      backgroundColor:
+                          widget.backgroundColor ?? Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusL),
+                      ),
+                    ))
+                .copyWith(
               foregroundColor: MaterialStateProperty.resolveWith<Color?>(
                 (Set<MaterialState> states) {
                   if (widget.isLoading) return Colors.white.withOpacity(0.6);
-                  if (states.contains(MaterialState.disabled)) return Colors.white.withOpacity(0.5);
+                  if (states.contains(MaterialState.disabled))
+                    return Colors.white.withOpacity(0.5);
                   return null;
                 },
               ),
@@ -164,8 +166,7 @@ class _PremiumButtonState extends State<PremiumButton>
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
                 : Row(
@@ -263,7 +264,6 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _getColor();
-    final theme = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -337,7 +337,8 @@ class LoadingState extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.outline.withOpacity(0.05),
-            borderRadius: borderRadius ?? BorderRadius.circular(AppSpacing.radiusS),
+            borderRadius:
+                borderRadius ?? BorderRadius.circular(AppSpacing.radiusS),
           ),
         ),
       ),
@@ -579,8 +580,8 @@ class _PulseMarkerState extends State<PulseMarker>
           scale: Tween<double>(begin: 1, end: 2)
               .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut)),
           child: Opacity(
-            opacity: Tween<double>(begin: 0.8, end: 0)
-                .evaluate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut)),
+            opacity: Tween<double>(begin: 0.8, end: 0).evaluate(
+                CurvedAnimation(parent: _ctrl, curve: Curves.easeOut)),
             child: Container(
               width: widget.size,
               height: widget.size,

@@ -23,7 +23,7 @@ class MeshService {
   final Map<String, MeshNode> _nodesMap = {};
   bool _isServiceRunning = false;
   String? _myUserId;
-  
+
   String? get myUserId => _myUserId;
 
   // Queue Structures
@@ -47,9 +47,16 @@ class MeshService {
     final advPerm = await Permission.bluetoothAdvertise.request();
     final locPerm = await Permission.location.request();
 
-    if (scanPerm.isPermanentlyDenied || advPerm.isPermanentlyDenied || scanPerm.isDenied) {
+    if (scanPerm.isPermanentlyDenied ||
+        connPerm.isPermanentlyDenied ||
+        advPerm.isPermanentlyDenied ||
+        locPerm.isPermanentlyDenied ||
+        scanPerm.isDenied ||
+        connPerm.isDenied ||
+        advPerm.isDenied ||
+        locPerm.isDenied) {
       debugPrint("Mesh: Fatal. Missing BLE permissions.");
-      return; 
+      return;
     }
 
     _isServiceRunning = true;
@@ -71,7 +78,8 @@ class MeshService {
         return;
       }
 
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15), continuousUpdates: true);
+      await FlutterBluePlus.startScan(
+          timeout: const Duration(seconds: 15), continuousUpdates: true);
     } catch (e) {
       debugPrint("Mesh: Start scan failed (permissions?): $e");
     }
@@ -86,7 +94,7 @@ class MeshService {
 
     while (_isServiceRunning) {
       MeshPacket? packet;
-      
+
       // Interrupt execution logic based on strict priority
       if (_emergencyQueue.isNotEmpty) {
         packet = _emergencyQueue.removeAt(0);
@@ -98,7 +106,8 @@ class MeshService {
 
       if (packet != null) {
         await _executeBroadcast(packet);
-        await Future.delayed(const Duration(milliseconds: 100)); // Advertising duty cycle
+        await Future.delayed(
+            const Duration(milliseconds: 100)); // Advertising duty cycle
       } else {
         await Future.delayed(const Duration(milliseconds: 50)); // Idle wait
       }
@@ -108,11 +117,13 @@ class MeshService {
 
   bool _hasPacketInAnyQueue(String id) {
     return _emergencyQueue.any((p) => p.packetId == id) ||
-           _highQueue.any((p) => p.packetId == id) ||
-           _normalQueue.any((p) => p.packetId == id);
+        _highQueue.any((p) => p.packetId == id) ||
+        _normalQueue.any((p) => p.packetId == id);
   }
 
   void _enqueuePacket(MeshPacket packet) {
+    if (_hasPacketInAnyQueue(packet.packetId)) return;
+
     if (packet.type == MeshPacketType.SOS_ALERT) {
       _emergencyQueue.add(packet);
     } else if (packet.priority > 0) {
@@ -123,7 +134,8 @@ class MeshService {
   }
 
   Future<void> _executeBroadcast(MeshPacket packet) async {
-    debugPrint("Mesh: Broadcasting packet \${packet.packetId} (Priority \${packet.priority})");
+    debugPrint(
+        "Mesh: Broadcasting packet ${packet.packetId} (Priority ${packet.priority})");
     try {
       final AdvertiseData advertiseData = AdvertiseData(
         serviceUuid: _meshServiceUuid,
@@ -131,7 +143,7 @@ class MeshService {
         manufacturerData: packet.toCBEPBytes(),
         includeDeviceName: false, // Save payload bytes
       );
-      
+
       await FlutterBlePeripheral().stop();
       await FlutterBlePeripheral().start(advertiseData: advertiseData);
     } catch (e) {
@@ -149,22 +161,23 @@ class MeshService {
 
   void _handleDiscoveredNode(ScanResult result) {
     final nodeId = result.device.remoteId.str;
-    final name = result.advertisementData.advName.isNotEmpty 
-        ? result.advertisementData.advName 
+    final name = result.advertisementData.advName.isNotEmpty
+        ? result.advertisementData.advName
         : "Unknown Node";
 
     _nodesMap[nodeId] = MeshNode.fromScan(nodeId, name, result.rssi);
     _nearbyNodesController.add(_nodesMap.values.toList());
 
     if (result.advertisementData.manufacturerData.isNotEmpty) {
-      _processIncomingCBEPData(result.advertisementData.manufacturerData.values.first, result.rssi);
+      _processIncomingCBEPData(
+          result.advertisementData.manufacturerData.values.first, result.rssi);
     }
   }
 
   Future<void> _processIncomingCBEPData(List<int> data, int rssi) async {
     try {
       final packet = MeshPacket.fromCBEPBytes(Uint8List.fromList(data));
-      
+
       // Strict State Dedup
       if (await _dbService.hasPacket(packet.packetId)) return;
       await _dbService.saveMeshPacket(packet);
@@ -175,7 +188,7 @@ class MeshService {
       // Probabilistic Flooding Algorithm
       if (packet.hopCount > 0) {
         int delayMs = 0;
-        
+
         // If signal is strong, others might relay it. Add Jitter.
         if (rssi > -65) {
           delayMs = 50 + Random().nextInt(150); // Jitter 50ms to 200ms
@@ -183,25 +196,24 @@ class MeshService {
         }
 
         // If duplicate detected in background during Jitter delay, cancel.
-        if (await _dbService.hasPacket(packet.packetId + "_relayed")) return; 
-        
+        if (await _dbService.hasPacket(packet.packetId + "_relayed")) return;
+
         // Mark as locally processed relay to avoid re-queueing self
-        await _dbService.saveMeshPacket(packet.copyWith(packetId: packet.packetId + "_relayed"));
+        await _dbService.saveMeshPacket(
+            packet.copyWith(packetId: packet.packetId + "_relayed"));
 
         // TraceRoute Injection
         final myShortId = (_myUserId?.hashCode ?? 0) & 0xFFFF;
         List<int> newPath = List.from(packet.relayPathShortIds);
         if (newPath.length < 5) newPath.add(myShortId);
 
-        final relayedPacket = packet.copyWith(
-          hopCount: packet.hopCount - 1, 
-          newPath: newPath
-        );
-        
+        final relayedPacket =
+            packet.copyWith(hopCount: packet.hopCount - 1, newPath: newPath);
+
         _enqueuePacket(relayedPacket);
       }
     } catch (e) {
-       // Silently drop non-CBEP noise.
+      // Silently drop non-CBEP noise.
     }
   }
 

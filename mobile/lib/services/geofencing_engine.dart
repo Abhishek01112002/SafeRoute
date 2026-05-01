@@ -1,6 +1,6 @@
 // lib/services/geofencing_engine.dart
 // Dynamic geofencing — zones are always synced from the backend and cached in
-// local SQLite. No coordinates are ever hardcoded here.
+// local SQLite. No coordinates are ever hardcoded here in the final version.
 //
 // Zone priority (highest wins): RESTRICTED > CAUTION > SAFE > UNKNOWN
 
@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/models/location_ping_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
 
@@ -18,6 +19,11 @@ class GeofencingEngine {
 
   bool get isLoaded => _isLoaded;
   String? get loadedDestinationId => _loadedDestinationId;
+
+  GeofencingEngine() {
+    // Optionally load static defaults for beta testing
+    // _loadStaticDefaults();
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -67,14 +73,14 @@ class GeofencingEngine {
     if (!_isLoaded || _zones.isEmpty) return ZoneType.unknown;
 
     // Priority: RESTRICTED(3) > CAUTION(2) > SAFE(1)
-    const priority = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
+    const priorityMap = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
     ZoneType result = ZoneType.unknown;
     int best = 0;
 
     for (final zone in _zones) {
       if (!zone.isActive) continue;
       if (_pointInZone(point, zone)) {
-        final p = priority[zone.type] ?? 0;
+        final p = priorityMap[zone.type] ?? 0;
         if (p > best) {
           best = p;
           result = zone.type;
@@ -85,16 +91,19 @@ class GeofencingEngine {
     return result;
   }
 
+  /// Alias for compatibility with older code
+  ZoneType getZone(LatLng point) => getZoneType(point);
+
   /// Return the matching ZoneModel (for UI detail — name, type).
   ZoneModel? getZoneModel(LatLng point) {
     if (!_isLoaded || _zones.isEmpty) return null;
-    const priority = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
+    const priorityMap = {ZoneType.restricted: 3, ZoneType.caution: 2, ZoneType.safe: 1};
     ZoneModel? best;
     int bestP = -1;
     for (final zone in _zones) {
       if (!zone.isActive) continue;
       if (_pointInZone(point, zone)) {
-        final p = priority[zone.type] ?? 0;
+        final p = priorityMap[zone.type] ?? 0;
         if (p > bestP) { bestP = p; best = zone; }
       }
     }
@@ -107,6 +116,23 @@ class GeofencingEngine {
     _loadedDestinationId = destinationId;
     _isLoaded = true;
     debugPrint('🛰️ GeofencingEngine: ${zones.length} zones injected for $destinationId');
+  }
+
+  /// Compatibility method for legacy dynamic zones injection
+  void setDynamicZones(List<Map<String, dynamic>> legacyZones) {
+    _zones = legacyZones.map((z) => ZoneModel.fromMap({
+      'id': z['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'destination_id': 'legacy',
+      'name': z['name'] ?? 'Legacy Zone',
+      'type': z['type']?.toString().toUpperCase() ?? 'SAFE',
+      'shape': z['points'] != null ? 'POLYGON' : 'CIRCLE',
+      'center_lat': z['lat'] ?? z['center']?['lat'],
+      'center_lng': z['lng'] ?? z['center']?['lng'],
+      'radius_m': z['radius']?.toDouble() ?? 500.0,
+      'polygon_json': z['points'] != null ? jsonEncode(z['points']) : '[]',
+      'is_active': 1,
+    })).toList();
+    _isLoaded = true;
   }
 
   // ── Internal geometry ──────────────────────────────────────────────────────
@@ -158,3 +184,5 @@ class GeofencingEngine {
 
   double _rad(double deg) => deg * math.pi / 180;
 }
+
+import 'dart:convert';

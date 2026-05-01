@@ -1,11 +1,10 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
-import 'package:saferoute/models/tourist_model.dart';
 
 class AuthProvider with ChangeNotifier {
   final SecureStorageService _secureStorage = SecureStorageService();
-  
+
   String? _token;
   String? _touristId;
   bool _isLoggedIn = false;
@@ -23,15 +22,15 @@ class AuthProvider with ChangeNotifier {
   Future<void> initializeAuth() async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       final token = await _secureStorage.getToken();
       final touristId = await _secureStorage.getTouristId();
-      
+
       if (token != null && touristId != null) {
         _token = token;
         _touristId = touristId;
-        
+
         // Check if token is expired
         final isExpired = await _secureStorage.isTokenExpired();
         if (!isExpired) {
@@ -59,14 +58,14 @@ class AuthProvider with ChangeNotifier {
     try {
       _token = token;
       _touristId = touristId;
-      
+
       // Save to secure storage
       await _secureStorage.saveToken(token);
       await _secureStorage.saveTouristId(touristId);
-      
+
       _isLoggedIn = true;
       _errorMessage = null;
-      
+
       debugPrint('✅ User logged in: $touristId');
       notifyListeners();
     } catch (e) {
@@ -84,7 +83,7 @@ class AuthProvider with ChangeNotifier {
       _touristId = null;
       _isLoggedIn = false;
       _errorMessage = null;
-      
+
       debugPrint('✅ User logged out');
       notifyListeners();
     } catch (e) {

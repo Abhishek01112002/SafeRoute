@@ -3,6 +3,7 @@
 // Syncs: location pings, SOS events, zones (per destination), trail graphs.
 
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
@@ -12,10 +13,12 @@ class SyncService {
   factory SyncService() => _instance;
   SyncService._internal();
 
-  final ApiService      _api = ApiService();
-  final DatabaseService _db  = DatabaseService();
+  final ApiService _api = ApiService();
+  final DatabaseService _db = DatabaseService();
 
   bool _isSyncing = false;
+  static const int maxRetries = 3;
+  static const Duration baseBackoff = Duration(seconds: 2);
 
   // ── Full sync — call on login and on connectivity restore ─────────────────
 
@@ -28,57 +31,130 @@ class SyncService {
     debugPrint('🔄 SyncService: Starting full sync...');
 
     try {
-      await Future.wait([
-        _syncOfflinePings(),
-        _syncOfflineSos(touristId),
-        _syncZones(destinationIds),
-        _syncTrailGraphs(destinationIds),
-      ]);
+      // Run critical syncs first
+      await _syncLocationPings();
+      await _syncSosEvents(touristId);
+      
+      // Then background downloads
+      await _syncZones(destinationIds);
+      await _syncTrailGraphs(destinationIds);
+      
     } catch (e) {
       debugPrint('❌ SyncService error: $e');
     } finally {
       _isSyncing = false;
-      debugPrint('✅ SyncService: Sync complete.');
+      debugPrint('✅ SyncService: Full sync cycle complete.');
     }
   }
 
-  // ── Upload queued location pings ──────────────────────────────────────────
+  // ── Lightweight offline-data-only sync (no zone/graph download) ───────────
+  // Use this on periodic background ticks when full sync isn't needed.
 
-  Future<void> _syncOfflinePings() async {
-    final pings = await _db.getUnsyncedPings();
-    if (pings.isEmpty) return;
-    debugPrint('🔄 Uploading ${pings.length} queued pings...');
-    int count = 0;
-    for (final ping in pings) {
-      final ok = await _api.sendLocationPing(ping);
-      if (ok && ping.id != null) {
-        await _db.markPingSynced(ping.id!);
-        count++;
-      }
+  Future<void> syncOfflineData({String? touristId}) async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    debugPrint("🔄 SyncService: Starting offline data synchronization...");
+    
+    try {
+      await _syncLocationPings();
+      await _syncSosEvents(touristId);
+      debugPrint("✅ SyncService: Offline sync cycle completed successfully.");
+    } catch (e) {
+      debugPrint("❌ SyncService Error: $e");
+    } finally {
+      _isSyncing = false;
     }
-    debugPrint('✅ Pings synced: $count/${pings.length}');
   }
 
-  // ── Upload queued SOS events ──────────────────────────────────────────────
+  // ── Upload queued location pings with exponential backoff ──────────────────
 
-  Future<void> _syncOfflineSos(String touristId) async {
-    final events = await _db.getUnsyncedSosEvents();
-    if (events.isEmpty) return;
-    debugPrint('🔄 Uploading ${events.length} queued SOS events...');
-    int count = 0;
-    for (final sos in events) {
-      final ok = await _api.sendSosAlert(
-        sos['latitude'] as double,
-        sos['longitude'] as double,
-        sos['triggerType'] as String,
-        touristId: touristId,
-      );
-      if (ok && sos['id'] != null) {
-        await _db.markSosSynced(sos['id'] as int);
-        count++;
+  Future<void> _syncLocationPings() async {
+    final unsyncedPings = await _db.getUnsyncedPings();
+    if (unsyncedPings.isEmpty) return;
+
+    debugPrint("🔄 Syncing ${unsyncedPings.length} location pings...");
+    int syncedCount = 0;
+    int failedCount = 0;
+
+    for (var ping in unsyncedPings) {
+      bool success = false;
+      
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          success = await _api.sendLocationPing(ping);
+          if (success && ping.id != null) {
+            await _db.markPingSynced(ping.id!);
+            syncedCount++;
+            break;
+          }
+        } on RateLimitException catch (e) {
+          debugPrint("⏳ Rate limited on ping sync (attempt ${attempt + 1}). Retry-After: ${e.retryAfter}");
+          if (attempt < maxRetries - 1) {
+            await Future.delayed(_calculateBackoff(attempt));
+          }
+        } catch (e) {
+          debugPrint("❌ Error syncing ping (attempt ${attempt + 1}): $e");
+          if (attempt < maxRetries - 1) {
+            await Future.delayed(_calculateBackoff(attempt));
+          }
+        }
       }
+      
+      if (!success) failedCount++;
     }
-    debugPrint('✅ SOS events synced: $count/${events.length}');
+
+    debugPrint("✅ Location Pings: $syncedCount/${unsyncedPings.length} synced ($failedCount pending).");
+  }
+
+  // ── Upload queued SOS events (PRIORITY) ──────────────────────────────────
+
+  Future<void> _syncSosEvents(String? touristId) async {
+    final unsyncedSos = await _db.getUnsyncedSosEvents();
+    if (unsyncedSos.isEmpty) return;
+
+    debugPrint("🔄 Syncing ${unsyncedSos.length} SOS events (PRIORITY)...");
+    int syncedCount = 0;
+    int failedCount = 0;
+
+    for (var sos in unsyncedSos) {
+      bool success = false;
+      
+      // SOS events get more aggressive retry - max 5 attempts
+      for (int attempt = 0; attempt < 5; attempt++) {
+        try {
+          success = await _api.sendSosAlert(
+            sos['latitude'], 
+            sos['longitude'], 
+            sos['triggerType'],
+            touristId: touristId ?? sos['touristId'],
+          );
+          
+          if (success && sos['id'] != null) {
+            await _db.markSosSynced(sos['id']);
+            syncedCount++;
+            debugPrint("✅ SOS Event ${sos['id']} synced successfully!");
+            break;
+          }
+        } on RateLimitException catch (e) {
+          debugPrint("⏳ Rate limited on SOS sync (attempt ${attempt + 1}). Retry-After: ${e.retryAfter}");
+          if (attempt < 4) {
+            await Future.delayed(_calculateBackoff(attempt));
+          }
+        } on AuthCorruptionException catch (e) {
+          debugPrint("🛑 Auth failed on SOS sync: $e. Aborting sync.");
+          return; 
+        } catch (e) {
+          debugPrint("⚠️ Error syncing SOS (attempt ${attempt + 1}): $e");
+          if (attempt < 4) {
+            await Future.delayed(_calculateBackoff(attempt));
+          }
+        }
+      }
+      
+      if (!success) failedCount++;
+    }
+
+    debugPrint("✅ SOS Events: $syncedCount/${unsyncedSos.length} synced ($failedCount pending).");
   }
 
   // ── Download & cache zones for all tourist destinations ───────────────────
@@ -103,7 +179,7 @@ class SyncService {
     for (final destId in destinationIds) {
       try {
         final graph = await _api.getTrailGraph(destId);
-        if (graph != null && !graph.isEmpty) {
+        if (graph != null) {
           await _db.saveTrailGraph(graph);
           debugPrint('🧭 Trail graph synced for $destId: ${graph.nodes.length} nodes');
         }
@@ -113,21 +189,12 @@ class SyncService {
     }
   }
 
-  // ── Lightweight offline-data-only sync (no zone/graph download) ───────────
-  // Use this on periodic background ticks when full sync isn't needed.
-
-  Future<void> syncOfflineData({required String touristId}) async {
-    if (_isSyncing) return;
-    _isSyncing = true;
-    try {
-      await Future.wait([
-        _syncOfflinePings(),
-        _syncOfflineSos(touristId),
-      ]);
-    } catch (e) {
-      debugPrint('❌ SyncService offline error: $e');
-    } finally {
-      _isSyncing = false;
-    }
+  /// Calculate exponential backoff with jitter
+  Duration _calculateBackoff(int attemptNumber) {
+    final exponentialSeconds = baseBackoff.inSeconds * pow(2, attemptNumber);
+    final jitterFactor = 0.8 + (Random().nextDouble() * 0.4); 
+    final totalSeconds = (exponentialSeconds * jitterFactor).toInt();
+    final capped = min(totalSeconds, 30); 
+    return Duration(seconds: capped);
   }
 }

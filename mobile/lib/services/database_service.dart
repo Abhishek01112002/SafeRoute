@@ -142,10 +142,14 @@ class DatabaseService {
   }
 
   Future<void> _createIndexes(Database db) async {
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ping_sync ON location_pings(isSynced, timestamp)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ping_tourist ON location_pings(touristId, timestamp)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_sos_sync ON sos_events(isSynced)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_mesh_timestamp ON mesh_packets(timestamp)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_ping_sync ON location_pings(isSynced, timestamp)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_ping_tourist ON location_pings(touristId, timestamp)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sos_sync ON sos_events(isSynced)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_mesh_timestamp ON mesh_packets(timestamp)');
   }
 
   Future<void> _createMapTileTable(Database db) async {
@@ -191,7 +195,13 @@ class DatabaseService {
     if (oldVersion < 3) await _createMapTileTable(db);
     if (oldVersion < 4) await _createIndexes(db);
     if (oldVersion < 5) await _createGeofenceTable(db);
-    if (oldVersion < 6) await db.execute('ALTER TABLE tourists ADD COLUMN bloodGroup TEXT');
+    if (oldVersion < 6) {
+      try {
+        await db.execute('ALTER TABLE tourists ADD COLUMN bloodGroup TEXT');
+      } catch (_) {
+        // Column already exists on some upgraded beta builds.
+      }
+    }
     if (oldVersion < 7) await _createZonesTable(db);
     if (oldVersion < 8) await _createTrailGraphsTable(db);
   }
@@ -218,6 +228,32 @@ class DatabaseService {
     return rows.map((r) => ZoneModel.fromMap(r)).toList();
   }
 
+  // ── Legacy Zone Methods ──────────────────────────────────────────────────
+
+  Future<void> saveGeofenceZones(String state, List<dynamic> zones) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('geofence_zones', where: 'state = ?', whereArgs: [state]);
+      for (var zone in zones) {
+        await txn.insert('geofence_zones', {
+          'id': zone['id'] ?? zone['destination_id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          'name': zone['name'],
+          'type': zone['type'] ?? 'SAFE',
+          'lat': zone['lat'] ?? (zone['center'] != null ? zone['center']['lat'] : 0.0),
+          'lng': zone['lng'] ?? (zone['center'] != null ? zone['center']['lng'] : 0.0),
+          'radius': zone['radius'] ?? 500.0,
+          'points': zone['points'] != null ? zone['points'].toString() : null,
+          'state': state,
+        });
+      }
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getGeofenceZones(String state) async {
+    final db = await database;
+    return await db.query('geofence_zones', where: 'state = ?', whereArgs: [state]);
+  }
+
   // ── Trail Graph Methods ────────────────────────────────────────────────────
 
   Future<void> saveTrailGraph(TrailGraph graph) async {
@@ -240,24 +276,28 @@ class DatabaseService {
   // Mesh Packet Methods
   Future<void> saveMeshPacket(dynamic packet) async {
     final db = await database;
-    await db.insert('mesh_packets', packet.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('mesh_packets', packet.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<bool> hasPacket(String packetId) async {
     final db = await database;
-    final maps = await db.query('mesh_packets', where: 'packetId = ?', whereArgs: [packetId]);
+    final maps = await db
+        .query('mesh_packets', where: 'packetId = ?', whereArgs: [packetId]);
     return maps.isNotEmpty;
   }
 
   // Tourists Table Methods
   Future<void> saveTourist(Tourist t) async {
     final db = await database;
-    await db.insert('tourists', t.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('tourists', t.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<Tourist?> getTourist() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('tourists', limit: 1);
+    final List<Map<String, dynamic>> maps =
+        await db.query('tourists', limit: 1);
     if (maps.isEmpty) return null;
     return Tourist.fromMap(maps.first);
   }
@@ -270,7 +310,8 @@ class DatabaseService {
   // Location Pings Table Methods
   Future<void> savePing(LocationPing ping) async {
     final db = await database;
-    await db.insert('location_pings', ping.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('location_pings', ping.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<LocationPing>> getUnsyncedPings() async {
@@ -279,6 +320,8 @@ class DatabaseService {
       'location_pings',
       where: 'isSynced = ?',
       whereArgs: [0],
+      orderBy: 'timestamp ASC',
+      limit: 500,
     );
     return List.generate(maps.length, (i) => LocationPing.fromMap(maps[i]));
   }
@@ -295,7 +338,8 @@ class DatabaseService {
 
   Future<void> deleteOldSyncedPings() async {
     final db = await database;
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+    final sevenDaysAgo =
+        DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
     await db.delete(
       'location_pings',
       where: 'isSynced = ? AND timestamp < ?',
@@ -357,7 +401,8 @@ class DatabaseService {
 
   Future<int> getUnsyncedSosCount() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT COUNT(*) as count FROM sos_events WHERE isSynced = 0');
+    final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM sos_events WHERE isSynced = 0');
     return Sqflite.firstIntValue(result) ?? 0;
   }
 

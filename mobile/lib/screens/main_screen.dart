@@ -17,6 +17,8 @@ import 'package:saferoute/mesh/screens/mesh_status_screen.dart';
 import 'package:saferoute/screens/sos_screen_v2.dart';
 import 'package:saferoute/screens/navigation_screen_v2.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
+import 'package:saferoute/models/tourist_model.dart';
+import 'package:saferoute/mesh/providers/mesh_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -27,12 +29,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
-
   // Entry animation controller
   late AnimationController _entryCtrl;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _scaleAnim;
-  late Animation<Offset> _slideAnim;
 
   final List<Widget> _screens = [
     const HomeScreenV2(),
@@ -45,13 +43,20 @@ class _MainScreenState extends State<MainScreen>
 
   String _getAppBarTitle(int index) {
     switch (index) {
-      case 0: return "DASHBOARD";
-      case 1: return "SAFETY ID";
-      case 2: return "GROUP NETWORK";
-      case 3: return "MESH STATUS";
-      case 4: return "EMERGENCY SOS";
-      case 5: return "LIVE NAVIGATION";
-      default: return "SAFEROUTE";
+      case 0:
+        return "DASHBOARD";
+      case 1:
+        return "SAFETY ID";
+      case 2:
+        return "GROUP NETWORK";
+      case 3:
+        return "MESH STATUS";
+      case 4:
+        return "EMERGENCY SOS";
+      case 5:
+        return "LIVE NAVIGATION";
+      default:
+        return "SAFEROUTE";
     }
   }
 
@@ -65,21 +70,41 @@ class _MainScreenState extends State<MainScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.0, 0.7, curve: Curves.easeOut)),
-    );
-    _scaleAnim = Tween<double>(begin: 0.96, end: 1.0).animate(
-      CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic),
-    );
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(
-      CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic),
-    );
-
     _entryCtrl.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LocationProvider>().startTracking();
+      _startSafetyServices();
     });
+  }
+
+  Future<void> _startSafetyServices() async {
+    final touristProv = context.read<TouristProvider>();
+    final locationProvider = context.read<LocationProvider>();
+    final meshProvider = context.read<MeshProvider>();
+
+    if (touristProv.userState == UserState.GUEST &&
+        touristProv.guestSessionId == null) {
+      await touristProv.setGuestMode();
+    }
+
+    if (!mounted) return;
+
+    final isGuest = touristProv.userState == UserState.GUEST;
+    final userId =
+        isGuest ? touristProv.guestSessionId : touristProv.tourist?.touristId;
+
+    if (userId == null || userId.isEmpty) {
+      debugPrint(
+          'MainScreen: skipping safety services until identity is ready.');
+      return;
+    }
+
+    await locationProvider.startTracking();
+    if (!mounted) return;
+
+    meshProvider.setGuestMode(isGuest);
+    await meshProvider.init(userId);
+    await meshProvider.startMesh();
   }
 
   @override
@@ -93,12 +118,17 @@ class _MainScreenState extends State<MainScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout Safety Protocol?'),
-        content: const Text('Your local safety data will be securely wiped. This action is irreversible.'),
+        content: const Text(
+            'Your local safety data will be securely wiped. This action is irreversible.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), 
-            child: const Text('LOGOUT', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('LOGOUT',
+                style: TextStyle(
+                    color: AppColors.danger, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -108,7 +138,7 @@ class _MainScreenState extends State<MainScreen>
       if (!mounted) return;
       await context.read<TouristProvider>().logout();
       if (!mounted) return;
-      
+
       // Navigate to Onboarding and clear stack
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => OnboardingScreen()),
@@ -152,15 +182,17 @@ class _MainScreenState extends State<MainScreen>
                   actions: [
                     _LiveStatusChip(isTracking: isTracking, isOnline: isOnline),
                     IconButton(
-                      icon: Icon(Icons.logout_rounded, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                      icon: Icon(Icons.logout_rounded,
+                          size: 20,
+                          color: theme.colorScheme.onSurface.withOpacity(0.4)),
                       onPressed: () => _handleLogout(context),
                       tooltip: 'Logout',
                     ),
                     const SizedBox(width: AppSpacing.s),
                   ],
                   elevation: 0,
-                  backgroundColor: theme.brightness == Brightness.dark 
-                      ? Colors.black.withOpacity(0.6) 
+                  backgroundColor: theme.brightness == Brightness.dark
+                      ? Colors.black.withOpacity(0.6)
                       : Colors.white.withOpacity(0.6),
                 ),
               ),
@@ -180,13 +212,14 @@ class _MainScreenState extends State<MainScreen>
                 begin: const Offset(0.0, 0.05),
                 end: Offset.zero,
               ).animate(animation);
-              
+
               return FadeTransition(
                 opacity: animation,
                 child: SlideTransition(
                   position: slideAnimation,
                   child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.98, end: 1.0).animate(animation),
+                    scale:
+                        Tween<double>(begin: 0.98, end: 1.0).animate(animation),
                     child: child,
                   ),
                 ),
@@ -227,7 +260,8 @@ class MissionDock extends StatelessWidget {
   final int currentIndex;
   final Function(int) onChanged;
 
-  const MissionDock({super.key, required this.currentIndex, required this.onChanged});
+  const MissionDock(
+      {super.key, required this.currentIndex, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -299,14 +333,16 @@ class _SpringDockItem extends StatefulWidget {
   State<_SpringDockItem> createState() => _SpringDockItemState();
 }
 
-class _SpringDockItemState extends State<_SpringDockItem> with SingleTickerProviderStateMixin {
+class _SpringDockItemState extends State<_SpringDockItem>
+    with SingleTickerProviderStateMixin {
   late AnimationController _anim;
   late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _anim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
     _scale = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _anim, curve: Curves.elasticOut),
     );
@@ -330,9 +366,8 @@ class _SpringDockItemState extends State<_SpringDockItem> with SingleTickerProvi
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = widget.isSelected 
-        ? (widget.color ?? AppColors.primaryHighContrast) 
+    final color = widget.isSelected
+        ? (widget.color ?? AppColors.primaryHighContrast)
         : Colors.white38;
 
     return GestureDetector(
@@ -358,7 +393,9 @@ class _SpringDockItemState extends State<_SpringDockItem> with SingleTickerProvi
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)],
+                  boxShadow: [
+                    BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)
+                  ],
                 ),
               ),
           ],
@@ -404,8 +441,8 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = widget.isTracking ? AppColors.zoneGreen : AppColors.zoneYellow;
+    final color =
+        widget.isTracking ? AppColors.zoneGreen : AppColors.zoneYellow;
     final label = widget.isTracking
         ? (widget.isOnline ? "TRACKING" : "OFFLINE")
         : "STARTING...";
@@ -428,7 +465,9 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
               decoration: BoxDecoration(
                 color: color.withOpacity(_pulseAnim.value),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)],
+                boxShadow: [
+                  BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)
+                ],
               ),
             ),
             const SizedBox(width: 4),

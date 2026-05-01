@@ -11,8 +11,8 @@ import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/providers/tourist_provider.dart';
 import 'package:saferoute/mesh/providers/mesh_provider.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
-import 'dart:ui';
-import 'dart:math' as math;
+import 'package:saferoute/models/tourist_model.dart';
+import 'package:saferoute/services/analytics_service.dart';
 
 class SOSScreenV2 extends StatefulWidget {
   const SOSScreenV2({super.key});
@@ -29,9 +29,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   late Animation<double> _vignetteAnim;
 
   bool _isActivated = false;
+  bool _isTriggering = false;
   int _holdDuration = 0;
   final int _requiredHoldTime = 3000;
   bool _isHolding = false;
+  String _sosDeliveryMessage = 'TRANSMITTING EMERGENCY SIGNAL';
 
   @override
   void initState() {
@@ -42,14 +44,14 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     )..repeat();
 
     _vignetteCtrl = AnimationController(
-       vsync: this,
-       duration: const Duration(milliseconds: 3000),
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
     );
 
     _pulseAnim = Tween<double>(begin: 0.8, end: 1.8).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut),
     );
-    
+
     _vignetteAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _vignetteCtrl, curve: Curves.easeInOut),
     );
@@ -65,20 +67,18 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           // 1. Red Tinted Aurora Background
-          Positioned.fill(
+          const Positioned.fill(
             child: Opacity(
               opacity: 0.3,
-              child: const AuroraBackground(),
+              child: AuroraBackground(),
             ),
           ),
-          
+
           // 2. Animated Blood-Pulse Vignette
           AnimatedBuilder(
             animation: _vignetteAnim,
@@ -88,7 +88,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
                   gradient: RadialGradient(
                     colors: [
                       Colors.transparent,
-                      AppColors.danger.withOpacity(0.4 * _vignetteAnim.value),
+                      AppColors.danger
+                          .withValues(alpha: 0.4 * _vignetteAnim.value),
                     ],
                     stops: const [0.4, 1.0],
                   ),
@@ -106,7 +107,9 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   }
 
   Widget _buildIdle(ThemeData theme) {
-    final tourist = context.watch<TouristProvider>().tourist;
+    final touristProvider = context.watch<TouristProvider>();
+    final tourist = touristProvider.tourist;
+    final isGuest = touristProvider.userState == UserState.GUEST;
 
     return Center(
       child: Column(
@@ -119,7 +122,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.danger),
+                Icon(Icons.warning_amber_rounded,
+                    size: 16, color: AppColors.danger),
                 SizedBox(width: 8),
                 Text(
                   'EMERGENCY COMMS ACTIVE',
@@ -133,6 +137,20 @@ class _SOSScreenV2State extends State<SOSScreenV2>
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          if (isGuest)
+            EliteSurface(
+              color: AppColors.warning.withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: const Text(
+                "GUEST MODE: SENDING EMERGENCY SIGNAL WITH LIMITED IDENTITY",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 9),
+              ),
+            ),
           const SizedBox(height: 40),
           Stack(
             alignment: Alignment.center,
@@ -145,7 +163,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.danger.withOpacity(0.2),
+                      color: AppColors.danger.withValues(alpha: 0.2),
                       width: 4,
                     ),
                   ),
@@ -180,7 +198,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.sos_rounded, size: 60, color: Colors.white),
+                        const Icon(Icons.sos_rounded,
+                            size: 60, color: Colors.white),
                         if (_holdDuration > 0)
                           Padding(
                             padding: const EdgeInsets.only(top: 12.0),
@@ -210,9 +229,9 @@ class _SOSScreenV2State extends State<SOSScreenV2>
               color: AppColors.danger,
             ),
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Quick Call Options (Issue #5 Fix)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -256,7 +275,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     return EliteSurface(
       onTap: onTap,
       padding: const EdgeInsets.all(16),
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderColor: color,
       borderOpacity: 0.3,
       child: Column(
@@ -283,7 +302,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
+          const Stack(
             alignment: Alignment.center,
             children: [
               PulseMarker(color: AppColors.success, size: 40),
@@ -292,7 +311,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
                 height: 140,
                 borderRadius: 70,
                 color: AppColors.success,
-                child: const Icon(
+                child: Icon(
                   Icons.wifi_tethering_rounded,
                   size: 60,
                   color: Colors.white,
@@ -311,10 +330,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
           ),
           const SizedBox(height: 12),
           Text(
-            'RESCUE TEAMS HAVE BEEN NOTIFIED',
+            _sosDeliveryMessage,
             style: theme.textTheme.labelMedium?.copyWith(
               color: Colors.white70,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 60),
           EliteSurface(
@@ -324,7 +344,10 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             child: const Center(
               child: Text(
                 'CANCEL ALERT',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1),
               ),
             ),
           ),
@@ -337,11 +360,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted && _isHolding) {
         setState(() => _holdDuration += 100);
-        
+
         if (_holdDuration % 300 == 0) {
           HapticFeedback.mediumImpact();
         }
-        
+
         if (_holdDuration < _requiredHoldTime) {
           _simulateHold();
         } else {
@@ -354,15 +377,30 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   Future<void> _triggerSOS() async {
     final locProv = context.read<LocationProvider>();
     final touristProv = context.read<TouristProvider>();
+    final meshProv = context.read<MeshProvider>();
+    final isGuest = touristProv.userState == UserState.GUEST;
     final tourist = touristProv.tourist;
-    
-    if (tourist == null) return;
 
-    setState(() => _isActivated = true);
+    if (!isGuest && tourist == null) return;
+    if (_isTriggering) return;
+
+    final effectiveUserId =
+        isGuest ? touristProv.guestSessionId! : tourist!.touristId;
+
+    AnalyticsService().logEvent(AnalyticsEvent.sosTriggered, properties: {
+      'user_state': touristProv.userState.name,
+      'is_online': touristProv.isOnline,
+    });
+
+    setState(() {
+      _isTriggering = true;
+      _isActivated = true;
+      _sosDeliveryMessage = 'TRANSMITTING EMERGENCY SIGNAL';
+    });
     HapticFeedback.heavyImpact();
 
     Position? pos = locProv.currentPosition;
-    
+
     if (pos == null || DateTime.now().difference(pos.timestamp).inMinutes > 5) {
       try {
         pos = await Geolocator.getCurrentPosition(
@@ -374,37 +412,77 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       }
     }
 
-    if (pos == null) return;
+    if (pos == null) {
+      if (mounted) {
+        setState(() {
+          _sosDeliveryMessage = 'NO POSITION AVAILABLE. CALL 112 NOW.';
+          _isTriggering = false;
+        });
+      }
+      return;
+    }
 
     final api = ApiService();
     final db = DatabaseService();
 
     try {
       if (touristProv.isOnline) {
-        await api.sendSosAlert(pos.latitude, pos.longitude, "MANUAL", touristId: tourist.touristId);
+        final result = await api.triggerSosAlert(
+          pos.latitude,
+          pos.longitude,
+          "MANUAL",
+          touristId: effectiveUserId,
+        );
+        if (mounted) {
+          setState(() {
+            _sosDeliveryMessage = result.dispatched
+                ? 'DISPATCH PROVIDER CONFIRMED ALERT'
+                : 'ALERT RECORDED. CALL 112 IF YOU CAN.';
+          });
+        }
       } else {
         await db.saveSosEvent(
-          touristId: tourist.touristId, 
-          latitude: pos.latitude, 
-          longitude: pos.longitude, 
-          triggerType: "MANUAL"
-        );
+            touristId: effectiveUserId,
+            latitude: pos.latitude,
+            longitude: pos.longitude,
+            triggerType: "MANUAL");
+        if (mounted) {
+          setState(() {
+            _sosDeliveryMessage =
+                'OFFLINE ALERT SAVED. MESH RELAY WILL TRY NEARBY DEVICES.';
+          });
+        }
       }
     } catch (e) {
       await db.saveSosEvent(
-          touristId: tourist.touristId, 
-          latitude: pos.latitude, 
-          longitude: pos.longitude, 
-          triggerType: "MANUAL"
-      );
+          touristId: effectiveUserId,
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          triggerType: "MANUAL");
+      if (mounted) {
+        setState(() {
+          _sosDeliveryMessage = 'NETWORK FAILED. ALERT SAVED ON DEVICE.';
+        });
+      }
     }
 
     try {
-      final meshProv = context.read<MeshProvider>();
       if (meshProv.isMeshActive) {
         await meshProv.sendSosRelay(pos.latitude, pos.longitude);
+        if (mounted) {
+          setState(() {
+            _sosDeliveryMessage = '$_sosDeliveryMessage MESH RELAY ACTIVE.';
+          });
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTriggering = false;
+        });
+      }
+    }
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {

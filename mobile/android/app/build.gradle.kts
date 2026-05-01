@@ -5,6 +5,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+fun releaseSigningProperty(name: String): String? =
+    (project.findProperty(name) as String?) ?: System.getenv(name)
+
+val releaseStoreFilePath = releaseSigningProperty("SAFEROUTE_UPLOAD_STORE_FILE")
+val releaseStorePassword = releaseSigningProperty("SAFEROUTE_UPLOAD_STORE_PASSWORD")
+val releaseKeyAlias = releaseSigningProperty("SAFEROUTE_UPLOAD_KEY_ALIAS")
+val releaseKeyPassword = releaseSigningProperty("SAFEROUTE_UPLOAD_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.saferoute.app"
     compileSdk = flutter.compileSdkVersion
@@ -29,10 +43,33 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.name.contains("Release") } && !hasReleaseSigning) {
+        throw GradleException(
+            "Release signing is not configured. Set SAFEROUTE_UPLOAD_STORE_FILE, " +
+                "SAFEROUTE_UPLOAD_STORE_PASSWORD, SAFEROUTE_UPLOAD_KEY_ALIAS, and " +
+                "SAFEROUTE_UPLOAD_KEY_PASSWORD."
+        )
     }
 }
 

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:saferoute/services/mesh_service.dart';
 import 'package:saferoute/services/notification_service.dart';
-import 'package:saferoute/widgets/premium_components.dart' hide PulseMarker;
 
 class MeshProvider extends ChangeNotifier {
   final MeshService _meshService = MeshService();
@@ -14,11 +13,11 @@ class MeshProvider extends ChangeNotifier {
 
   Future<void> initMesh() async {
     if (_isMeshActive) return;
-    
+
     await _meshService.startScanning(onSosDetected: (data) {
       _handleDetectedSos(data);
     });
-    
+
     _isMeshActive = true;
     notifyListeners();
   }
@@ -26,17 +25,18 @@ class MeshProvider extends ChangeNotifier {
   void _handleDetectedSos(Map<String, dynamic> data) {
     // Check if we already have this alert (by TID suffix)
     final String tid = data['tourist_id_suffix'];
-    final bool alreadyExists = _meshAlerts.any((a) => a['tourist_id_suffix'] == tid);
-    
+    final bool alreadyExists =
+        _meshAlerts.any((a) => a['tourist_id_suffix'] == tid);
+
     if (!alreadyExists) {
       _meshAlerts.add(data);
-      
+
       // Notify the user via a local notification
       NotificationService.showNotification(
         "📡 MESH ALERT: Distress Signal",
         "Nearby tourist ($tid) is calling for help! Check map.",
       );
-      
+
       notifyListeners();
     }
   }
@@ -47,7 +47,8 @@ class MeshProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> broadcastEmergency(String touristId, double lat, double lng) async {
+  Future<void> broadcastEmergency(
+      String touristId, double lat, double lng) async {
     await _meshService.broadcastSos(touristId: touristId, lat: lat, lng: lng);
   }
 
