@@ -48,9 +48,53 @@ def init_db():
                 tourist_id   TEXT,
                 latitude     REAL,
                 longitude    REAL,
-                trigger_type TEXT,
                 timestamp    TEXT,
                 is_synced    INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS destinations (
+                id             TEXT PRIMARY KEY,
+                state          TEXT,
+                name           TEXT,
+                district       TEXT,
+                altitude_m     INTEGER,
+                center_lat     REAL,
+                center_lng     REAL,
+                category       TEXT,
+                difficulty     TEXT,
+                connectivity   TEXT,
+                best_season    TEXT,
+                warnings_json  TEXT,
+                authority_id   TEXT,
+                is_active      INTEGER DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS emergency_contacts (
+                id             TEXT PRIMARY KEY,
+                destination_id TEXT,
+                tourist_id     TEXT,
+                label          TEXT,
+                phone          TEXT,
+                notes          TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS zones (
+                id             TEXT PRIMARY KEY,
+                destination_id TEXT,
+                authority_id   TEXT,
+                name           TEXT,
+                type           TEXT,
+                shape          TEXT DEFAULT 'CIRCLE',
+                center_lat     REAL,
+                center_lng     REAL,
+                radius_m       REAL,
+                polygon_json   TEXT,
+                is_active      INTEGER DEFAULT 1,
+                created_at     TEXT,
+                updated_at     TEXT
             )
         """)
         conn.commit()

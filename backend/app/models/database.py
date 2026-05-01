@@ -35,6 +35,7 @@ class Tourist(Base):
     destinations: Mapped[List["TouristDestination"]] = relationship(back_populates="tourist", cascade="all, delete-orphan")
     sos_events: Mapped[List["SOSEvent"]] = relationship(back_populates="tourist")
     pings: Mapped[List["LocationPing"]] = relationship(back_populates="tourist")
+    emergency_contacts: Mapped[List["EmergencyContact"]] = relationship(back_populates="tourist")
 
 class TouristDestination(Base):
     __tablename__ = "tourist_destinations"
@@ -92,3 +93,50 @@ class LocationPing(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
     tourist: Mapped["Tourist"] = relationship(back_populates="pings")
+
+class Destination(Base):
+    __tablename__ = "destinations"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    state: Mapped[str] = mapped_column(String(100), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    district: Mapped[str] = mapped_column(String(100))
+    altitude_m: Mapped[Optional[int]] = mapped_column(BigInteger)
+    center_lat: Mapped[float] = mapped_column(Float)
+    center_lng: Mapped[float] = mapped_column(Float)
+    category: Mapped[Optional[str]] = mapped_column(String(100))
+    difficulty: Mapped[Optional[str]] = mapped_column(String(20))
+    connectivity: Mapped[Optional[str]] = mapped_column(String(20))
+    best_season: Mapped[Optional[str]] = mapped_column(String(100))
+    warnings_json: Mapped[Optional[str]] = mapped_column(Text)
+    authority_id: Mapped[str] = mapped_column(String(30), index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+class EmergencyContact(Base):
+    __tablename__ = "emergency_contacts"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    destination_id: Mapped[Optional[str]] = mapped_column(String(50), index=True)
+    tourist_id: Mapped[Optional[str]] = mapped_column(ForeignKey("tourists.tourist_id"), index=True)
+    label: Mapped[str] = mapped_column(String(100))
+    phone: Mapped[str] = mapped_column(String(30))
+    notes: Mapped[Optional[str]] = mapped_column(String(255))
+
+    tourist: Mapped[Optional["Tourist"]] = relationship(back_populates="emergency_contacts")
+
+class Zone(Base):
+    __tablename__ = "zones"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    destination_id: Mapped[str] = mapped_column(String(50), index=True)
+    authority_id: Mapped[str] = mapped_column(String(30), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    type: Mapped[str] = mapped_column(String(20)) # SAFE, CAUTION, RESTRICTED
+    shape: Mapped[str] = mapped_column(String(20), default="CIRCLE")
+    center_lat: Mapped[Optional[float]] = mapped_column(Float)
+    center_lng: Mapped[Optional[float]] = mapped_column(Float)
+    radius_m: Mapped[Optional[float]] = mapped_column(Float)
+    polygon_json: Mapped[Optional[str]] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

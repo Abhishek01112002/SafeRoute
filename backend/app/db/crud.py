@@ -3,7 +3,7 @@ from sqlalchemy import select, update, delete
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.models.database import Tourist, TouristDestination, Authority, SOSEvent, LocationPing
+from app.models.database import Tourist, TouristDestination, Authority, SOSEvent, LocationPing, Destination, Zone
 from app.models import schemas
 from app.db import sqlite_legacy
 from app.config import settings
@@ -57,6 +57,44 @@ def _authority_to_dict(authority: Authority) -> dict:
         "status": authority.status,
         "role": authority.role,
         "created_at": authority.created_at.isoformat() if authority.created_at else datetime.now().isoformat(),
+    }
+
+
+def _destination_to_dict(dest: Destination) -> dict:
+    return {
+        "id": dest.id,
+        "state": dest.state,
+        "name": dest.name,
+        "district": dest.district,
+        "altitude_m": dest.altitude_m,
+        "center_lat": dest.center_lat,
+        "center_lng": dest.center_lng,
+        "category": dest.category,
+        "difficulty": dest.difficulty,
+        "connectivity": dest.connectivity,
+        "best_season": dest.best_season,
+        "warnings_json": dest.warnings_json,
+        "authority_id": dest.authority_id,
+        "is_active": dest.is_active
+    }
+
+
+def _zone_to_dict(zone: Zone) -> dict:
+    import json
+    return {
+        "id": zone.id,
+        "destination_id": zone.destination_id,
+        "authority_id": zone.authority_id,
+        "name": zone.name,
+        "type": zone.type,
+        "shape": zone.shape,
+        "center_lat": zone.center_lat,
+        "center_lng": zone.center_lng,
+        "radius_m": zone.radius_m,
+        "polygon_points": json.loads(zone.polygon_json or "[]"),
+        "is_active": zone.is_active,
+        "created_at": zone.created_at.isoformat() if zone.created_at else None,
+        "updated_at": zone.updated_at.isoformat() if zone.updated_at else None
     }
 
 # ---------------------------------------------------------------------------
@@ -199,6 +237,49 @@ async def get_authority_by_email(db: AsyncSession, email: str) -> Optional[dict]
         if data.get("email") == email:
             return data
     return None
+
+# ---------------------------------------------------------------------------
+# Destination & Zone CRUD
+# ---------------------------------------------------------------------------
+
+async def get_destinations(db: AsyncSession, state: Optional[str] = None) -> List[dict]:
+    query = select(Destination)
+    if state:
+        query = query.where(Destination.state == state)
+    result = await db.execute(query)
+    return [_destination_to_dict(d) for d in result.scalars().all()]
+
+async def create_zone(db: AsyncSession, zone_in: schemas.ZoneCreate, authority_id: str, zone_id: str) -> dict:
+    import json
+    new_zone = Zone(
+        id=zone_id,
+        destination_id=zone_in.destination_id,
+        authority_id=authority_id,
+        name=zone_in.name,
+        type=zone_in.type.upper(),
+        shape=zone_in.shape.upper(),
+        center_lat=zone_in.center_lat,
+        center_lng=zone_in.center_lng,
+        radius_m=zone_in.radius_m,
+        polygon_json=json.dumps([p.dict() for p in zone_in.polygon_points])
+    )
+    db.add(new_zone)
+    await db.flush()
+    return _zone_to_dict(new_zone)
+
+async def get_zones(db: AsyncSession, destination_id: str) -> List[dict]:
+    result = await db.execute(select(Zone).where(Zone.destination_id == destination_id, Zone.is_active == True))
+    return [_zone_to_dict(z) for z in result.scalars().all()]
+
+async def delete_zone(db: AsyncSession, zone_id: str, authority_id: str):
+    result = await db.execute(select(Zone).where(Zone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if zone:
+        if zone.authority_id != authority_id:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Jurisdiction mismatch")
+        zone.is_active = False
+        await db.flush()
 
 # ---------------------------------------------------------------------------
 # SOS & Location Helpers

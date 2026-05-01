@@ -4,7 +4,7 @@
 import sqlite3, json, os
 from typing import Dict
 
-DB_PATH = os.path.join(os.path.dirname(__file__), os.getenv("DATABASE_URL", "data/saferoute.db"))
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "saferoute.db")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)

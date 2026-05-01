@@ -118,3 +118,34 @@ class AuthorityRegister(BaseModel):
 
 class TouristLoginRequest(BaseModel):
     tourist_id: str
+
+class ZonePoint(BaseModel):
+    lat: float
+    lng: float
+
+class ZoneCreate(BaseModel):
+    destination_id: str
+    name:           str
+    type:           str   # SAFE | CAUTION | RESTRICTED
+    shape:          str = "CIRCLE"
+    center_lat:     float | None = None
+    center_lng:     float | None = None
+    radius_m:       float | None = None
+    polygon_points: List[ZonePoint] = []
+
+class DestinationBase(BaseModel):
+    id: str
+    state: str
+    name: str
+    district: str
+    altitude_m: int | None = None
+    center_lat: float
+    center_lng: float
+    category: str | None = None
+    difficulty: str | None = None
+    connectivity: str | None = None
+    best_season: str | None = None
+    warnings_json: str | None = None
+    authority_id: str
+    is_active: bool = True
+

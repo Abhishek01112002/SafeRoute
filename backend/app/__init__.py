@@ -12,7 +12,7 @@ def create_app() -> FastAPI:
     
     from app.core import limiter
     from app.middleware import add_correlation_id, rate_limit_exceeded_handler
-    from app.routes import health, auth, tourist, location, sos, zones, rooms
+    from app.routes import health, auth, tourist, location, sos, zones, rooms, destinations
     
     import asyncio
     from contextlib import asynccontextmanager
@@ -77,5 +77,6 @@ def create_app() -> FastAPI:
     app.include_router(sos.router, prefix="/sos", tags=["SOS"])
     app.include_router(zones.router, prefix="/zones", tags=["Zones"])
     app.include_router(rooms.router, prefix="/rooms", tags=["Group Tour"])
+    app.include_router(destinations.router, prefix="/destinations", tags=["Destinations"])
 
     return app
