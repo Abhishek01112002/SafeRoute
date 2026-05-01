@@ -26,8 +26,20 @@ def init_db():
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS authorities (
-                authority_id TEXT PRIMARY KEY,
-                data         TEXT NOT NULL
+                authority_id   TEXT PRIMARY KEY,
+                full_name      TEXT NOT NULL,
+                designation    TEXT,
+                department     TEXT,
+                badge_id       TEXT UNIQUE,
+                district       TEXT,
+                state          TEXT,
+                phone          TEXT,
+                email          TEXT UNIQUE,
+                password       TEXT NOT NULL,
+                fcm_token      TEXT,
+                status         TEXT DEFAULT 'active',
+                role           TEXT DEFAULT 'authority',
+                created_at     TEXT
             )
         """)
         conn.execute("""
@@ -60,15 +72,23 @@ def save_tourist(tourist_id: str, data: dict):
 
 def load_authorities() -> Dict[str, dict]:
     with get_db() as conn:
-        rows = conn.execute("SELECT authority_id, data FROM authorities").fetchall()
-    return {row["authority_id"]: json.loads(row["data"]) for row in rows}
+        rows = conn.execute("SELECT * FROM authorities").fetchall()
+    return {row["authority_id"]: dict(row) for row in rows}
 
 def save_authority(authority_id: str, data: dict):
     with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO authorities (authority_id, data) VALUES (?, ?)",
-            (authority_id, json.dumps(data)),
-        )
+        conn.execute("""
+            INSERT OR REPLACE INTO authorities
+            (authority_id, full_name, password, status, role, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            authority_id,
+            data.get("full_name", "Unknown"),
+            data.get("password", "unsafe"),
+            data.get("status", "active"),
+            data.get("role", "authority"),
+            data.get("created_at", datetime.datetime.now().isoformat())
+        ))
         conn.commit()
 
 def persist_sos(tourist_id: str, latitude: float, longitude: float, trigger_type: str):
