@@ -1,0 +1,174 @@
+/* dashboard/src/index.css */
+:root {
+  /* Dark Punk Palette */
+  --bg-base: #080808;
+  --bg-surface: #121212;
+  --bg-panel: rgba(20, 20, 20, 0.7);
+  
+  --accent-pink: #ff007f;
+  --accent-pink-dim: rgba(255, 0, 127, 0.2);
+  --accent-cyan: #00e5ff;
+  --accent-cyan-dim: rgba(0, 229, 255, 0.2);
+  --accent-green: #39ff14;
+  --accent-green-dim: rgba(57, 255, 20, 0.2);
+  --accent-alert: #ff2a2a;
+  --accent-alert-dim: rgba(255, 42, 42, 0.2);
+  --accent-caution: #ffb703;
+  --accent-caution-dim: rgba(255, 183, 3, 0.2);
+  
+  --text-main: #f0f0f0;
+  --text-muted: #888888;
+  
+  --border-neon: 1px solid rgba(255, 255, 255, 0.1);
+  --border-pink: 1px solid var(--accent-pink);
+  --border-cyan: 1px solid var(--accent-cyan);
+  
+  --font-heading: 'Orbitron', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: 
+    linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center center;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent-pink);
+}
+
+button {
+  font-family: var(--font-heading);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-cyan-dim);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan-dim);
+}
+
+/* Utility Classes */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: var(--border-neon);
+  border-radius: 8px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.neon-text-cyan {
+  color: var(--accent-cyan);
+  text-shadow: 0 0 8px var(--accent-cyan-dim);
+}
+
+.neon-text-pink {
+  color: var(--accent-pink);
+  text-shadow: 0 0 8px var(--accent-pink-dim);
+}
+
+.glitch-hover {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.glitch-hover:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--accent-pink);
+}
+
+/* Forms */
+input, select, textarea {
+  background: var(--bg-surface);
+  border: 1px solid #333;
+  color: var(--text-main);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan-dim);
+}
+
+.btn-primary {
+  background: transparent;
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--accent-cyan-dim);
+  box-shadow: 0 0 15px var(--accent-cyan-dim);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--accent-alert);
+  border: 1px solid var(--accent-alert);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+  background: var(--accent-alert-dim);
+  box-shadow: 0 0 15px var(--accent-alert-dim);
+}

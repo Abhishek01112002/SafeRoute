@@ -5,7 +5,7 @@
 import os, datetime
 import jwt
 from fastapi import HTTPException, Security
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
 _security = HTTPBearer()
@@ -42,7 +42,7 @@ def decode_token(token: str) -> Optional[dict]:
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Security(_security),
+    credentials: HTTPAuthorizationCredentials = Security(_security),
 ) -> dict:
     """Returns {"sub": id, "role": "tourist"|"authority"}. Raises 401 if invalid."""
     payload = decode_token(credentials.credentials)

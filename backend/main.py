@@ -6,7 +6,8 @@ All business logic lives in routers/. This file is pure orchestration.
 import os, datetime
 from dotenv import load_dotenv
 
-load_dotenv()  # must be before any module that reads env vars
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path)  # must be before any module that reads env vars
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

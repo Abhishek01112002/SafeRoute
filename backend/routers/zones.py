@@ -47,7 +47,22 @@ async def create_zone(body: ZoneCreate, user: dict = Security(require_authority)
              json.dumps([p.dict() for p in body.polygon_points]), now, now)
         )
         conn.commit()
-    return {"id": zone_id, "message": "Zone created"}
+        
+    return {
+        "id": zone_id,
+        "destination_id": body.destination_id,
+        "authority_id": user["sub"],
+        "name": body.name,
+        "type": body.type.upper(),
+        "shape": body.shape.upper(),
+        "center_lat": body.center_lat,
+        "center_lng": body.center_lng,
+        "radius_m": body.radius_m,
+        "polygon_json": json.dumps([p.dict() for p in body.polygon_points]),
+        "is_active": 1,
+        "created_at": now,
+        "updated_at": now
+    }
 
 
 @router.get("")

@@ -1,0 +1,117 @@
+/* dashboard/src/pages/Dashboard.css */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 1rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.page-header .subtitle {
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  letter-spacing: 2px;
+  font-size: 0.85rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  gap: 1.25rem;
+  border-top: 3px solid transparent;
+}
+
+.metric-card:nth-child(1) { border-top-color: var(--accent-cyan); }
+.metric-card:nth-child(2) { border-top-color: var(--accent-green); }
+.metric-card:nth-child(3) { border-top-color: var(--accent-alert); }
+.metric-card:nth-child(4) { border-top-color: var(--accent-cyan); }
+
+.metric-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.metric-icon.cyan { color: var(--accent-cyan); box-shadow: 0 0 15px var(--accent-cyan-dim); }
+.metric-icon.green { color: var(--accent-green); box-shadow: 0 0 15px var(--accent-green-dim); }
+.metric-icon.alert { color: var(--accent-alert); box-shadow: 0 0 15px var(--accent-alert-dim); }
+.metric-icon.muted { color: var(--text-muted); }
+
+.metric-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-value {
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.system-status {
+  margin-top: 2rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  color: var(--accent-green);
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-green);
+}
+
+.status-dot.pulsing {
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(57, 255, 20, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
+}

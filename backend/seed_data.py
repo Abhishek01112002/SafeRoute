@@ -206,6 +206,14 @@ def seed():
     seeded_dest = seeded_zone = seeded_contact = 0
 
     with get_db() as conn:
+        # 0. Ensure the seed authority exists
+        auth_exists = conn.execute("SELECT authority_id FROM authorities WHERE authority_id=?", (SEED_AUTHORITY_ID,)).fetchone()
+        if not auth_exists:
+            conn.execute(
+                """INSERT INTO authorities (authority_id, full_name, password) VALUES (?, ?, ?)""",
+                (SEED_AUTHORITY_ID, "System Seed Authority", "not_a_real_password")
+            )
+
         for d in DESTINATIONS:
             exists = conn.execute(
                 "SELECT id FROM destinations WHERE id=?", (d["id"],)
@@ -252,7 +260,7 @@ def seed():
 
         conn.commit()
 
-    print(f"✅ Seed complete: {seeded_dest} destinations, {seeded_zone} zones, {seeded_contact} contacts")
+    print(f"Seed complete: {seeded_dest} destinations, {seeded_zone} zones, {seeded_contact} contacts")
 
 
 if __name__ == "__main__":
