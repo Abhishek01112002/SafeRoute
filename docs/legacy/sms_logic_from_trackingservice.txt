@@ -1,0 +1,28 @@
+// SMS logic extracted from legacy TrackingService.kt
+// This is preserved for reference if SMS alerting is reimplemented in Dart.
+
+private fun sendImmediateRedundantAlert() {
+    val lat = lastLocation?.lat ?: 0.0
+    val lng = lastLocation?.lng ?: 0.0
+    val message = "EMERGENCY: I need help! My last location: https://www.google.com/maps/search/?api=1&query=$lat,$lng"
+
+    try {
+        val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            this.getSystemService(SmsManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            SmsManager.getDefault()
+        }
+
+        for (contact in EMERGENCY_CONTACTS) {
+            val parts = smsManager.divideMessage(message)
+            smsManager.sendMultipartTextMessage(contact, null, parts, null, null)
+        }
+    } catch (e: Exception) {
+        Log.e("SMS", "SMS Failed: ${e.message}")
+    }
+
+    serviceScope.launch {
+        apiManager.syncSinglePoint(LatLongPoint(lat, lng, System.currentTimeMillis()))
+    }
+}
