@@ -680,7 +680,7 @@ class OfflinePackCard extends StatelessWidget {
                       value: progress,
                       backgroundColor: isDark ? Colors.white10 : Colors.black12,
                       valueColor:
-                          const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          AlwaysStoppedAnimation<Color>(AppColors.primary),
                       minHeight: 2,
                     ),
                   ),

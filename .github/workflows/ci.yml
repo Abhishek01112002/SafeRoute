@@ -1,0 +1,110 @@
+# GitHub Actions CI Pipeline for SafeRoute
+# Runs on every push to main/develop and on every Pull Request.
+# Three parallel jobs: Mobile analysis + tests, Backend tests, Dashboard lint.
+
+name: SafeRoute CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ────────────────────────────────────────────────
+  # JOB 1: Flutter — Analyze + Test
+  # ────────────────────────────────────────────────
+  mobile-ci:
+    name: "📱 Flutter Analyze & Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.0"
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Run flutter analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run Flutter tests
+        run: flutter test --coverage
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        continue-on-error: true   # Don't fail build if coverage upload fails
+        with:
+          files: mobile/coverage/lcov.info
+          flags: mobile
+
+  # ────────────────────────────────────────────────
+  # JOB 2: Backend — Pytest
+  # ────────────────────────────────────────────────
+  backend-ci:
+    name: "🐍 Backend Tests (Pytest)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Pytest
+        env:
+          REDIS_URL: ""                  # Disable Redis for CI
+          JWT_SECRET_KEY: "ci-test-secret-key-not-for-production"
+          DATABASE_URL: "sqlite+aiosqlite:///./ci_test.db"
+          ENVIRONMENT: "test"
+        run: pytest tests/ -v --tb=short --no-header
+
+  # ────────────────────────────────────────────────
+  # JOB 3: Dashboard — Node.js lint
+  # ────────────────────────────────────────────────
+  dashboard-ci:
+    name: "🖥️ Dashboard Lint & Build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        run: npm ci
+
+      - name: Lint dashboard
+        run: npm run lint --if-present
+
+      - name: Build dashboard
+        run: npm run build

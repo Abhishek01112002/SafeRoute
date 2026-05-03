@@ -300,6 +300,15 @@ async def register_tourist_multipart(
             document_number_hash=doc_hash,
             qr_jwt=qr_jwt,
         )
+        # Commit so the row is visible to subsequent reads
+        await db.commit()
+
+        # FIX BUG 3: Reload via _tourist_to_dict so photo_object_key, tuid,
+        # and all fields are guaranteed in the response (legacy_data from
+        # model_dump() may be missing photo_object_key on some code paths).
+        reloaded = await crud.get_tourist(db, tourist_id)
+        if reloaded:
+            tourist_data = reloaded
 
         access_token = create_jwt_token(tourist_id)
         refresh_token = create_jwt_token(tourist_id, is_refresh=True)

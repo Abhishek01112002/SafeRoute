@@ -2,8 +2,9 @@ import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'database_tile_provider.dart';
-import 'database_service.dart';
+import 'package:saferoute/services/database_tile_provider.dart';
+import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 class OfflineRegion {
   final String name;
@@ -36,7 +37,7 @@ class TileDownloaderService {
   TileDownloaderService._internal();
 
   final _dio = Dio();
-  final _db = DatabaseService();
+  final _db = locator<DatabaseService>();
 
   // Region Definitions
   static final Map<String, OfflineRegion> regions = {

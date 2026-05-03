@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:saferoute/mesh/providers/mesh_provider.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/mesh_provider.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 

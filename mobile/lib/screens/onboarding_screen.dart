@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
-import 'package:saferoute/screens/authority_login_screen.dart';
-import 'package:saferoute/screens/authority_registration_screen.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
+import 'package:saferoute/authority/screens/authority_login_screen.dart';
+import 'package:saferoute/authority/screens/authority_registration_screen.dart';
 import 'package:saferoute/screens/developer_sandbox_screen.dart';
 import 'package:saferoute/screens/permission_setup_screen.dart';
-import 'package:saferoute/screens/registration_screen.dart';
+import 'package:saferoute/tourist/screens/registration_screen.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/utils/env.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';

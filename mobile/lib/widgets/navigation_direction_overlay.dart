@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:saferoute/providers/navigation_provider.dart';
+import 'package:saferoute/tourist/providers/navigation_provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 

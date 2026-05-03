@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:saferoute/mesh/models/mesh_packet.dart';
-import 'package:saferoute/mesh/models/mesh_node.dart';
+import 'package:saferoute/tourist/models/mesh/mesh_packet.dart';
+import 'package:saferoute/tourist/models/mesh/mesh_node.dart';
 
 void main() {
   group('MeshPacket Tests', () {

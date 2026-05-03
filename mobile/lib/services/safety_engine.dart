@@ -1,7 +1,7 @@
 // lib/services/safety_engine.dart
 import 'package:flutter/material.dart';
-import 'package:saferoute/models/zone_model.dart';
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/core/models/zone_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
 
 enum SafetyRiskLevel { low, medium, high }
 

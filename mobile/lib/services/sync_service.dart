@@ -8,23 +8,24 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:saferoute/services/sync_engine.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 /// Legacy SyncService - delegates all operations to SyncEngine
 ///
 /// NOTE: This class is deprecated. Use SyncEngine directly for new code.
 /// Example migration:
 ///   // OLD
-///   await SyncService().syncAll(touristId: id, destinationIds: dests);
+///   await locator<SyncService>().syncAll(touristId: id, destinationIds: dests);
 ///
 ///   // NEW
-///   await SyncEngine().fullSync(touristId: id, destinationIds: dests);
+///   await locator<SyncEngine>().fullSync(touristId: id, destinationIds: dests);
 @deprecated
 class SyncService {
   static final SyncService _instance = SyncService._internal();
   factory SyncService() => _instance;
   SyncService._internal();
 
-  final SyncEngine _engine = SyncEngine();
+  final SyncEngine _engine = locator<SyncEngine>();
 
   /// Full sync - delegates to SyncEngine
   Future<void> syncAll({

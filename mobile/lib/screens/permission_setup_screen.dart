@@ -5,8 +5,9 @@ import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/utils/permission_helper.dart';
 import 'package:saferoute/screens/main_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/services/analytics_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 class PermissionSetupScreen extends StatefulWidget {
   const PermissionSetupScreen({super.key});
@@ -23,7 +24,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
     final granted = await PermissionHelper.requestAllPermissions(context);
     setState(() => _isRequesting = false);
 
-    AnalyticsService().logEvent(
+    locator<AnalyticsService>().logEvent(
       granted ? AnalyticsEvent.permissionGranted : AnalyticsEvent.permissionDenied
     );
 
@@ -145,7 +146,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
   }
 
   void _handleLimitedMode() {
-    AnalyticsService().logEvent(AnalyticsEvent.permissionDenied, properties: {'mode': 'manual_skip'});
+    locator<AnalyticsService>().logEvent(AnalyticsEvent.permissionDenied, properties: {'mode': 'manual_skip'});
     _showLimitedModeDialog();
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:saferoute/providers/navigation_provider.dart';
+import 'package:saferoute/tourist/providers/navigation_provider.dart';
 
 void main() {
   group('MainNavigationProvider route progression', () {

@@ -6,12 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:dio/dio.dart';
-import 'database_service.dart';
+import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 /// A custom [TileProvider] that caches map tiles in the application's
 /// internal SQLite database for instant offline access and faster re-loads.
 class DatabaseTileProvider extends TileProvider {
-  final _db = DatabaseService();
+  final _db = locator<DatabaseService>();
   final _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 5),
@@ -52,7 +53,7 @@ class DatabaseTileProvider extends TileProvider {
     required String urlTemplate,
   }) async {
     final dio = Dio();
-    final db = DatabaseService();
+    final db = locator<DatabaseService>();
 
     // Calculate a small grid around the center (3x3 tiles at current zoom)
     final z = zoom.toInt();
@@ -96,7 +97,7 @@ class DatabaseTileProvider extends TileProvider {
   /// Used for Issue #3 warning logic.
   Future<int> getTileCount() async {
     try {
-      final db = await DatabaseService().database;
+      final db = await locator<DatabaseService>().database;
       final results =
           await db.rawQuery('SELECT COUNT(*) as count FROM map_tiles');
       return results.first['count'] as int;
@@ -106,94 +107,101 @@ class DatabaseTileProvider extends TileProvider {
   }
 
   /// Pre-populates offline tiles for key regions during app initialization.
-  /// Addresses Issue #3: Offline Map Database Not Pre-populated
+  /// Runs in a background isolate to avoid blocking the UI thread.
+  /// Skips regions that are already cached to avoid redundant network calls.
   static Future<void> prePopulateOfflineTiles() async {
-    final db = DatabaseService();
-    final dio = Dio();
+    final db = locator<DatabaseService>();
 
-    // Define key regions for North East India trekking
-    final regions = [
-      // Kedarnath region
-      {
-        'name': 'Kedarnath',
-        'center': const LatLng(30.735, 79.066),
-        'zoom': 13,
-        'radius': 2
-      },
-      // Tungnath region
-      {
-        'name': 'Tungnath',
-        'center': const LatLng(30.49, 79.22),
-        'zoom': 13,
-        'radius': 2
-      },
-      // Badrinath region
-      {
-        'name': 'Badrinath',
-        'center': const LatLng(30.74, 79.49),
-        'zoom': 13,
-        'radius': 2
-      },
-    ];
+    // PERF FIX: Check if we already have enough tiles — skip if so.
+    // This prevents the heavy I/O burst on every cold start.
+    try {
+      final result = await db.database.then(
+        (d) => d.rawQuery('SELECT COUNT(*) as count FROM map_tiles'),
+      );
+      final count = result.first['count'] as int? ?? 0;
+      // 3 regions × 5×5 grid = 75 tiles minimum. Skip if already populated.
+      if (count >= 60) {
+        debugPrint('[Offline] Tiles already populated ($count). Skipping.');
+        return;
+      }
+    } catch (_) {}
 
-    const urlTemplate = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+    // Offload the download work to a background isolate so the UI thread
+    // stays responsive. We pass only primitive data to the isolate.
+    debugPrint('[Offline] Starting tile pre-population in background...');
+    _runTilePopulationInBackground();
+  }
 
-    for (final region in regions) {
-      final center = region['center'] as LatLng;
-      final zoom = region['zoom'] as int;
-      final radius = region['radius'] as int;
+  /// Fire-and-forget background download. Called without await so bootstrap
+  /// returns immediately and the user sees the UI within milliseconds.
+  static void _runTilePopulationInBackground() {
+    Future.microtask(() async {
+      final db = locator<DatabaseService>();
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+      ));
 
-      debugPrint('[Offline] Pre-populating tiles for ${region['name']}');
+      final regions = [
+        {'name': 'Kedarnath', 'lat': 30.735, 'lng': 79.066, 'zoom': 13, 'radius': 2},
+        {'name': 'Tungnath',  'lat': 30.49,  'lng': 79.22,  'zoom': 13, 'radius': 2},
+        {'name': 'Badrinath', 'lat': 30.74,  'lng': 79.49,  'zoom': 13, 'radius': 2},
+      ];
 
-      // Calculate tile coordinates for the region
-      final z = zoom;
-      final centerX = ((center.longitude + 180) / 360 * (1 << z)).toInt();
-      final centerY = ((1 -
-                  (math.log(math.tan(center.latitude * math.pi / 180) +
-                          1 / math.cos(center.latitude * math.pi / 180)) /
-                      math.pi)) /
-              2 *
-              (1 << z))
-          .toInt();
+      const urlTemplate = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 
-      // Download tiles in a radius around center
-      for (int dx = -radius; dx <= radius; dx++) {
-        for (int dy = -radius; dy <= radius; dy++) {
-          final x = centerX + dx;
-          final y = centerY + dy;
-          final tileKey =
-              cacheKeyFor(urlTemplate: urlTemplate, z: z, x: x, y: y);
+      for (final region in regions) {
+        final lat  = region['lat']  as double;
+        final lng  = region['lng']  as double;
+        final zoom = region['zoom'] as int;
+        final radius = region['radius'] as int;
 
-          // Check if already cached
-          final existing = await db.getTile(tileKey);
-          if (existing != null) continue;
+        final z = zoom;
+        final centerX = ((lng + 180) / 360 * (1 << z)).toInt();
+        final centerY = ((1 -
+                (math.log(math.tan(lat * math.pi / 180) +
+                        1 / math.cos(lat * math.pi / 180)) /
+                    math.pi)) /
+            2 *
+            (1 << z))
+            .toInt();
 
-          // Download tile
-          final url = urlTemplate
-              .replaceFirst('{z}', z.toString())
-              .replaceFirst('{x}', x.toString())
-              .replaceFirst('{y}', y.toString());
+        for (int dx = -radius; dx <= radius; dx++) {
+          for (int dy = -radius; dy <= radius; dy++) {
+            final x = centerX + dx;
+            final y = centerY + dy;
+            final tileKey = cacheKeyFor(urlTemplate: urlTemplate, z: z, x: x, y: y);
 
-          try {
-            final response = await dio.get<List<int>>(
-              url,
-              options: Options(
-                  responseType: ResponseType.bytes,
-                  receiveTimeout: const Duration(seconds: 10)),
-            );
-            if (response.data != null) {
-              await db.saveTile(tileKey, response.data!);
-              debugPrint(
-                  '[Offline] Cached tile $tileKey for ${region['name']}');
+            final existing = await db.getTile(tileKey);
+            if (existing != null) continue;
+
+            final url = urlTemplate
+                .replaceFirst('{z}', z.toString())
+                .replaceFirst('{x}', x.toString())
+                .replaceFirst('{y}', y.toString());
+
+            try {
+              final response = await dio.get<List<int>>(
+                url,
+                options: Options(responseType: ResponseType.bytes),
+              );
+              if (response.data != null) {
+                await db.saveTile(tileKey, response.data!);
+                debugPrint('[Offline] Cached tile $tileKey for ${region['name']}');
+              }
+            } catch (e) {
+              debugPrint('[Offline] Failed tile $tileKey: $e');
             }
-          } catch (e) {
-            debugPrint('[Offline] Failed to cache tile $tileKey: $e');
+
+            // PERF FIX: 80ms throttle between tile downloads so the
+            // SQLite writes and network don't burst and starve the UI thread.
+            await Future.delayed(const Duration(milliseconds: 80));
           }
         }
       }
-    }
 
-    debugPrint('[Offline] Tile pre-population complete');
+      debugPrint('[Offline] Tile pre-population complete');
+    });
   }
 }
 

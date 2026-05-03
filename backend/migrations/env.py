@@ -9,6 +9,7 @@ from alembic import context
 # SafeRoute Imports
 from app.config import settings
 from app.models.database import Base
+from app.models import trips as _trips_models  # noqa: F401 — imported for Alembic autogenerate
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

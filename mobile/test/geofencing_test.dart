@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/core/models/zone_model.dart';
 import 'package:saferoute/services/geofencing_engine.dart';
 
 void main() {

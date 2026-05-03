@@ -28,9 +28,11 @@ class Tourist(Base):
     photo_base64_legacy: Mapped[Optional[str]] = mapped_column(Text)  # Kept for migration
     emergency_contact_name: Mapped[Optional[str]] = mapped_column(String(255))
     emergency_contact_phone: Mapped[Optional[str]] = mapped_column(String(30))
-    trip_start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    trip_end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    destination_state: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    # TRIP FIELDS: Legacy — new tourists use the Trip model instead.
+    # Kept nullable for backward compatibility with existing tourist records.
+    trip_start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    trip_end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    destination_state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     qr_data: Mapped[Optional[str]] = mapped_column(Text)            # RS256 JWT (v3) or legacy string
     connectivity_level: Mapped[str] = mapped_column(String(20), default="GOOD")
     offline_mode_required: Mapped[bool] = mapped_column(Boolean, default=False)

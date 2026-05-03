@@ -1,11 +1,12 @@
-// lib/main_dev.dart
-import 'package:flutter/material.dart';
-import 'main.dart' as app;
+import 'package:saferoute/bootstrap.dart';
+import 'package:saferoute/core/config/env_config.dart';
 
 void main() {
-  // Any specific dev initialization can go here
-  debugPrint("🚀 LAUNCHING IN DEVELOPMENT (SANDBOX) MODE");
+  EnvConfig.init(
+    env: Environment.dev,
+    apiBaseUrl: 'http://10.198.71.74:8001', // Physical device on same WiFi
+    webSocketUrl: 'ws://10.198.71.74:8001',
+  );
 
-  // Call the primary main function
-  app.main();
+  bootstrap();
 }

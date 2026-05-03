@@ -4,21 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
-import 'package:saferoute/providers/location_provider.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
-import 'package:saferoute/providers/navigation_provider.dart';
+import 'package:saferoute/tourist/providers/location_provider.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/navigation_provider.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 
 // Screens (v2 - FAANG Grade Redesign)
-import 'package:saferoute/screens/home_screen_v2.dart';
-import 'package:saferoute/screens/digital_id_screen_v2.dart';
-import 'package:saferoute/screens/group_safety_screen_v2.dart';
-import 'package:saferoute/mesh/screens/mesh_status_screen.dart';
-import 'package:saferoute/screens/sos_screen_v2.dart';
-import 'package:saferoute/screens/navigation_screen_v2.dart';
+import 'package:saferoute/tourist/screens/home_screen_v2.dart';
+import 'package:saferoute/tourist/screens/digital_id_screen_v2.dart';
+import 'package:saferoute/tourist/screens/group_safety_screen_v2.dart';
+import 'package:saferoute/tourist/screens/mesh_status_screen.dart';
+import 'package:saferoute/tourist/screens/sos_screen_v2.dart';
+import 'package:saferoute/tourist/screens/navigation_screen_v2.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
-import 'package:saferoute/models/tourist_model.dart';
-import 'package:saferoute/mesh/providers/mesh_provider.dart';
+import 'package:saferoute/tourist/models/tourist_model.dart';
+import 'package:saferoute/tourist/providers/mesh_provider.dart';
 import 'package:saferoute/utils/env.dart';
 import 'package:saferoute/screens/developer_sandbox_screen.dart';
 

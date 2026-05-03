@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import '../models/room_member_model.dart';
-import 'notification_service.dart';
+import 'package:saferoute/tourist/models/room_member_model.dart';
+import 'package:saferoute/services/notification_service.dart';
 import '../utils/constants.dart';
+import 'package:saferoute/core/config/env_config.dart';
 
 class RoomService {
   WebSocketChannel? _channel;
@@ -76,7 +77,7 @@ class RoomService {
   }
 
   Uri _buildWebSocketUri() {
-    final apiUri = Uri.parse(kBaseUrl);
+    final apiUri = Uri.parse(EnvConfig.apiBaseUrl);
     final scheme = apiUri.scheme == 'https' ? 'wss' : 'ws';
     final basePath = apiUri.path.endsWith('/')
         ? apiUri.path.substring(0, apiUri.path.length - 1)

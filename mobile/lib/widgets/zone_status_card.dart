@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 

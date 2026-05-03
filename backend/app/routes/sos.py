@@ -10,8 +10,10 @@ from app.core import limiter
 
 from app.models.schemas import MeshSOSSync
 from app.services.identity_service import verify_sos_signature
+from app.logging_config import get_logger
 
 router = APIRouter()
+log = get_logger("sos")
 
 @router.post(
     "/trigger",
@@ -53,8 +55,19 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
             detail=f"Invalid trigger_type: {trigger_type}. Must be one of {VALID_TRIGGER_TYPES}",
         )
 
+    cid = getattr(request.state, "correlation_id", "-")
+
+    log.info(
+        "sos.trigger.received",
+        tourist_id=tourist_id,
+        lat=latitude,
+        lng=longitude,
+        trigger_type=trigger_type,
+    )
+
     tourist_data = await crud.get_tourist(db, tourist_id)
     if not tourist_data:
+        log.warning("sos.trigger.tourist_not_found", tourist_id=tourist_id)
         raise HTTPException(status_code=404, detail="Tourist not found")
 
     tuid = tourist_data.get("tuid")
@@ -100,6 +113,16 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         "timestamp": timestamp.isoformat(),
     }
     dispatch = dispatch_sos_alert(event)
+
+    log.info(
+        "sos.trigger.dispatched",
+        tourist_id=tourist_id,
+        tuid=tuid,
+        trigger_type=trigger_type,
+        dispatch_status=dispatch.get("status"),
+        lat=latitude,
+        lng=longitude,
+    )
 
     return {
         "status": "alert_dispatched" if dispatch.get("status") == "delivered" else "alert_recorded",

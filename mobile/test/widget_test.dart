@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:saferoute/main.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
-import 'package:saferoute/providers/location_provider.dart';
-import 'package:saferoute/providers/room_provider.dart';
-import 'package:saferoute/providers/theme_provider.dart';
+import 'package:saferoute/bootstrap.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/location_provider.dart';
+import 'package:saferoute/tourist/providers/room_provider.dart';
+import 'package:saferoute/core/providers/theme_provider.dart';
 
 void main() {
   testWidgets('SafeRoute app renders without crashing',

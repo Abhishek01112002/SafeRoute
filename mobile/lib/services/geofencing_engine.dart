@@ -13,9 +13,10 @@ import 'dart:math' as math;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/core/models/zone_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 class GeofencingEngine {
   List<ZoneModel> _zones = [];
@@ -38,8 +39,8 @@ class GeofencingEngine {
   Future<void> loadForDestination(String destinationId) async {
     if (_loadedDestinationId == destinationId && _isLoaded) return;
 
-    final api = ApiService();
-    final db  = DatabaseService();
+    final api = locator<ApiService>();
+    final db  = locator<DatabaseService>();
 
     // 1. Try API first
     try {

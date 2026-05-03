@@ -2,10 +2,10 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
-import 'package:saferoute/models/tourist_model.dart';
-import 'package:saferoute/models/location_ping_model.dart';
-import 'package:saferoute/models/zone_model.dart';
-import 'package:saferoute/models/trail_graph_model.dart';
+import 'package:saferoute/tourist/models/tourist_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
+import 'package:saferoute/core/models/zone_model.dart';
+import 'package:saferoute/tourist/models/trail_graph_model.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();

@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
 import 'package:saferoute/services/sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
@@ -38,8 +39,10 @@ void onStart(ServiceInstance service) async {
   const int maxNetworkErrors = 5;
   const int maxGpsErrors = 3;
 
-  // Main background loop
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
+  // PERF FIX: 60s interval (was 30s). The foreground GPS stream already
+  // tracks at 15m/medium accuracy. The background service only needs to
+  // confirm location periodically, not compete with the foreground sensor.
+  Timer.periodic(const Duration(seconds: 60), (timer) async {
     if (service is AndroidServiceInstance) {
       if (!(await service.isForegroundService())) {
         return;
@@ -91,9 +94,9 @@ void onStart(ServiceInstance service) async {
         zoneStatus: ZoneType.safe,
       );
 
-      final apiService = ApiService();
-      final dbService = DatabaseService();
-      final syncService = SyncService();
+      final apiService = locator<ApiService>();
+      final dbService = locator<DatabaseService>();
+      final syncService = locator<SyncService>();
 
       // 3. Try to POST to API
       bool success = false;

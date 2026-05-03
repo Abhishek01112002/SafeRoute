@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
 
 class ConnectivityChip extends StatelessWidget {
   const ConnectivityChip({super.key});

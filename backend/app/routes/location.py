@@ -7,8 +7,10 @@ from app.dependencies import get_current_tourist
 from app.db import sqlite_legacy, crud
 from app.db.session import get_db
 from app.core import limiter
+from app.logging_config import get_logger
 
 router = APIRouter()
+log = get_logger("location")
 
 @router.post(
     "/ping",
@@ -62,9 +64,18 @@ async def receive_ping(request: Request, ping: LocationPing, tourist_id: str = D
                 detail="timestamp is too old or too far in the future",
             )
 
+    log.info(
+        "location.ping.received",
+        tourist_id=tourist_id,
+        lat=ping.latitude,
+        lng=ping.longitude,
+        zone=ping.zone_status,
+    )
+
     # Validate tourist exists and fetch TUID
     tourist_data = await crud.get_tourist(db, tourist_id)
     if not tourist_data:
+        log.warning("location.ping.tourist_not_found", tourist_id=tourist_id)
         raise HTTPException(status_code=404, detail="Tourist ID not registered")
 
     # Enrich ping with TUID

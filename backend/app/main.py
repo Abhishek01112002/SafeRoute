@@ -13,9 +13,11 @@ from app.routes import (
     health, auth, tourist, location, sos, zones, websocket,
     identity, media, authority, wellknown, destinations, onboard, dashboard
 )
+from app.routes.trips import router as trips_router
 from app.core import limiter
 from app.config import settings
-from app.logging_config import setup_logging
+from app.logging_config import setup_logging, get_logger
+from app.middleware_logging import RequestLoggingMiddleware
 from app.services.telemetry import telemetry
 import asyncio
 from slowapi import _rate_limit_exceeded_handler
@@ -23,14 +25,7 @@ from slowapi.errors import RateLimitExceeded
 
 # Initialize logging
 setup_logging()
-
-class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
-        request.state.correlation_id = correlation_id
-        response = await call_next(request)
-        response.headers["X-Correlation-ID"] = correlation_id
-        return response
+log = get_logger("app")
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -45,8 +40,9 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Middleware
-    app.add_middleware(CorrelationIdMiddleware)
+    # Middleware — order matters: outermost runs first
+    # RequestLoggingMiddleware wraps everything: logs every request + response
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -70,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(destinations.router, prefix="/destinations", tags=["Destinations"])
     app.include_router(onboard.router, prefix="/onboard", tags=["Onboard"])
     app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+    app.include_router(trips_router)  # prefix is /v3/trips (defined in trips.py)
 
     # Background task for periodic cleanup
     _cleanup_task = None
@@ -91,18 +88,18 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event():
-        print(">>> SafeRoute V3 Backend Starting...")
+        log.info("app.startup", version="3.1.0", environment=os.getenv("ENVIRONMENT", "development"))
         from app.db.sqlite_legacy import init_db, sync_from_db
         init_db()
         sync_from_db()
 
         # Start periodic cleanup task
         app.state.cleanup_task = asyncio.create_task(_periodic_cleanup())
-        print("[CLEANUP] Periodic cleanup task started")
+        log.info("app.cleanup_task.started")
 
     @app.on_event("shutdown")
     async def shutdown_event():
-        print("<<< SafeRoute V3 Backend Shutting Down...")
+        log.info("app.shutdown")
 
     return app
 

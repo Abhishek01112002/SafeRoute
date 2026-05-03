@@ -9,7 +9,8 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 /// Sync operation priority levels
 enum SyncPriority { critical, high, normal, low }
@@ -109,8 +110,8 @@ class SyncEngine {
   factory SyncEngine() => _instance;
   SyncEngine._internal();
 
-  final ApiService _api = ApiService();
-  final DatabaseService _db = DatabaseService();
+  final ApiService _api = locator<ApiService>();
+  final DatabaseService _db = locator<DatabaseService>();
 
   // Internal state
   bool _isRunning = false;

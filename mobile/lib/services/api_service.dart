@@ -6,16 +6,18 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:saferoute/models/tourist_model.dart';
-import 'package:saferoute/models/location_ping_model.dart';
-import 'package:saferoute/models/zone_model.dart';
-import 'package:saferoute/models/trail_graph_model.dart';
-import 'package:saferoute/models/emergency_contact_model.dart';
+import 'package:saferoute/tourist/models/tourist_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
+import 'package:saferoute/core/models/zone_model.dart';
+import 'package:saferoute/tourist/models/trail_graph_model.dart';
+import 'package:saferoute/core/models/emergency_contact_model.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saferoute/utils/constants.dart';
 import 'package:saferoute/utils/validators.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saferoute/core/service_locator.dart';
+import 'package:saferoute/core/config/env_config.dart';
 
 // ---------------------------------------------------------------------------
 // Custom Exceptions
@@ -74,7 +76,7 @@ class ApiService {
   /// Dedicated SOS Dio instance — bypasses normal retry queue entirely
   late Dio _sosDio;
 
-  final SecureStorageService _secureStorage = SecureStorageService();
+  final SecureStorageService _secureStorage = locator<SecureStorageService>();
 
   // Dedup concurrent refresh attempts (FIX #1)
   Future<String?>? _refreshFuture;
@@ -85,13 +87,13 @@ class ApiService {
   factory ApiService() => _instance;
 
   ApiService._internal() {
-    debugPrint('🚀 ApiService initialized with baseUrl: $kBaseUrl');
+    debugPrint('🚀 ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
     _validateNetworkConfiguration();
 
     // --- Primary API client ---
     _dio = _createDio(
       BaseOptions(
-        baseUrl: kBaseUrl,
+        baseUrl: EnvConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         sendTimeout: const Duration(seconds: 30),
@@ -102,7 +104,7 @@ class ApiService {
     // --- SOS Priority Channel — separate Dio, separate connection pool ---
     _sosDio = _createDio(
       BaseOptions(
-        baseUrl: kBaseUrl,
+        baseUrl: EnvConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         sendTimeout: const Duration(seconds: 10),
@@ -112,9 +114,9 @@ class ApiService {
   }
 
   void _validateNetworkConfiguration() {
-    final uri = Uri.tryParse(kBaseUrl);
+    final uri = Uri.tryParse(EnvConfig.apiBaseUrl);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      throw StateError('Invalid SAFEROUTE_API_BASE_URL: $kBaseUrl');
+      throw StateError('Invalid SAFEROUTE_API_BASE_URL: ${EnvConfig.apiBaseUrl}');
     }
 
     if (kReleaseMode && uri.scheme != 'https') {
@@ -262,7 +264,7 @@ class ApiService {
                 try {
                   final refreshDio = _createDio(
                     BaseOptions(
-                      baseUrl: kBaseUrl,
+                      baseUrl: EnvConfig.apiBaseUrl,
                       connectTimeout: const Duration(seconds: 10),
                       receiveTimeout: const Duration(seconds: 10),
                       sendTimeout: const Duration(seconds: 10),
@@ -991,9 +993,10 @@ class ApiService {
   }
 
   // -------------------------------------------------------------------------
-  // GENERIC POST
+  // GENERIC REST HELPERS (used by TripProvider and other feature modules)
   // -------------------------------------------------------------------------
 
+  /// Generic POST with positional data — used by legacy callers.
   Future<Map<String, dynamic>> post(String path, dynamic data) async {
     try {
       final response = await _dio.post(path, data: data);
@@ -1002,6 +1005,36 @@ class ApiService {
       throw _handleDioError(e);
     } catch (e) {
       throw ApiException("Request failed: $e");
+    }
+  }
+
+  /// Generic GET — returns the decoded response body.
+  Future<dynamic> getJson(String path) async {
+    try {
+      final response = await _dio.get<dynamic>(path);
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Generic PUT — sends [body] as JSON, returns decoded response body.
+  Future<dynamic> putJson(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.put<dynamic>(path, data: body);
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Generic POST with named body param — for new feature modules.
+  Future<dynamic> postJson(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.post<dynamic>(path, data: body);
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 

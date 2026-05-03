@@ -1,9 +1,10 @@
 // lib/services/breadcrumb_manager.dart
-import 'package:saferoute/models/location_ping_model.dart';
+import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 class BreadcrumbManager {
-  final DatabaseService _dbService = DatabaseService();
+  final DatabaseService _dbService = locator<DatabaseService>();
   final List<LocationPing> _trail = [];
   static const int kMaxTrailSize = 2000;
 

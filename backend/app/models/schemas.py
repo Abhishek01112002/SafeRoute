@@ -22,9 +22,11 @@ class TouristRegister(BaseModel):
     document_object_key: Optional[str] = None  # v3: MinIO object key for document scan
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
-    trip_start_date: datetime
-    trip_end_date: datetime
-    destination_state: str
+    # TRIP FIELDS: Now optional — tourists create Trips separately after registration.
+    # Kept for backward compatibility with existing registrations.
+    trip_start_date: Optional[datetime] = None
+    trip_end_date: Optional[datetime] = None
+    destination_state: Optional[str] = None
     selected_destinations: List[DestinationVisit] = []
     blood_group: Optional[str] = None
     # --- Identity v3.0 fields ---
@@ -77,8 +79,10 @@ class TouristRegister(BaseModel):
 
     @field_validator("trip_end_date")
     @classmethod
-    def validate_trip_dates(cls, v: datetime, info) -> datetime:
-        """Validate that trip_end_date > trip_start_date"""
+    def validate_trip_dates(cls, v: Optional[datetime], info) -> Optional[datetime]:
+        """Validate that trip_end_date > trip_start_date (only when both are provided)"""
+        if v is None:
+            return v
         start_date = info.data.get("trip_start_date")
         if start_date and v <= start_date:
             raise ValueError("trip_end_date must be after trip_start_date")
@@ -86,8 +90,10 @@ class TouristRegister(BaseModel):
 
     @field_validator("trip_start_date")
     @classmethod
-    def validate_trip_start_not_past(cls, v: datetime) -> datetime:
-        """Validate trip_start_date is not in the past (date-level check)."""
+    def validate_trip_start_not_past(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Validate trip_start_date is not in the past (only when provided)."""
+        if v is None:
+            return v
         now = datetime.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         if v < today_start:
@@ -96,8 +102,10 @@ class TouristRegister(BaseModel):
 
     @field_validator("destination_state")
     @classmethod
-    def validate_destination_state(cls, v: str) -> str:
-        """Validate state name against known Indian states"""
+    def validate_destination_state(cls, v: Optional[str]) -> Optional[str]:
+        """Validate state name against known Indian states (only when provided)"""
+        if not v:
+            return None
         valid_states = {
             "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh",
             "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu",

@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/services/identity_service.dart';
-import 'package:saferoute/providers/tourist_provider.dart';
+import 'package:saferoute/tourist/providers/tourist_provider.dart';
 
 class DeveloperSandboxScreen extends StatefulWidget {
   const DeveloperSandboxScreen({super.key});

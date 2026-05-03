@@ -126,9 +126,19 @@ def init_db():
                 FOREIGN KEY(tourist_id) REFERENCES tourists(tourist_id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS emergency_contacts (
+                id             TEXT PRIMARY KEY,
+                destination_id TEXT NOT NULL,
+                label          TEXT NOT NULL,
+                phone          TEXT NOT NULL,
+                notes          TEXT,
+                FOREIGN KEY(destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_zones_dest    ON zones(destination_id, is_active);
             CREATE INDEX IF NOT EXISTS idx_loc_tourist   ON location_logs(tourist_id, timestamp);
             CREATE INDEX IF NOT EXISTS idx_sos_status    ON sos_events(status);
+            CREATE INDEX IF NOT EXISTS idx_contacts_dest ON emergency_contacts(destination_id);
         """)
 
         # 2. Manual column migrations for existing tables

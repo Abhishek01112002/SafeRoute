@@ -13,8 +13,10 @@ from app.db import sqlite_legacy, crud
 from app.db.session import get_db
 from app.core import pwd_context, limiter
 from app.config import settings
+from app.logging_config import get_logger
 
 router = APIRouter()
+log = get_logger("auth")
 
 def _safe_authority_view(auth: dict) -> dict:
     """Return authority dict without the hashed password."""
@@ -106,6 +108,7 @@ async def login_authority(request: Request, payload: dict = Body(...), db: Async
 
     auth = await crud.get_authority_by_email(db, email)
     if not auth:
+        log.warning("auth.login.not_found", email=email)
         # Generic error to prevent email enumeration
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -127,6 +130,11 @@ async def login_authority(request: Request, payload: dict = Body(...), db: Async
     if not pwd_context.verify(password, stored_hash):
         # Increment failed login attempts
         await crud.increment_authority_failed_logins(db, auth["authority_id"])
+        log.warning(
+            "auth.login.wrong_password",
+            authority_id=auth["authority_id"],
+            attempts=auth.get("failed_login_attempts", 0) + 1,
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Successful login - reset failed attempts and update last_login
@@ -142,6 +150,7 @@ async def login_authority(request: Request, payload: dict = Body(...), db: Async
     response_data["expires_in"] = settings.JWT_ACCESS_EXPIRY_MINUTES * 60
     response_data["last_login"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+    log.info("auth.login.success", authority_id=auth["authority_id"])
     return response_data
 
 @router.post("/refresh")
@@ -171,6 +180,7 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
     new_access_token = create_jwt_token(subject_id, role=role)
     new_refresh_token = create_jwt_token(subject_id, role=role, is_refresh=True)
 
+    log.info("auth.token.refreshed", subject=subject_id, role=role)
     return {
         "token": new_access_token,
         "refresh_token": new_refresh_token,

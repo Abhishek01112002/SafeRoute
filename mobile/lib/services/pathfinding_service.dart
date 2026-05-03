@@ -7,10 +7,12 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:saferoute/models/trail_graph_model.dart';
-import 'package:saferoute/models/zone_model.dart';
+import 'package:saferoute/tourist/models/trail_graph_model.dart';
+import 'package:saferoute/core/constants/app_assets.dart';
+import 'package:saferoute/core/models/zone_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/core/service_locator.dart';
 
 // ── Navigation result ─────────────────────────────────────────────────────────
 
@@ -81,9 +83,9 @@ class PathfindingService {
 
     // 1. Try API
     try {
-      graph = await ApiService().getTrailGraph(destinationId);
+      graph = await locator<ApiService>().getTrailGraph(destinationId);
       if (graph != null && !graph.isEmpty) {
-        await DatabaseService().saveTrailGraph(graph);
+        await locator<DatabaseService>().saveTrailGraph(graph);
         debugPrint('[Pathfinding] Graph loaded from API: ${graph.nodes.length} nodes for $destinationId');
       }
     } catch (e) {
@@ -92,7 +94,7 @@ class PathfindingService {
 
     // 2. Try local cache
     if (graph == null || graph.isEmpty) {
-      graph = await DatabaseService().getTrailGraph(destinationId);
+      graph = await locator<DatabaseService>().getTrailGraph(destinationId);
       if (graph != null && !graph.isEmpty) {
         debugPrint('[Pathfinding] Graph loaded from cache: ${graph.nodes.length} nodes for $destinationId');
       }
@@ -101,7 +103,7 @@ class PathfindingService {
     // 3. Last-ditch bundled fallback (Legacy)
     if (graph == null || graph.isEmpty) {
       try {
-        final String jsonStr = await rootBundle.loadString('assets/trail_graph.json');
+        final String jsonStr = await rootBundle.loadString(AppAssets.data.trailGraph);
         final Map<String, dynamic> data = json.decode(jsonStr);
         graph = TrailGraph.fromJson(data);
         debugPrint('[Pathfinding] Graph loaded from bundled asset fallback');
