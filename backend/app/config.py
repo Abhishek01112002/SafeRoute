@@ -161,12 +161,12 @@ class Settings:
 
         if is_production and (not self.TUID_SALT or self.TUID_SALT == "SR_IDENTITY_V1_UTTARAKHAND_2025"):
             # Note: This is a warning but recommended to change
-            print("⚠️ WARNING: TUID_SALT is at its default value.")
+            print("WARNING: TUID_SALT is at its default value.")
 
         if missing:
             import sys
             print("\n" + "!" * 60)
-            print("🚨 CRITICAL CONFIGURATION ERROR")
+            print("CRITICAL CONFIGURATION ERROR")
             for m in missing:
                 print(f"  - MISSING: {m}")
             print("!" * 60 + "\n")
