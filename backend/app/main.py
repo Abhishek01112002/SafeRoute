@@ -88,17 +88,26 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event():
-        log.info("app.startup", version="3.1.0", environment=os.getenv("ENVIRONMENT", "development"))
-        settings.validate()
-        from app.db.session import init_models
-        from app.db.sqlite_legacy import init_db, sync_from_db
-        await init_models()
-        init_db()
-        sync_from_db()
+        try:
+            log.info("app.startup", version="3.1.0", environment=os.getenv("ENVIRONMENT", "development"))
+            settings.validate()
 
-        # Start periodic cleanup task
-        app.state.cleanup_task = asyncio.create_task(_periodic_cleanup())
-        log.info("app.cleanup_task.started")
+            # init_models (create_all) is only needed in dev/test.
+            # In production, Alembic manages the schema via `alembic upgrade head`.
+            if os.getenv("ENVIRONMENT") != "production":
+                from app.db.session import init_models
+                await init_models()
+
+            from app.db.sqlite_legacy import init_db, sync_from_db
+            init_db()
+            sync_from_db()
+
+            # Start periodic cleanup task
+            app.state.cleanup_task = asyncio.create_task(_periodic_cleanup())
+            log.info("app.cleanup_task.started")
+        except Exception as exc:
+            log.error("app.startup.failed", error=str(exc))
+            raise  # Re-raise so uvicorn exits with a clear error
 
     @app.on_event("shutdown")
     async def shutdown_event():

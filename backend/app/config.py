@@ -181,11 +181,10 @@ class Settings:
         has_key_paths = os.path.exists(self.PRIVATE_KEY_PATH) and os.path.exists(self.PUBLIC_KEY_PATH)
         has_key_env = bool(self.PRIVATE_KEY_BASE64 and self.PUBLIC_KEY_BASE64)
         if not has_key_paths and not has_key_env:
-            # We don't raise here yet to allow generate_keys.py to run, but in production we should
             if os.getenv("ENVIRONMENT") == "production":
                 raise FileNotFoundError(
-                    "RS256 keys missing. Set PRIVATE_KEY_PATH/PUBLIC_KEY_PATH "
-                    "or PRIVATE_KEY_BASE64/PUBLIC_KEY_BASE64."
+                    "RS256 keys missing. Set PRIVATE_KEY_BASE64/PUBLIC_KEY_BASE64 env vars "
+                    "or PRIVATE_KEY_PATH/PUBLIC_KEY_PATH pointing to PEM files."
                 )
 
     def get_allowed_origins_list(self) -> List[str]:
