@@ -16,7 +16,8 @@ from app.models import trips as _trips_models  # noqa: F401 — imported for Ale
 config = context.config
 
 # Overwrite sqlalchemy.url with value from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Escape '%' for ConfigParser interpolation
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
