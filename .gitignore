@@ -60,6 +60,9 @@ dashboard/.env
 
 # Custom project analysis and build logs (AI-generated, not part of source)
 analysis_*.txt
+analyzer_output*.txt
+test_output.txt
+out.txt
 build_output.txt
 
 # Local configuration
