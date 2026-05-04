@@ -93,7 +93,7 @@ class LocationProvider with ChangeNotifier {
       if (state != null) {
         final legacyZones = await _dbService.getZonesForDestination(state);
         if (legacyZones.isNotEmpty) {
-          _geofencing.setDynamicZones(legacyZones);
+          _geofencing.setZones(legacyZones);
         }
       }
     }

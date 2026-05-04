@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
-import 'package:saferoute/services/sync_service.dart';
+import 'package:saferoute/services/sync_engine.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/services/analytics_service.dart';
 import 'package:uuid/uuid.dart';

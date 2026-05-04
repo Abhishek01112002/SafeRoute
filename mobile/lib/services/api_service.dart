@@ -89,7 +89,7 @@ class ApiService {
   ApiService._internal() {
     debugPrint('🚀 ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
     // Temporary log for registration handshake audit (visible in device & Render logs)
-    print('[TMP] 📝 ApiService INIT: baseUrl=${EnvConfig.apiBaseUrl}');
+    debugPrint('[DBG] 📝 ApiService INIT: baseUrl=${EnvConfig.apiBaseUrl}');
     _validateNetworkConfiguration();
 
     // --- Primary API client ---
@@ -400,7 +400,7 @@ class ApiService {
       Map<String, dynamic> formData) async {
     try {
       // Temporary log for registration handshake audit
-      print('[TMP] 📝 registerTouristWithToken: POST /v3/tourist/register fields=${formData.keys.toList()}');
+      debugPrint('[DBG] 📝 registerTouristWithToken: POST /v3/tourist/register fields=${formData.keys.toList()}');
       final response = await _retryWithBackoff(
         () => _dio
             .post('/v3/tourist/register', data: formData)
@@ -532,7 +532,7 @@ class ApiService {
   }) async {
     try {
       // Temporary log for registration handshake audit
-      print('[TMP] 📝 registerTouristMultipart: POST /v3/tourist/register-multipart fields=${fields.keys.toList()} photoPath=$photoPath docPath=$docPath');
+      debugPrint('[DBG] 📝 registerTouristMultipart: POST /v3/tourist/register-multipart fields=${fields.keys.toList()} photoPath=$photoPath docPath=$docPath');
       final Map<String, dynamic> formDataMap = Map<String, dynamic>.from(fields);
 
       formDataMap['profile_photo'] = await MultipartFile.fromFile(
