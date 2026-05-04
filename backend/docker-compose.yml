@@ -65,7 +65,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-saferoute_secret_2026}@db:5432/${DB_NAME:-saferoute}
+      - DATABASE_URL=postgresql+asyncpg://postgres.hcsmypvaolyphuacgfbs:Anshuman%40SafeRoute@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
       - SQLITE_URL=sqlite:///./data/saferoute.db
       - ENABLE_PG=true
       - ENABLE_DUAL_WRITE=true
