@@ -64,13 +64,21 @@ async def init_models() -> None:
     """Create local SQLite tables for development and hackathon deployments."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+        # Idempotent column additions for missing fields across environments
+        ddl_statements = [
+            "ALTER TABLE authorities ADD COLUMN email_verified BOOLEAN DEFAULT true",
+        ]
+        
         if engine.dialect.name == "sqlite":
-            for ddl in (
+            ddl_statements.extend([
                 "ALTER TABLE sos_events ADD COLUMN authority_response TEXT",
                 "ALTER TABLE sos_events ADD COLUMN resolved_at DATETIME",
-            ):
-                try:
-                    await conn.exec_driver_sql(ddl)
-                except Exception:
-                    # SQLite has no IF NOT EXISTS for ADD COLUMN on older builds.
-                    pass
+            ])
+            
+        for ddl in ddl_statements:
+            try:
+                await conn.exec_driver_sql(ddl)
+            except Exception:
+                # Ignores errors if column already exists
+                pass
