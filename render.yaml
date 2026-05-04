@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: saferoute-api
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: ENABLE_PG
+        value: "true"
+      - key: READ_FROM_PG
+        value: "true"
+      - key: DATABASE_URL
+        sync: false # Set this in the Render dashboard to your Supabase URL
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PRIVATE_KEY_BASE64
+        sync: false # Set this in the Render dashboard
+      - key: PUBLIC_KEY_BASE64
+        sync: false # Set this in the Render dashboard
+      - key: ENVIRONMENT
+        value: "production"
+      - key: ALLOWED_ORIGINS
+        value: "*" # Change this to your Vercel URL later for better security
+      - key: PYTHON_VERSION
+        value: "3.10.0"
