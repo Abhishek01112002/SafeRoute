@@ -427,6 +427,16 @@ class ApiService {
         debugPrint("Validation error during registration. Rethrowing.");
         rethrow;
       }
+      if (EnvConfig.isProd || kReleaseMode) {
+        debugPrint("Registration failed in production; offline fallback disabled: $e");
+        if (e is DioException) {
+          throw _handleDioError(e);
+        }
+        if (e is ApiException) {
+          rethrow;
+        }
+        throw ApiException("Registration failed before reaching the backend: $e");
+      }
       debugPrint("API Error during registration: $e. Using offline fallback.");
 
       try {

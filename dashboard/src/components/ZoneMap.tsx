@@ -1,5 +1,5 @@
 // dashboard/src/components/ZoneMap.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,7 +9,7 @@ import './ZoneMap.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -38,7 +38,6 @@ interface ZoneMapProps {
   existingZones: Zone[];
   drawingMode: boolean;
   onPointsChange?: (points: Point[]) => void;
-  onRadiusChange?: (radius: number) => void;
   zoneType?: string;
   currentShape?: string;
 }
@@ -67,12 +66,11 @@ const ZoneMap: React.FC<ZoneMapProps> = ({
   existingZones,
   drawingMode,
   onPointsChange,
-  onRadiusChange,
   zoneType = 'SAFE',
   currentShape = 'CIRCLE'
 }) => {
   const [newPoints, setNewPoints] = useState<Point[]>([]);
-  const [tempRadius, setTempRadius] = useState<number>(500);
+  const tempRadius = 500;
 
   // Sync internal points to parent
   useEffect(() => {
@@ -90,7 +88,7 @@ const ZoneMap: React.FC<ZoneMapProps> = ({
   };
 
   const handleMarkerDrag = (index: number, e: L.LeafletEvent) => {
-    const marker = e.target;
+    const marker = e.target as L.Marker;
     const position = marker.getLatLng();
     const updatedPoints = [...newPoints];
     updatedPoints[index] = { lat: position.lat, lng: position.lng };

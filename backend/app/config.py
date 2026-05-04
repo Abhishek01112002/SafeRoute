@@ -58,6 +58,8 @@ class Settings:
     # ---------------------------------------------------------------------------
     PRIVATE_KEY_PATH: str = ""
     PUBLIC_KEY_PATH: str = ""
+    PRIVATE_KEY_BASE64: str = ""
+    PUBLIC_KEY_BASE64: str = ""
 
     # ---------------------------------------------------------------------------
     # Redis (caching, rate limiting)
@@ -91,7 +93,9 @@ class Settings:
         self.ENABLE_DUAL_WRITE = os.getenv("ENABLE_DUAL_WRITE", "false").lower() == "true"
         self.READ_FROM_PG = os.getenv("READ_FROM_PG", "false").lower() == "true"
         self.ENABLE_PHOTO_STORAGE = os.getenv("ENABLE_PHOTO_STORAGE", "false").lower() == "true"
-        self.DATABASE_URL = os.getenv("DATABASE_URL", self.DATABASE_URL)
+        self.DATABASE_URL = self._normalize_database_url(
+            os.getenv("DATABASE_URL", self.DATABASE_URL)
+        )
         self.RETENTION_DAYS_LOCATION = int(os.getenv("RETENTION_DAYS_LOCATION", "30"))
         self.DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", str(self.DB_POOL_SIZE)))
         self.DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", str(self.DB_MAX_OVERFLOW)))
@@ -100,7 +104,10 @@ class Settings:
         self.JWT_REFRESH_EXPIRY_DAYS = int(os.getenv("JWT_REFRESH_EXPIRY_DAYS", str(self.JWT_REFRESH_EXPIRY_DAYS)))
         self.JWT_SECRET = os.getenv("JWT_SECRET", self.JWT_SECRET)
         self.DOC_NUMBER_SALT = os.getenv("DOC_NUMBER_SALT", self.DOC_NUMBER_SALT)
-        self.ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", self.ALLOWED_ORIGINS)
+        self.ALLOWED_ORIGINS = os.getenv(
+            "ALLOWED_ORIGINS",
+            os.getenv("CORS_ORIGINS", self.ALLOWED_ORIGINS),
+        )
         self.PHOTO_STORAGE_BACKEND = os.getenv("PHOTO_STORAGE_BACKEND", self.PHOTO_STORAGE_BACKEND)
         self.PHOTO_UPLOAD_DIR = os.getenv("PHOTO_UPLOAD_DIR", self.PHOTO_UPLOAD_DIR)
         self.SOS_DISPATCH_WEBHOOK_URL = os.getenv("SOS_DISPATCH_WEBHOOK_URL", "")
@@ -130,6 +137,8 @@ class Settings:
             "PUBLIC_KEY_PATH",
             os.path.join(backend_dir, "public_key.pem"),
         )
+        self.PRIVATE_KEY_BASE64 = os.getenv("PRIVATE_KEY_BASE64", "")
+        self.PUBLIC_KEY_BASE64 = os.getenv("PUBLIC_KEY_BASE64", "")
 
     def validate(self):
         """Strict production-grade validation. Fails fast if misconfigured."""
@@ -169,13 +178,27 @@ class Settings:
         if self.READ_FROM_PG and not self.ENABLE_PG:
             raise ValueError("READ_FROM_PG cannot be true if ENABLE_PG is false.")
 
-        if not os.path.exists(self.PRIVATE_KEY_PATH) or not os.path.exists(self.PUBLIC_KEY_PATH):
+        has_key_paths = os.path.exists(self.PRIVATE_KEY_PATH) and os.path.exists(self.PUBLIC_KEY_PATH)
+        has_key_env = bool(self.PRIVATE_KEY_BASE64 and self.PUBLIC_KEY_BASE64)
+        if not has_key_paths and not has_key_env:
             # We don't raise here yet to allow generate_keys.py to run, but in production we should
             if os.getenv("ENVIRONMENT") == "production":
-                 raise FileNotFoundError(f"RS256 keys missing at {self.PRIVATE_KEY_PATH}")
+                raise FileNotFoundError(
+                    "RS256 keys missing. Set PRIVATE_KEY_PATH/PUBLIC_KEY_PATH "
+                    "or PRIVATE_KEY_BASE64/PUBLIC_KEY_BASE64."
+                )
 
     def get_allowed_origins_list(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    @staticmethod
+    def _normalize_database_url(url: str) -> str:
+        """Accept common hosted Postgres URL formats and force asyncpg."""
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return url
 
 
 # Singleton — imported everywhere

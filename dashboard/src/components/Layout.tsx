@@ -1,10 +1,9 @@
 // dashboard/src/components/Layout.tsx
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { Activity, Map, ShieldAlert, LogOut } from 'lucide-react';
 import './Layout.css';
 
 const Layout = () => {
-  const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem('token');

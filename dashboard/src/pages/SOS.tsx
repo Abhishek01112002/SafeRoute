@@ -1,5 +1,4 @@
-// dashboard/src/pages/SOS.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, Clock, Crosshair, CheckCircle } from 'lucide-react';
 import api from '../api';
 import './SOS.css';
@@ -21,7 +20,7 @@ const SOS = () => {
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
-  const fetchEvents = async (newOffset = 0) => {
+  const fetchEvents = useCallback(async (newOffset = 0) => {
     try {
       const res = await api.get(`/sos/events?limit=${PAGE_SIZE}&offset=${newOffset}`);
       if (newOffset === 0) {
@@ -31,18 +30,19 @@ const SOS = () => {
       }
       setHasMore(res.data.length === PAGE_SIZE);
       setOffset(newOffset);
-    } catch (err) {
-      console.error('Failed to fetch SOS events', err);
+    } catch {
+      console.error('Failed to fetch SOS events');
     } finally {
       setLoading(false);
     }
-  };
+  }, [PAGE_SIZE]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEvents(0);
     const interval = setInterval(() => fetchEvents(0), 10000); // Poll first page only for new alerts
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchEvents]);
 
   const loadMore = () => {
     fetchEvents(offset + PAGE_SIZE);
@@ -53,7 +53,7 @@ const SOS = () => {
       await api.post(`/sos/events/${id}/respond`);
       // Optimistically update
       setEvents(events.map(e => e.id === id ? { ...e, status: 'RESOLVED' } : e));
-    } catch (err) {
+    } catch {
       alert('Failed to respond to SOS');
     }
   };

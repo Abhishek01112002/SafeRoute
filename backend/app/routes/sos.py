@@ -90,7 +90,7 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
             detail="timestamp is too old or too far in the future",
         )
 
-    await crud.create_sos_event(
+    sos_event = await crud.create_sos_event(
         db,
         tourist_id=str(tourist_id),
         lat=float(latitude),
@@ -101,6 +101,7 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         timestamp=timestamp,
     )
 
+    correlation_id = getattr(request.state, "correlation_id", None)
     event = {
         "tourist_id": str(tourist_id),
         "tuid": tuid,
@@ -111,8 +112,10 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         "longitude": float(longitude),
         "trigger_type": str(trigger_type),
         "timestamp": timestamp.isoformat(),
+        "correlation_id": correlation_id,
     }
     dispatch = dispatch_sos_alert(event)
+    sos_event.dispatch_status = dispatch.get("status", "unknown")
 
     log.info(
         "sos.trigger.dispatched",

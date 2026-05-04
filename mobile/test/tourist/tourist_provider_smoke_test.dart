@@ -10,21 +10,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:get_it/get_it.dart';
+import 'package:saferoute/services/api_service.dart';
+import 'package:saferoute/services/database_service.dart';
 
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/core/providers/theme_provider.dart';
-import 'package:saferoute/services/api_service.dart';
+import 'package:saferoute/core/service_locator.dart';
+
+// Mock classes for testing
+class MockApiService implements ApiService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class MockDatabaseService implements DatabaseService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+  
+  @override
+  Future<Tourist?> getTourist() async => null;
+}
 
 void main() {
-  setUp(() {
+  setUp(() async {
     // Reset GetIt before each test to avoid state leakage
-    GetIt.instance.reset();
+    await locator.reset();
+    
+    // Register stubs to prevent 'GetIt not found' errors during TouristProvider construction
+    locator.registerSingleton<ApiService>(MockApiService());
+    locator.registerSingleton<DatabaseService>(MockDatabaseService());
+    
     SharedPreferences.setMockInitialValues({});
-    // Register a minimal ApiService stub so providers that call GetIt can be constructed
-    GetIt.instance.registerSingleton<ApiService>(_MockApiService());
   });
 
   group('TouristProvider — initial state', () {
@@ -77,37 +95,24 @@ void main() {
     testWidgets('TouristProvider renders in widget tree without crashing',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
 
       await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider(
-              create: (_) => ThemeProvider(prefs, isLocked: true),
-            ),
-            ChangeNotifierProvider(create: (_) => TouristProvider()),
-          ],
+        ChangeNotifierProvider(
+          create: (_) => TouristProvider(),
           child: MaterialApp(
-            theme: AppTheme.dark(),
             home: Scaffold(
               body: Builder(builder: (context) {
-                final tourist = context.watch<TouristProvider>();
-                return Text(tourist.userState.name);
+                final tourist = Provider.of<TouristProvider>(context);
+                return Text(tourist.userState.toString());
               }),
             ),
           ),
         ),
       );
-
+      
       await tester.pump();
-      // Provider should render the GUEST state text without crashing
-      expect(find.text('guest'), findsOneWidget);
+      // Provider should render the state text without crashing
+      expect(find.text(UserState.guest.toString()), findsOneWidget);
     });
   });
-}
-
-// Minimal test stub for ApiService used only in tests.
-class _MockApiService implements ApiService {
-  @override
-  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -5,14 +5,18 @@ services:
     region: singapore
     plan: free
     buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "cd backend && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: ENABLE_PG
         value: "true"
       - key: READ_FROM_PG
         value: "true"
       - key: DATABASE_URL
-        sync: false # Set this in the Render dashboard to your Supabase URL
+        sync: false # Set to the Supabase Postgres URL, e.g. postgresql+asyncpg://...
+      - key: DOC_NUMBER_SALT
+        sync: false
+      - key: TUID_SALT
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: PRIVATE_KEY_BASE64

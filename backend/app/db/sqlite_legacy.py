@@ -35,6 +35,8 @@ def init_db():
                 fcm_token      TEXT,
                 status         TEXT DEFAULT 'active',
                 role           TEXT DEFAULT 'authority',
+                failed_login_attempts INTEGER DEFAULT 0,
+                last_login     TEXT,
                 created_at     TEXT
             );
 
@@ -161,6 +163,11 @@ def init_db():
             "responded_at": "TEXT",
             "destination_id": "TEXT",
             "is_synced": "INTEGER DEFAULT 0"
+        })
+
+        _migrate_columns(conn, "authorities", {
+            "failed_login_attempts": "INTEGER DEFAULT 0",
+            "last_login": "TEXT"
         })
 
         conn.commit()

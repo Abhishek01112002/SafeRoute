@@ -503,7 +503,7 @@ async def create_sos_event(
     correlation_id: Optional[str] = None,
     tuid: Optional[str] = None,
     timestamp: Optional[datetime] = None,
-) -> None:
+) -> SOSEvent:
     new_event = SOSEvent(
         tourist_id=tourist_id,
         tuid=tuid,
@@ -514,7 +514,9 @@ async def create_sos_event(
         timestamp=timestamp,
     )
     db.add(new_event)
+    await db.flush()
     sqlite_legacy.persist_sos(tourist_id, lat, lon, trigger_type)
+    return new_event
 
 
 async def check_existing_sos(

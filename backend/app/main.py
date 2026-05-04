@@ -45,8 +45,8 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=settings.get_allowed_origins_list(),
+        allow_credentials="*" not in settings.get_allowed_origins_list(),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -89,7 +89,10 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup_event():
         log.info("app.startup", version="3.1.0", environment=os.getenv("ENVIRONMENT", "development"))
+        settings.validate()
+        from app.db.session import init_models
         from app.db.sqlite_legacy import init_db, sync_from_db
+        await init_models()
         init_db()
         sync_from_db()
 

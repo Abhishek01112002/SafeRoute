@@ -17,9 +17,22 @@ interface Zone {
   polygon_points: {lat: number, lng: number}[];
 }
 
+interface Destination {
+  id: string;
+  name: string;
+  center_lat: number;
+  center_lng: number;
+}
+
+interface Authority {
+  state?: string;
+  authority_id?: string;
+  full_name?: string;
+}
+
 const Zones = () => {
   const [zones, setZones] = useState<Zone[]>([]);
-  const [destinations, setDestinations] = useState<any[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [selectedDest, setSelectedDest] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -38,10 +51,15 @@ const Zones = () => {
   const [qrBundle, setQrBundle] = useState<{token: string; zone_count: number} | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
 
-  let authority: any = {};
+  let authority: Authority = {};
   try {
-    authority = JSON.parse(localStorage.getItem('authority') || '{}');
-  } catch(e) {}
+    const authData = localStorage.getItem('authority');
+    if (authData) {
+      authority = JSON.parse(authData);
+    }
+  } catch {
+    // Silent fail for storage access
+  }
 
   useEffect(() => {
     const fetchDestinations = async () => {
@@ -51,8 +69,8 @@ const Zones = () => {
         if (res.data.length > 0) {
           setSelectedDest(res.data[0].id);
         }
-      } catch (err) {
-        console.error('Failed to fetch destinations', err);
+      } catch {
+        console.error('Failed to fetch destinations');
       }
     };
     fetchDestinations();
@@ -65,8 +83,8 @@ const Zones = () => {
       try {
         const res = await api.get(`/zones?destination_id=${selectedDest}`);
         setZones(res.data);
-      } catch (err) {
-        console.error('Failed to fetch zones', err);
+      } catch {
+        console.error('Failed to fetch zones');
       } finally {
         setLoading(false);
       }
@@ -79,7 +97,7 @@ const Zones = () => {
     try {
       await api.delete(`/zones/${zoneId}`);
       setZones(zones.filter(z => z.id !== zoneId));
-    } catch (err) {
+    } catch {
       alert('Failed to delete zone');
     }
   };
@@ -111,9 +129,8 @@ const Zones = () => {
       setShowAddForm(false);
       setMapPoints([]);
       setNewZone({ name: '', type: 'SAFE', shape: 'POLYGON', center_lat: 0, center_lng: 0, radius_m: 500 });
-    } catch (err) {
+    } catch {
       alert('Failed to add zone');
-      console.error(err);
     }
   };
 
@@ -126,7 +143,7 @@ const Zones = () => {
     try {
       const res = await api.get(`/onboard/preview/${selectedDest}`);
       setQrBundle({ token: res.data.qr_token, zone_count: res.data.zone_count });
-    } catch (err) {
+    } catch {
       alert('Failed to generate QR token');
     } finally {
       setQrLoading(false);

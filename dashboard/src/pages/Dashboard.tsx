@@ -1,5 +1,4 @@
-// dashboard/src/pages/Dashboard.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ShieldCheck, ShieldAlert, Users, RadioTower, MapPin } from 'lucide-react';
 import api from '../api';
 import './Dashboard.css';
@@ -32,19 +31,33 @@ const Dashboard = () => {
   const [hasMoreLocations, setHasMoreLocations] = useState(true);
   const PAGE_SIZE = 50;
 
-  let authority: any = {};
-  try { authority = JSON.parse(localStorage.getItem('authority') || '{}'); } catch(e) {}
+  interface Authority {
+    state?: string;
+    authority_id?: string;
+    district?: string;
+    jurisdiction_zone?: string;
+  }
 
-  const fetchMetrics = async () => {
+  let authority: Authority = {};
+  try {
+    const authData = localStorage.getItem('authority');
+    if (authData) {
+      authority = JSON.parse(authData);
+    }
+  } catch {
+    // Silent fail
+  }
+
+  const fetchMetrics = useCallback(async () => {
     try {
       const res = await api.get('/dashboard/metrics');
       setStats(res.data);
-    } catch (err) {
-      console.error('Failed to fetch metrics', err);
+    } catch {
+      console.error('Failed to fetch metrics');
     }
-  };
+  }, []);
 
-  const fetchLocations = async (offset = 0) => {
+  const fetchLocations = useCallback(async (offset = 0) => {
     try {
       const res = await api.get(`/dashboard/locations?limit=${PAGE_SIZE}&offset=${offset}`);
       if (offset === 0) {
@@ -54,16 +67,17 @@ const Dashboard = () => {
       }
       setHasMoreLocations(res.data.length === PAGE_SIZE);
       setLocationOffset(offset);
-    } catch (err) {
-      console.error('Failed to fetch locations', err);
+    } catch {
+      console.error('Failed to fetch locations');
     }
-  };
+  }, [PAGE_SIZE]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMetrics]);
 
   const handleShowLocations = () => {
     if (!showLocations && locations.length === 0) fetchLocations(0);

@@ -1,6 +1,5 @@
 // dashboard/src/pages/Login.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import './Login.css';
 
@@ -9,7 +8,6 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,8 +25,9 @@ const Login = () => {
         localStorage.setItem('authority', JSON.stringify(response.data));
         window.location.href = '/';
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed. Unauthorized access detected.');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      setError(axiosError.response?.data?.detail || 'Authentication failed. Unauthorized access detected.');
     } finally {
       setLoading(false);
     }

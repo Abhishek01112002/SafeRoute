@@ -17,7 +17,9 @@ from app.db.session import get_db
 from app.core import limiter
 from app.config import settings
 from app.dependencies import get_current_tourist
-from app.logging_config import logger
+from app.logging_config import logger, get_logger
+
+log = get_logger("tourist")
 
 # Brute-force protection storage (Redis in production, dict in dev)
 _login_attempts: dict = {}  # {tourist_id: [timestamp1, timestamp2, ...]}
@@ -95,6 +97,13 @@ async def register_tourist(
     nationality = tourist.nationality or "IN"
     tuid = generate_tuid(tourist.document_type, tourist.document_number, dob, nationality)
     doc_hash = hash_document_number(tourist.document_number)
+    cid = getattr(request.state, "correlation_id", "-")
+    log.info(
+        "tourist.register.received",
+        destination_state=tourist.destination_state,
+        selected_destinations=len(tourist.selected_destinations),
+        document_type=tourist.document_type,
+    )
 
     # Duplicate document check (same hash = already registered)
     existing = await crud.get_tourist_by_doc_hash(db, doc_hash)
@@ -129,6 +138,12 @@ async def register_tourist(
         tuid=tuid,
         document_number_hash=doc_hash,
         qr_jwt=qr_jwt,
+    )
+    log.info(
+        "tourist.register.db_write",
+        tourist_id=tourist_id,
+        tuid=tuid,
+        cid=cid,
     )
 
     # --- Issue auth tokens ---
