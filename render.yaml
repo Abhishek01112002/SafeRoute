@@ -12,7 +12,7 @@ services:
       - key: READ_FROM_PG
         value: "true"
       - key: DATABASE_URL
-        sync: false # Set to the Supabase Postgres URL, e.g. postgresql+asyncpg://...
+        value: postgresql+asyncpg://postgres.hcsmypvaolyphuacgfbs:Anshuman%40SafeRoute@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
       - key: DOC_NUMBER_SALT
         sync: false
       - key: TUID_SALT

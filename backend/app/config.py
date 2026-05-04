@@ -28,7 +28,7 @@ class Settings:
     # ---------------------------------------------------------------------------
     # Database & Retention
     # ---------------------------------------------------------------------------
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/saferoute.db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres.hcsmypvaolyphuacgfbs:Anshuman%40SafeRoute@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
     RETENTION_DAYS_LOCATION: int = 30
     DB_POOL_SIZE: int = 5           # DEV: 5, STAGING: 10, PROD: 20-50
     DB_MAX_OVERFLOW: int = 5        # DEV: 5, STAGING: 10, PROD: 20

@@ -123,7 +123,7 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    initialValue: _department,
+                    value: _department,
                     decoration: const InputDecoration(labelText: "Department", prefixIcon: Icon(Icons.account_balance)),
                     items: _departments.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                     onChanged: (v) => setState(() => _department = v!),
