@@ -1,9 +1,9 @@
 // lib/models/tourist_model.dart
 import 'dart:convert';
 
-enum DocumentType { AADHAAR, PASSPORT, DRIVING_LICENSE }
+enum DocumentType { aadhaar, passport, drivingLicense }
 
-enum UserState { GUEST, AUTHENTICATED, REGISTERED }
+enum UserState { guest, authenticated, registered }
 
 class DestinationVisit {
   final String destinationId;
@@ -93,8 +93,8 @@ class Tourist {
     // Safely parse document type — default to AADHAAR if unknown value received
     final rawDocType = json["document_type"] as String? ?? "AADHAAR";
     final docType = DocumentType.values.firstWhere(
-      (e) => e.toString().split('.').last == rawDocType,
-      orElse: () => DocumentType.AADHAAR,
+      (e) => e.name.toUpperCase() == rawDocType.toUpperCase(),
+      orElse: () => DocumentType.aadhaar,
     );
 
     return Tourist(
@@ -143,7 +143,7 @@ class Tourist {
   Map<String, dynamic> toJson() => {
         "tourist_id": touristId,
         "full_name": fullName,
-        "document_type": documentType.toString().split('.').last,
+        "document_type": documentType.name.toUpperCase(),
         "document_number": documentNumber,
         "photo_base64": photoBase64,
         "emergency_contact_name": emergencyContactName,
@@ -171,7 +171,7 @@ class Tourist {
     return {
       'touristId': touristId,
       'fullName': fullName,
-      'documentType': documentType.toString().split('.').last,
+      'documentType': documentType.name.toUpperCase(),
       'documentNumber': documentNumber,
       'photoBase64': photoBase64,
       'emergencyContactName': emergencyContactName,
@@ -201,7 +201,7 @@ class Tourist {
     return Tourist(
       touristId: map['touristId'],
       fullName: map['fullName'],
-      documentType: DocumentType.values.firstWhere((e) => e.toString().split('.').last == map['documentType']),
+      documentType: DocumentType.values.firstWhere((e) => e.name.toUpperCase() == (map['documentType'] as String).toUpperCase()),
       documentNumber: map['documentNumber'],
       photoBase64: map['photoBase64'],
       emergencyContactName: map['emergencyContactName'],

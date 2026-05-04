@@ -20,7 +20,7 @@ sealed class AppError {
   String get logMessage;
 
   @override
-  String toString() => 'AppError(${runtimeType}): $logMessage';
+  String toString() => 'AppError($runtimeType): $logMessage';
 
   // ---------------------------------------------------------------------------
   // Factory: Bridge from existing ApiException hierarchy

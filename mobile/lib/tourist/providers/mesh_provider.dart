@@ -50,7 +50,7 @@ class MeshProvider extends ChangeNotifier {
     _recentActivity.insert(0, packet);
     if (_recentActivity.length > 50) _recentActivity.removeLast(); // Keep top 50
 
-    if (packet.type == MeshPacketType.SOS_ALERT) {
+    if (packet.type == MeshPacketType.sosAlert) {
       debugPrint("MESH ALERT: SOS received from ${packet.sourceId}");
       // Analytics: Tracking mesh robustness
       locator<AnalyticsService>().logEvent(AnalyticsEvent.meshPacketRelayed, properties: {'type': 'SOS', 'source': packet.sourceId});
@@ -61,8 +61,8 @@ class MeshProvider extends ChangeNotifier {
 
   Future<void> stopMesh() async {
     await _meshService.stop();
-    _nodesSub?.cancel();
-    _packetSub?.cancel();
+    unawaited(_nodesSub?.cancel());
+    unawaited(_packetSub?.cancel());
     _isMeshActive = false;
     _nearbyNodes = [];
     notifyListeners();
@@ -74,7 +74,7 @@ class MeshProvider extends ChangeNotifier {
     }
     final packet = MeshPacket(
       sourceId: _meshService.myUserId ?? "unknown",
-      type: MeshPacketType.SOS_ALERT,
+      type: MeshPacketType.sosAlert,
       lat: lat,
       lng: lng,
       priority: 1, // High priority overrides queue
@@ -90,7 +90,7 @@ class MeshProvider extends ChangeNotifier {
     // Guests CAN broadcast location for safety/breadcrumb features
     final packet = MeshPacket(
       sourceId: _meshService.myUserId ?? "unknown",
-      type: MeshPacketType.LOCATION_UPDATE,
+      type: MeshPacketType.locationUpdate,
       lat: lat,
       lng: lng,
       priority: 0,

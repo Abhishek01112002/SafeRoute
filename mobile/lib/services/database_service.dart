@@ -22,7 +22,7 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'saferoute_v2.db');
+    final String path = join(await getDatabasesPath(), 'saferoute_v2.db');
     return await openDatabase(
       path,
       version: 10,

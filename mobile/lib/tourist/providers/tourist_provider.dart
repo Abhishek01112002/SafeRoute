@@ -1,5 +1,6 @@
 // lib/providers/tourist_provider.dart
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
@@ -13,7 +14,7 @@ import 'package:saferoute/core/service_locator.dart';
 
 class TouristProvider with ChangeNotifier {
   Tourist? _tourist;
-  UserState _userState = UserState.GUEST;
+  UserState _userState = UserState.guest;
   String? _guestSessionId;
   bool _isLoading = false;
   String? _errorMessage;
@@ -49,8 +50,8 @@ class TouristProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final stateStr = prefs.getString('user_state') ?? 'GUEST';
       _userState = UserState.values.firstWhere(
-        (e) => e.name == stateStr,
-        orElse: () => UserState.GUEST,
+        (e) => e.name.toUpperCase() == stateStr.toUpperCase(),
+        orElse: () => UserState.guest,
       );
       _guestSessionId = prefs.getString('guest_session_id');
 
@@ -113,7 +114,7 @@ class TouristProvider with ChangeNotifier {
           if (response['tourist'] != null) {
             _tourist = response['tourist'];
             await _dbService.saveTourist(_tourist!);
-            _userState = UserState.AUTHENTICATED;
+            _userState = UserState.authenticated;
             await prefs.setString('user_state', 'AUTHENTICATED');
             debugPrint("[!] Re-login recovery successful for $touristId");
             return;
@@ -127,7 +128,7 @@ class TouristProvider with ChangeNotifier {
       debugPrint("[!] All recovery failed. Keeping registered state for offline use.");
       // Don't reset is_registered - the user can still use offline features
       // They'll be prompted to re-authenticate when connectivity returns
-      _userState = UserState.REGISTERED;
+      _userState = UserState.registered;
       await prefs.setString('user_state', 'REGISTERED');
       return;
     }
@@ -152,8 +153,8 @@ class TouristProvider with ChangeNotifier {
   }
 
   Future<void> _checkSessionIntegrity() async {
-    if (_userState == UserState.AUTHENTICATED ||
-        _userState == UserState.REGISTERED) {
+    if (_userState == UserState.authenticated ||
+        _userState == UserState.registered) {
       final secureStorage = locator<SecureStorageService>();
       final token = await secureStorage.getToken();
 
@@ -178,7 +179,7 @@ class TouristProvider with ChangeNotifier {
 
   Future<void> downgradeToGuest() async {
     _tourist = null;
-    _userState = UserState.GUEST;
+    _userState = UserState.guest;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_state', 'GUEST');
     await (SecureStorageService()).clear();
@@ -214,7 +215,7 @@ class TouristProvider with ChangeNotifier {
 
       // Phase 4: Update memory state
       _tourist = tempTourist;
-      _userState = UserState.REGISTERED;
+      _userState = UserState.registered;
 
       locator<AnalyticsService>().logEvent(AnalyticsEvent.onboardingRegisterSuccess,
           properties: {'id': tempTourist.touristId});
@@ -281,7 +282,7 @@ class TouristProvider with ChangeNotifier {
       await prefs.setBool('onboarding_completed', true);
 
       _tourist = tempTourist;
-      _userState = UserState.AUTHENTICATED;
+      _userState = UserState.authenticated;
 
       locator<AnalyticsService>().logEvent(AnalyticsEvent.onboardingRegisterSuccess,
           properties: {'id': tempTourist.touristId, 'method': 'multipart'});
@@ -297,8 +298,8 @@ class TouristProvider with ChangeNotifier {
         touristId: tempId,
         fullName: fields['full_name'] ?? "Unknown",
         documentType: DocumentType.values.firstWhere(
-            (e) => e.toString().split('.').last == fields['document_type'],
-            orElse: () => DocumentType.AADHAAR),
+            (e) => e.name.toUpperCase() == (fields['document_type'] ?? '').toUpperCase(),
+            orElse: () => DocumentType.aadhaar),
         documentNumber: fields['document_number'] ?? "",
         photoBase64: "", // We have photoPath instead
         emergencyContactName: fields['emergency_contact_name'] ?? "",
@@ -325,7 +326,7 @@ class TouristProvider with ChangeNotifier {
       await prefs.setString('user_state', 'REGISTERED'); // Let them in, but restricted
 
       _tourist = offlineTourist;
-      _userState = UserState.REGISTERED;
+      _userState = UserState.registered;
 
       _errorMessage = "Registered offline. Identity will sync when online.";
       notifyListeners();
@@ -342,12 +343,12 @@ class TouristProvider with ChangeNotifier {
     _isOnline = result != ConnectivityResult.none;
 
     if (_isOnline) {
-      _apiService.checkServerHealth().then((connected) {
+      unawaited(_apiService.checkServerHealth().then((connected) {
         debugPrint("Backend Server Reachable: $connected");
         if (connected && wasOffline) {
-          locator<SyncService>().syncOfflineData();
+          unawaited(locator<SyncService>().syncOfflineData());
         }
-      });
+      }));
     }
     notifyListeners();
   }
@@ -364,7 +365,7 @@ class TouristProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _guestSessionId = const Uuid().v4();
-      _userState = UserState.GUEST;
+      _userState = UserState.guest;
 
       await prefs.setBool('onboarding_completed', true);
       await prefs.setString('user_state', 'GUEST');
@@ -398,7 +399,7 @@ class TouristProvider with ChangeNotifier {
       final response = await _apiService.loginTourist(touristId);
       if (response['tourist'] != null) {
         _tourist = response['tourist'];
-        _userState = UserState.AUTHENTICATED;
+        _userState = UserState.authenticated;
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_registered', true);
@@ -456,7 +457,7 @@ class TouristProvider with ChangeNotifier {
     final secureStorage = locator<SecureStorageService>();
     await secureStorage.clear();
     _tourist = null;
-    _userState = UserState.GUEST;
+    _userState = UserState.guest;
     notifyListeners();
 
     await setGuestMode();
@@ -474,7 +475,7 @@ class TouristProvider with ChangeNotifier {
       debugPrint(
           "🚨 Security: Brute force protection triggered. Locked for 15 minutes.");
     } else {
-      _errorMessage = "Invalid tourist ID. Attempt ${_failedLoginAttempts} of $_maxFailedAttempts.";
+      _errorMessage = "Invalid tourist ID. Attempt $_failedLoginAttempts of $_maxFailedAttempts.";
     }
   }
 

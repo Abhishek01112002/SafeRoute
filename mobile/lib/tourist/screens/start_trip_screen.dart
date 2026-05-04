@@ -371,7 +371,7 @@ class _StopCardState extends State<_StopCard> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: d.state,
+            initialValue: d.state,
             hint: Text('Select state', style: TextStyle(color: widget.textSecondary)),
             dropdownColor: widget.surf,
             style: TextStyle(color: widget.textPrimary),

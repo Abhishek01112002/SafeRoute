@@ -67,6 +67,7 @@ class PermissionService {
       rationaleTitle: 'Location Access',
       rationaleMessage: 'SafeRoute needs your location to track your safety trail.',
     );
+    if (!context.mounted) return false;
 
     if (!foregroundStatus.isGranted) return false;
 

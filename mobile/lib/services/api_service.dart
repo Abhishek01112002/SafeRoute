@@ -437,8 +437,8 @@ class ApiService {
           touristId: touristId,
           fullName: formData["full_name"] ?? "Tourist",
           documentType: formData["document_type"] == "PASSPORT"
-              ? DocumentType.PASSPORT
-              : DocumentType.AADHAAR,
+              ? DocumentType.passport
+              : DocumentType.aadhaar,
           documentNumber: formData["document_number"] ?? "0000-0000-0000",
           photoBase64: formData["photo_base64"] ?? "",
           emergencyContactName:
@@ -482,7 +482,7 @@ class ApiService {
         final emergencyTourist = Tourist(
           touristId: "TID-EMERGENCY-${DateTime.now().millisecondsSinceEpoch}",
           fullName: "Guest Tourist",
-          documentType: DocumentType.AADHAAR,
+          documentType: DocumentType.aadhaar,
           documentNumber: "UNKNOWN",
           photoBase64: "",
           emergencyContactName: "Emergency",

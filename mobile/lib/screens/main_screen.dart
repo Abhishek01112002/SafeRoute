@@ -1,6 +1,7 @@
 // lib/main_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
@@ -84,14 +85,14 @@ class _MainScreenState extends State<MainScreen>
     final locationProvider = context.read<LocationProvider>();
     final meshProvider = context.read<MeshProvider>();
 
-    if (touristProv.userState == UserState.GUEST &&
+    if (touristProv.userState == UserState.guest &&
         touristProv.guestSessionId == null) {
       await touristProv.setGuestMode();
     }
 
     if (!mounted) return;
 
-    final isGuest = touristProv.userState == UserState.GUEST;
+    final isGuest = touristProv.userState == UserState.guest;
     final fallbackId = isGuest ? touristProv.guestSessionId : touristProv.tourist?.touristId;
     final userId = isGuest
         ? touristProv.guestSessionId
@@ -138,16 +139,17 @@ class _MainScreenState extends State<MainScreen>
       ),
     );
 
-    if (confirmed == true) {
-      if (!mounted) return;
-      await context.read<TouristProvider>().logout();
-      if (!mounted) return;
+    if (confirmed == true && mounted) {
+      if (!context.mounted) return;
+      final navigator = Navigator.of(context);
+      final touristProvider = context.read<TouristProvider>();
+      await touristProvider.logout();
 
       // Navigate to Onboarding and clear stack
-      Navigator.of(context).pushAndRemoveUntil(
+      unawaited(navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         (route) => false,
-      );
+      ));
     }
   }
 
@@ -196,7 +198,7 @@ class _MainScreenState extends State<MainScreen>
                     IconButton(
                       icon: Icon(Icons.logout_rounded,
                           size: 20,
-                          color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                       onPressed: () => _handleLogout(context),
                       tooltip: 'Logout',
                     ),
@@ -204,8 +206,8 @@ class _MainScreenState extends State<MainScreen>
                   ],
                   elevation: 0,
                   backgroundColor: theme.brightness == Brightness.dark
-                      ? Colors.black.withOpacity(0.6)
-                      : Colors.white.withOpacity(0.6),
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -406,7 +408,7 @@ class _SpringDockItemState extends State<_SpringDockItem>
                   color: color,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)
+                    BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)
                   ],
                 ),
               ),
@@ -464,9 +466,9 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
       builder: (_, __) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08 + (_pulseAnim.value * 0.06)),
+          color: color.withValues(alpha: 0.08 + (_pulseAnim.value * 0.06)),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -475,10 +477,10 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: color.withOpacity(_pulseAnim.value),
+                color: color.withValues(alpha: _pulseAnim.value),
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)
+                  BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)
                 ],
               ),
             ),

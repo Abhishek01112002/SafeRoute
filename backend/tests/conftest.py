@@ -19,6 +19,10 @@ from fastapi.testclient import TestClient
 from app import create_app
 from app.services.jwt_service import create_jwt_token
 from app.db import sqlite_legacy
+from app.core import limiter
+
+# Disable rate limiter for tests to prevent 429 Too Many Requests
+limiter.enabled = False
 
 # ---------------------------------------------------------------------------
 # Test data constants

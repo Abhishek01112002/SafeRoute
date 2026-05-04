@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/utils/validators.dart';
 import 'package:saferoute/widgets/loading_overlay.dart';
@@ -28,7 +29,7 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
 
   final List<String> _departments = ['Police', 'Forest Dept', 'Tourism Dept', 'Home Affairs'];
 
-  void _submit() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
@@ -49,17 +50,16 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
 
       if (mounted) {
         if (response['status'] == 'active') {
+          // FIX: capture navigator before awaits
+          final navigator = Navigator.of(context);
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('role', 'authority');
           await prefs.setString('authority_id', response['authority_id']);
 
-          // FIX: re-check mounted after the SharedPreferences awaits
-          if (!mounted) return;
-          Navigator.pushAndRemoveUntil(
-            context,
+          unawaited(navigator.pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const AuthorityDashboardScreen()),
             (route) => false,
-          );
+          ));
         } else {
           _showSuccessDialog();
         }

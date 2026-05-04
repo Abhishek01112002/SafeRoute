@@ -251,13 +251,13 @@ class SafeRouteErrorCard extends StatelessWidget {
     if (compact) {
       return Row(
         children: [
-          Icon(Icons.error_outline_rounded,
+          const Icon(Icons.error_outline_rounded,
               color: AppColors.danger, size: 16),
           const SizedBox(width: AppSpacing.s),
           Expanded(
             child: Text(
               error.userMessage,
-              style: TextStyle(color: AppColors.danger, fontSize: 12),
+              style: const TextStyle(color: AppColors.danger, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

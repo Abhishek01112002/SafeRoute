@@ -268,12 +268,12 @@ class SyncEngine {
         return await _api.sendLocationPing(LocationPing.fromMap(op.payload));
 
       case SyncOperationType.touristIdentity:
-        final response = await _api.registerTouristMultipart(
+        await _api.registerTouristMultipart(
           fields: Map<String, String>.from(op.payload['fields']),
           photoPath: op.payload['photoPath'],
           docPath: op.payload['docPath'],
         );
-        return response != null;
+        return true;
 
       case SyncOperationType.zoneData:
         final zones = await _api.getZonesForDestination(op.payload['destinationId']);

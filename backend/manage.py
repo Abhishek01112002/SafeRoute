@@ -10,6 +10,7 @@ Usage:
   python manage.py create-authority             — interactive: create an authority account
 """
 
+from __future__ import annotations
 import sys
 import os
 import json

@@ -8,7 +8,6 @@ import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
-import 'package:saferoute/utils/constants.dart';
 import 'package:saferoute/core/config/env_config.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';

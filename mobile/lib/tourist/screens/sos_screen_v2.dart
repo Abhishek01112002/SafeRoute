@@ -99,7 +99,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   Widget _buildIdle({required Key key}) {
     final touristProvider = context.watch<TouristProvider>();
     final tourist = touristProvider.tourist;
-    final isGuest = touristProvider.userState == UserState.GUEST;
+    final isGuest = touristProvider.userState == UserState.guest;
 
     return LayoutBuilder(
       key: key,
@@ -300,7 +300,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     final locProv = context.read<LocationProvider>();
     final touristProv = context.read<TouristProvider>();
     final meshProv = context.read<MeshProvider>();
-    final isGuest = touristProv.userState == UserState.GUEST;
+    final isGuest = touristProv.userState == UserState.guest;
     final tourist = touristProv.tourist;
 
     if (!isGuest && tourist == null) {
@@ -340,7 +340,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       _isActivated = true;
       _sosDeliveryMessage = 'CONTACTING EMERGENCY NETWORK';
     });
-    HapticFeedback.heavyImpact();
+    unawaited(HapticFeedback.heavyImpact());
 
     Position? pos = locProv.currentPosition;
 

@@ -75,7 +75,7 @@ class TileDownloaderService {
     final region = regions[regionKey];
     if (region == null) return;
 
-    List<String> tileQueue = [];
+    final List<String> tileQueue = [];
 
     // 1. Calculate tile queue
     for (int z = minZoom; z <= maxZoom; z++) {
@@ -99,7 +99,7 @@ class TileDownloaderService {
       }
     }
 
-    int total = tileQueue.length;
+    final int total = tileQueue.length;
     int downloaded = 0;
 
     yield DownloadProgress(regionName: regionKey, total: total, downloaded: 0);

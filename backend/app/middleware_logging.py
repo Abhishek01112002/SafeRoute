@@ -11,6 +11,7 @@
 # This is a pure OBSERVABILITY layer. Zero business logic.
 # Add to app in main.py with: app.add_middleware(RequestLoggingMiddleware)
 
+from __future__ import annotations
 import time
 import uuid
 import re

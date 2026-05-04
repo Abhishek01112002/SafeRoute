@@ -1,19 +1,19 @@
 // lib/tourist/models/trip_model.dart
 import 'package:flutter/foundation.dart';
 
-enum TripStatus { PLANNED, ACTIVE, COMPLETED, CANCELLED }
+enum TripStatus { planned, active, completed, cancelled }
 
 extension TripStatusX on TripStatus {
   String get label {
     switch (this) {
-      case TripStatus.PLANNED:    return 'Planned';
-      case TripStatus.ACTIVE:     return 'Active';
-      case TripStatus.COMPLETED:  return 'Completed';
-      case TripStatus.CANCELLED:  return 'Cancelled';
+      case TripStatus.planned:    return 'Planned';
+      case TripStatus.active:     return 'Active';
+      case TripStatus.completed:  return 'Completed';
+      case TripStatus.cancelled:  return 'Cancelled';
     }
   }
 
-  bool get isActive => this == TripStatus.ACTIVE;
+  bool get isActive => this == TripStatus.active;
 }
 
 class TripStop {
@@ -92,7 +92,7 @@ class Trip {
     required this.createdAt,
   });
 
-  bool get isActive => status == TripStatus.ACTIVE;
+  bool get isActive => status == TripStatus.active;
 
   /// Returns the stop the tourist is currently at (first stop within today's range,
   /// or the first stop overall if none match today).
@@ -110,8 +110,8 @@ class Trip {
         tripId: json['trip_id'] as String,
         touristId: json['tourist_id'] as String,
         status: TripStatus.values.firstWhere(
-          (e) => e.name == (json['status'] as String? ?? 'PLANNED'),
-          orElse: () => TripStatus.PLANNED,
+          (e) => e.name.toUpperCase() == (json['status'] as String? ?? 'PLANNED').toUpperCase(),
+          orElse: () => TripStatus.planned,
         ),
         tripStartDate: DateTime.parse(json['trip_start_date'] as String),
         tripEndDate: DateTime.parse(json['trip_end_date'] as String),
@@ -126,7 +126,7 @@ class Trip {
   Map<String, dynamic> toJson() => {
         'trip_id': tripId,
         'tourist_id': touristId,
-        'status': status.name,
+        'status': status.name.toUpperCase(),
         'trip_start_date': tripStartDate.toIso8601String(),
         'trip_end_date': tripEndDate.toIso8601String(),
         'primary_state': primaryState,

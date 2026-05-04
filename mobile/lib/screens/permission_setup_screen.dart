@@ -1,5 +1,6 @@
 // lib/screens/permission_setup_screen.dart
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/utils/permission_helper.dart';
@@ -22,6 +23,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
   Future<void> _handlePermissions() async {
     setState(() => _isRequesting = true);
     final granted = await PermissionHelper.requestAllPermissions(context);
+    if (!mounted) return;
     setState(() => _isRequesting = false);
 
     locator<AnalyticsService>().logEvent(
@@ -31,13 +33,13 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
     if (granted) {
       if (mounted) {
         final touristProv = context.read<TouristProvider>();
+        final navigator = Navigator.of(context);
         await touristProv.completeOnboarding();
 
-        Navigator.pushAndRemoveUntil(
-          context,
+        unawaited(navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
-        );
+        ));
       }
     } else {
       _showLimitedModeDialog();
@@ -48,7 +50,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black.withOpacity(0.9),
+        backgroundColor: Colors.black.withValues(alpha: 0.9),
         title: const Text("LIMITED MODE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
         content: const Text(
           "Without permissions, live tracking and SOS broadcasting will be disabled. You can still view maps and sync data manually.",
@@ -60,14 +62,13 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
             isFullWidth: false,
             onPressed: () async {
               Navigator.pop(ctx);
-              await context.read<TouristProvider>().completeOnboarding();
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainScreen()),
-                  (route) => false,
-                );
-              }
+              final touristProv = context.read<TouristProvider>();
+              final navigator = Navigator.of(context);
+              await touristProv.completeOnboarding();
+              unawaited(navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const MainScreen()),
+                (route) => false,
+              ));
             },
             child: const Text("CONTINUE LIMITED"),
           ),
@@ -107,7 +108,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
                     "SafeRoute requires your permission to protect you in zero-connectivity zones.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -129,7 +130,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
                     child: Text(
                       "CONTINUE WITH LIMITED FEATURES",
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                         fontWeight: FontWeight.w900,
                         fontSize: 9,
                         letterSpacing: 1,
@@ -163,7 +164,7 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1)),
-                Text(desc, style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                Text(desc, style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),

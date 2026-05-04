@@ -88,7 +88,7 @@ class AppMotion {
 class AppElevation {
   static List<BoxShadow> level1 = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.1),
+      color: AppColors.primary.withValues(alpha: 0.1),
       blurRadius: 12,
       spreadRadius: -2,
       offset: const Offset(0, 4),
@@ -97,7 +97,7 @@ class AppElevation {
 
   static List<BoxShadow> level2 = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.15),
+      color: AppColors.primary.withValues(alpha: 0.15),
       blurRadius: 24,
       spreadRadius: -4,
       offset: const Offset(0, 8),
@@ -106,7 +106,7 @@ class AppElevation {
 
   static List<BoxShadow> level3 = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.2),
+      color: AppColors.primary.withValues(alpha: 0.2),
       blurRadius: 42,
       spreadRadius: -8,
       offset: const Offset(0, 16),
@@ -124,10 +124,10 @@ class AppStyle {
     double borderOpacity = 0.1,
   }) {
     return BoxDecoration(
-      color: color.withOpacity(0.6),
+      color: color.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: (borderColor ?? Colors.white).withOpacity(borderOpacity),
+        color: (borderColor ?? Colors.white).withValues(alpha: borderOpacity),
         width: 1.5,
       ),
     );
@@ -135,7 +135,7 @@ class AppStyle {
 
   static List<BoxShadow> aura(Color color, {double opacity = 0.15, double blur = 30}) => [
     BoxShadow(
-      color: color.withOpacity(opacity),
+      color: color.withValues(alpha: opacity),
       blurRadius: blur,
       spreadRadius: 0,
       offset: const Offset(0, 8),

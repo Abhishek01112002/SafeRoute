@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/authority/screens/authority_login_screen.dart';
@@ -253,14 +254,14 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 
-  void _handleSkip(BuildContext context) async {
+  Future<void> _handleSkip(BuildContext context) async {
     final touristProvider = context.read<TouristProvider>();
     await touristProvider.setGuestMode();
     if (context.mounted) {
-      Navigator.pushReplacement(
+      unawaited(Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const PermissionSetupScreen()),
-      );
+      ));
     }
   }
 
@@ -332,12 +333,12 @@ class OnboardingScreen extends StatelessWidget {
               final success = await provider.loginTouristSecure(id);
               if (success && ctx.mounted) {
                 Navigator.pop(ctx);
-                Navigator.pushReplacement(
+                unawaited(Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
                     builder: (_) => const PermissionSetupScreen(),
                   ),
-                );
+                ));
               } else if (ctx.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

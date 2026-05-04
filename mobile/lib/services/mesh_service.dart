@@ -93,11 +93,11 @@ class MeshService {
       debugPrint("Mesh: Start scan failed (permissions?): $e");
     }
 
-    _startQueueExecutionLoop();
+    unawaited(_startQueueExecutionLoop());
     await _startDefaultAdvertising();
   }
 
-  void _startQueueExecutionLoop() async {
+  Future<void> _startQueueExecutionLoop() async {
     if (_isQueueRunning) return;
     _isQueueRunning = true;
 
@@ -133,7 +133,7 @@ class MeshService {
   void _enqueuePacket(MeshPacket packet) {
     if (_hasPacketInAnyQueue(packet.packetId)) return;
 
-    if (packet.type == MeshPacketType.SOS_ALERT) {
+    if (packet.type == MeshPacketType.sosAlert) {
       _emergencyQueue.add(packet);
     } else if (packet.priority > 0) {
       _highQueue.add(packet);
@@ -178,8 +178,8 @@ class MeshService {
     _nearbyNodesController.add(_nodesMap.values.toList());
 
     if (result.advertisementData.manufacturerData.isNotEmpty) {
-      _processIncomingCBEPData(
-          result.advertisementData.manufacturerData.values.first, result.rssi);
+      unawaited(_processIncomingCBEPData(
+          result.advertisementData.manufacturerData.values.first, result.rssi));
     }
   }
 
@@ -236,7 +236,7 @@ class MeshService {
 
         // TraceRoute Injection
         final myShortId = (_myUserId?.hashCode ?? 0) & 0xFFFF;
-        List<int> newPath = List.from(packet.relayPathShortIds);
+        final List<int> newPath = List.from(packet.relayPathShortIds);
         if (newPath.length < 5) newPath.add(myShortId);
 
         final relayedPacket =

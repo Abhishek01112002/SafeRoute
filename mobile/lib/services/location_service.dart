@@ -26,10 +26,10 @@ class LocationService {
   }
 
   Future<Position?> getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return null;
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    final LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.deniedForever) return null;
 
     try {
@@ -65,18 +65,18 @@ class LocationService {
   }
 
   double calculateSpeed(Position prev, Position curr) {
-    double distanceInMeters = Geolocator.distanceBetween(
+    final double distanceInMeters = Geolocator.distanceBetween(
       prev.latitude,
       prev.longitude,
       curr.latitude,
       curr.longitude,
     );
 
-    double timeInSeconds =
+    final double timeInSeconds =
         curr.timestamp.difference(prev.timestamp).inSeconds.toDouble();
     if (timeInSeconds <= 0) return 0.0;
 
-    double metersPerSecond = distanceInMeters / timeInSeconds;
+    final double metersPerSecond = distanceInMeters / timeInSeconds;
     return metersPerSecond * 3.6; // Convert to km/h
   }
 

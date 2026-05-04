@@ -27,7 +27,7 @@ class HomeScreenV2 extends StatelessWidget {
     final tourist = touristProvider.tourist;
     final userState = touristProvider.userState;
 
-    if (tourist == null && userState != UserState.GUEST) {
+    if (tourist == null && userState != UserState.guest) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -70,12 +70,12 @@ class _HomeContent extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const _TelemetryRow(),
-          if (userState == UserState.GUEST) ...[
+          if (userState == UserState.guest) ...[
             const SizedBox(height: 14),
             const _GuestAccessBanner(),
           ],
           // Show 'Start a Trip' CTA for registered/authenticated tourists
-          if (userState != UserState.GUEST) ...[
+          if (userState != UserState.guest) ...[
             const SizedBox(height: 14),
             const _ActiveTripBanner(),
           ],

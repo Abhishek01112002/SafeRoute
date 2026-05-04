@@ -1,11 +1,11 @@
 // lib/screens/authority_login_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/authority/screens/authority_dashboard_screen.dart';
 import 'package:saferoute/utils/validators.dart';
 import 'package:saferoute/widgets/loading_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:saferoute/services/api_service.dart' show ApiException;
 import 'package:saferoute/core/service_locator.dart';
 
 class AuthorityLoginScreen extends StatefulWidget {
@@ -20,12 +20,11 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
   String _email = '';
   String _password = '';
   bool _isLoading = false;
-  String? _errorMessage;
   int _failedAttempts = 0;
   bool _isLocked = false;
   DateTime? _lockUntil;
 
-  void _login() async {
+  Future<void> _login() async {
     if (_isLocked) {
       final remaining = _lockUntil?.difference(DateTime.now()).inSeconds ?? 0;
       _showError('Account locked. Try again in ${remaining}s');
@@ -37,7 +36,6 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
@@ -56,11 +54,11 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
       await prefs.setString('last_login', DateTime.now().toIso8601String());
 
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
+        final navigator = Navigator.of(context);
+        unawaited(navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const AuthorityDashboardScreen()),
           (route) => false,
-        );
+        ));
       }
     } on ApiException catch (e) {
       _handleFailedLogin(e);
@@ -100,7 +98,7 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
     _showError('Too many failed attempts. Account locked for 15 minutes.');
 
     // Auto-unlock after 15 minutes
-    Future.delayed(const Duration(minutes: 15), () {
+    unawaited(Future.delayed(const Duration(minutes: 15), () {
       if (mounted) {
         setState(() {
           _isLocked = false;
@@ -108,11 +106,11 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
           _lockUntil = null;
         });
       }
-    });
+    }));
   }
 
   void _showError(String message) {
-    setState(() => _errorMessage = message);
+    setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),

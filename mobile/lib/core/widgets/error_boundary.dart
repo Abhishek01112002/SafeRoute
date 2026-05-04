@@ -141,7 +141,7 @@ class _DefaultErrorFallback extends StatelessWidget {
                   color: AppColors.danger.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.warning_amber_rounded,
                   color: AppColors.danger,
                   size: 36,
@@ -150,7 +150,7 @@ class _DefaultErrorFallback extends StatelessWidget {
               const SizedBox(height: AppSpacing.m),
 
               // Title
-              Text(
+              const Text(
                 'Something went wrong',
                 style: TextStyle(
                   color: AppColors.textPrimaryDark,
@@ -162,7 +162,7 @@ class _DefaultErrorFallback extends StatelessWidget {
               const SizedBox(height: AppSpacing.s),
 
               // Subtitle
-              Text(
+              const Text(
                 'The app ran into an unexpected issue.\nYour data is safe.',
                 style: TextStyle(
                   color: AppColors.textSecondaryDark,
@@ -218,7 +218,7 @@ class _DefaultErrorFallback extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Text(
+                  child: const Text(
                     'Tap to view technical details',
                     style: TextStyle(
                       color: AppColors.textSecondaryDark,

@@ -7,6 +7,7 @@ import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:saferoute/screens/permission_setup_screen.dart';
@@ -14,7 +15,6 @@ import 'package:saferoute/services/api_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:saferoute/services/permission_service.dart';
 import 'package:saferoute/widgets/loading_overlay.dart';
-import 'package:saferoute/services/database_service.dart';
 import 'package:intl/intl.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -34,7 +34,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   int _currentStep = 0;
 
   String _fullName = '';
-  DocumentType _docType = DocumentType.AADHAAR;
+  DocumentType _docType = DocumentType.aadhaar;
   String _docNumber = '';
   File? _photoFile;
   File? _documentFile;
@@ -103,7 +103,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _pickImage() async {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildSourceSheet(
@@ -141,11 +141,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         },
       ),
-    );
+    ));
   }
 
   Future<void> _pickDocument() async {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildSourceSheet(
@@ -183,7 +183,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             );
             if (!status.isGranted && !status.isLimited) return;
 
-            FilePickerResult? result = await FilePicker.platform.pickFiles(
+            final FilePickerResult? result = await FilePicker.platform.pickFiles(
               type: FileType.custom,
               allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
             );
@@ -203,7 +203,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         },
       ),
-    );
+    ));
   }
 
   void _showError(String msg) {
@@ -285,7 +285,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  void _submitForm() async {
+  Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
     if (_photoFile == null) {
       _showError("Profile photo is required");
@@ -352,16 +352,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           .map((d) => (d['id'] ?? d['destination_id']).toString())
           .toList();
 
-      locator<SyncEngine>().fullSync(
+      unawaited(locator<SyncEngine>().fullSync(
         touristId: touristId,
         destinationIds: destIds,
-      );
+      ));
 
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-          context,
+      final navigator = Navigator.of(context);
+      unawaited(navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const PermissionSetupScreen()),
-          (route) => false);
+          (route) => false));
     } else {
       _showError(touristProvider.errorMessage ?? "Registration failed");
     }
@@ -657,7 +657,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final String pattern;
     final String errorMsg;
 
-    if (_docType == DocumentType.AADHAAR) {
+    if (_docType == DocumentType.aadhaar) {
       pattern = r"^\d{12}$";
       errorMsg = "AADHAAR must be 12 digits";
     } else {

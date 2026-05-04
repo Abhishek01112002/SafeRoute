@@ -1,5 +1,6 @@
 // lib/tourist/screens/offline_navigation_screen.dart
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -97,10 +98,10 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
     debugPrint('[Offline] Starting Initialization...');
 
     // 1. Load graph in background
-    Future.microtask(() async {
+    unawaited(Future.microtask(() async {
       await _pathfinder.loadForDestination('demo_dest_id');
       debugPrint('[Offline] Graph loaded.');
-    });
+    }));
 
     // 2. Ready to show map core immediately
     if (mounted) {
@@ -196,7 +197,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
 
     setState(() => _isNavigating = true);
 
-    List<LatLng> reversePath = [];
+    final List<LatLng> reversePath = [];
     bool exitedDanger = false;
 
     for (var dot in locProv.trail.reversed) {
@@ -295,7 +296,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       point: LatLng(_currentPosition!.latitude,
                           _currentPosition!.longitude),
                       color: Colors.transparent,
-                      borderColor: const Color(0xFF00D4AA).withOpacity(0.05),
+                      borderColor: const Color(0xFF00D4AA).withValues(alpha: 0.05),
                       borderStrokeWidth: 2,
                       radius: 300,
                       useRadiusInMeter: true,
@@ -304,7 +305,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       point: LatLng(_currentPosition!.latitude,
                           _currentPosition!.longitude),
                       color: Colors.transparent,
-                      borderColor: const Color(0xFF00D4AA).withOpacity(0.1),
+                      borderColor: const Color(0xFF00D4AA).withValues(alpha: 0.1),
                       borderStrokeWidth: 2,
                       radius: 800,
                       useRadiusInMeter: true,
@@ -339,12 +340,12 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       }
 
                       // Fade effect logic
-                      double op = ((i + 1) / trail.length).clamp(0.2, 1.0);
+                      final double op = ((i + 1) / trail.length).clamp(0.2, 1.0);
 
                       return CircleMarker(
                         point: LatLng(p.latitude, p.longitude),
-                        color: c.withOpacity(op),
-                        borderColor: Colors.black.withOpacity(op * 0.5),
+                        color: c.withValues(alpha: op),
+                        borderColor: Colors.black.withValues(alpha: op * 0.5),
                         borderStrokeWidth: 1.0,
                         radius: 5.0, // Crisp dots
                         useRadiusInMeter: false,
@@ -406,7 +407,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       points: _navResult!.offlineGeometries
                           .map((n) => LatLng(n['lat']!, n['lng']!))
                           .toList(),
-                      color: const Color(0xFF00D4AA).withOpacity(0.3),
+                      color: const Color(0xFF00D4AA).withValues(alpha: 0.3),
                       strokeWidth: 14,
                     ),
                     // Inner dense line
@@ -438,7 +439,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       LatLng(30.3371500, 77.8692639),
                     ],
                     isFilled: true,
-                    color: Colors.yellow.withOpacity(0.20),
+                    color: Colors.yellow.withValues(alpha: 0.20),
                     borderColor: Colors.orange,
                     borderStrokeWidth: 2.0,
                   ),
@@ -455,7 +456,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       LatLng(30.3367222, 77.8681639),
                     ],
                     isFilled: true,
-                    color: Colors.red.withOpacity(0.20),
+                    color: Colors.red.withValues(alpha: 0.20),
                     borderColor: Colors.red,
                     borderStrokeWidth: 2.5,
                   ),
@@ -474,10 +475,10 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               shape: BoxShape.circle,
                               // DEFAULT-SAFE node colors
                               color: node.zoneType == ZoneType.restricted
-                                  ? Colors.redAccent.withOpacity(0.4)
+                                  ? Colors.redAccent.withValues(alpha: 0.4)
                                   : node.zoneType == ZoneType.caution
-                                      ? Colors.orangeAccent.withOpacity(0.4)
-                                      : const Color(0xFF00D4AA).withOpacity(0.3),
+                                      ? Colors.orangeAccent.withValues(alpha: 0.4)
+                                      : const Color(0xFF00D4AA).withValues(alpha: 0.3),
                               border: Border.all(
                                 color: node.zoneType == ZoneType.restricted
                                     ? Colors.redAccent
@@ -506,8 +507,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               height: 60 * _pulseAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF00D4AA).withOpacity(
-                                    0.4 * (1.0 - _pulseAnimation.value)),
+                                color: const Color(0xFF00D4AA).withValues(alpha: 0.4 * (1.0 - _pulseAnimation.value)),
                               ),
                             ),
                             Container(
@@ -547,7 +547,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.8),
+                color: Colors.orange.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Row(
@@ -576,9 +576,9 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -628,7 +628,7 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                             foregroundColor: Colors.black,
                             elevation: 8,
                             shadowColor:
-                                const Color(0xFF00D4AA).withOpacity(0.5),
+                                const Color(0xFF00D4AA).withValues(alpha: 0.5),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),

@@ -19,7 +19,7 @@ import 'package:saferoute/core/service_locator.dart';
 ///
 ///   // NEW
 ///   await locator<SyncEngine>().fullSync(touristId: id, destinationIds: dests);
-@deprecated
+@Deprecated('Use SyncEngine directly for all new code. This class is for legacy compatibility only.')
 class SyncService {
   static final SyncService _instance = SyncService._internal();
   factory SyncService() => _instance;

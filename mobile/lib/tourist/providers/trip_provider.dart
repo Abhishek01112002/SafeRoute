@@ -34,7 +34,7 @@ class TripProvider extends ChangeNotifier {
     // Try fast path: restore from local cache first
     await _restoreFromCache();
     // Then refresh from server in background
-    _refreshActiveTrip();
+    unawaited(_refreshActiveTrip());
   }
 
   // ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ class TripProvider extends ChangeNotifier {
       final list = (data['trips'] as List<dynamic>? ?? []);
       _tripHistory = list
           .map((t) => Trip.fromJson(t as Map<String, dynamic>))
-          .where((t) => t.status != TripStatus.ACTIVE)
+          .where((t) => t.status != TripStatus.active)
           .toList();
       notifyListeners();
     } catch (_) {}

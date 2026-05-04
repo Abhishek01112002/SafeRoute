@@ -246,7 +246,7 @@ class EliteSurface extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final r = borderRadius ?? AppSpacing.radiusXL;
 
-    Widget content = Container(
+    final Widget content = Container(
       width: width,
       height: height,
       margin: margin,
@@ -680,7 +680,7 @@ class OfflinePackCard extends StatelessWidget {
                       value: progress,
                       backgroundColor: isDark ? Colors.white10 : Colors.black12,
                       valueColor:
-                          AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          const AlwaysStoppedAnimation<Color>(AppColors.primary),
                       minHeight: 2,
                     ),
                   ),

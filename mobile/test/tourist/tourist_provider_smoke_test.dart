@@ -16,18 +16,21 @@ import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/core/providers/theme_provider.dart';
+import 'package:saferoute/services/api_service.dart';
 
 void main() {
   setUp(() {
     // Reset GetIt before each test to avoid state leakage
     GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
+    // Register a minimal ApiService stub so providers that call GetIt can be constructed
+    GetIt.instance.registerSingleton<ApiService>(_MockApiService());
   });
 
   group('TouristProvider — initial state', () {
     test('starts in GUEST user state', () {
       final provider = TouristProvider();
-      expect(provider.userState, UserState.GUEST);
+      expect(provider.userState, UserState.guest);
     });
 
     test('isLoading starts as false', () {
@@ -98,7 +101,13 @@ void main() {
 
       await tester.pump();
       // Provider should render the GUEST state text without crashing
-      expect(find.text('GUEST'), findsOneWidget);
+      expect(find.text('guest'), findsOneWidget);
     });
   });
+}
+
+// Minimal test stub for ApiService used only in tests.
+class _MockApiService implements ApiService {
+  @override
+  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

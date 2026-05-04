@@ -107,12 +107,13 @@ class LocationProvider with ChangeNotifier {
       _zoneStatus = ZoneType.safe;
     }
 
-    PermissionStatus status = await Permission.location.status;
+    final PermissionStatus status = await Permission.location.status;
+    if (!context.mounted) return;
     if (!status.isGranted) {
       await _locationService.requestLocationPermission(context);
     }
 
-    bool isRunning = await BackgroundService.isRunning();
+    final bool isRunning = await BackgroundService.isRunning();
     if (!isRunning) {
       await BackgroundService.initializeBackgroundService();
     }
@@ -207,7 +208,7 @@ class LocationProvider with ChangeNotifier {
     }
 
     // 3. Hysteresis — 2s stability before committing zone change
-    ZoneType instantZone = _geofencing.getZoneType(LatLng(smoothedLat, smoothedLng));
+    final ZoneType instantZone = _geofencing.getZoneType(LatLng(smoothedLat, smoothedLng));
     if (instantZone != _zoneStatus) {
       if (instantZone != _pendingZone) {
         _pendingZone = instantZone;

@@ -5,9 +5,9 @@ import 'package:convert/convert.dart';
 import 'package:uuid/uuid.dart';
 
 enum MeshPacketType {
-  LOCATION_UPDATE, // 0
-  SOS_ALERT,       // 1
-  ACK              // 2
+  locationUpdate, // 0
+  sosAlert,       // 1
+  ack              // 2
 }
 
 class MeshPacket {
@@ -119,9 +119,9 @@ class MeshPacket {
     final lat = buffer.getFloat32(12);
     final lng = buffer.getFloat32(16);
 
-    List<int> path = [];
+    final List<int> path = [];
     for (int i = 0; i < 3; i++) {
-      int id = buffer.getUint16(20 + (i * 2));
+      final int id = buffer.getUint16(20 + (i * 2));
       if (id != 0) path.add(id);
     }
 

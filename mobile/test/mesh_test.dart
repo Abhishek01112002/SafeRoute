@@ -7,7 +7,7 @@ void main() {
     test('MeshPacket serialization and deserialization', () {
       final packet = MeshPacket(
         sourceId: 'userA',
-        type: MeshPacketType.SOS_ALERT,
+        type: MeshPacketType.sosAlert,
         lat: 28.6,
         lng: 77.2,
       );
@@ -16,7 +16,7 @@ void main() {
 
       expect(map['sourceId'],
           packet.sourceId.hashCode.toString()); // map stores hash string
-      expect(map['type'], MeshPacketType.SOS_ALERT.index);
+      expect(map['type'], MeshPacketType.sosAlert.index);
 
       final deserialized = MeshPacket.fromMap(map);
 
@@ -34,7 +34,7 @@ void main() {
     test('MeshPacket copyWith hopCount logic', () {
       final packet = MeshPacket(
         sourceId: 'userA',
-        type: MeshPacketType.LOCATION_UPDATE,
+        type: MeshPacketType.locationUpdate,
         lat: 0.0,
         lng: 0.0,
         hopCount: 3,

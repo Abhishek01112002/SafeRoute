@@ -20,7 +20,7 @@ import json
 import datetime
 import sys
 import traceback
-from typing import Any
+from typing import Any, Optional
 
 # ────────────────────────────────────────────────────────────────
 # Correlation ID context (populated by middleware per-request)
@@ -147,7 +147,7 @@ class BoundLogger:
     def critical(self, event: str, **kwargs: Any) -> None:
         self._emit(logging.CRITICAL, event, **kwargs)
 
-    def exception(self, event: str, exc: BaseException | None = None, **kwargs: Any) -> None:
+    def exception(self, event: str, exc: Optional[BaseException] = None, **kwargs: Any) -> None:
         """Log at ERROR with full traceback."""
         self._inner.exception(event, exc_info=exc or True, extra={
             "correlation_id": get_correlation_id(), **kwargs

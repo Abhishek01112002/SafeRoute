@@ -1,5 +1,6 @@
 // lib/screens/group_safety_screen_v2.dart - Group Safety Screen (Premium)
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/tourist/providers/room_provider.dart';
@@ -281,11 +282,11 @@ class GroupSafetyScreenV2 extends StatelessWidget {
                   if (consent != true || !context.mounted) return;
                   final room = context.read<RoomProvider>();
                   room.setSharingLocation(true);
-                  room.joinRoom(
+                  unawaited(room.joinRoom(
                     roomId: controller.text,
                     userId: tourist.touristId,
                     name: tourist.fullName,
-                  );
+                  ));
                 }
                 Navigator.pop(context);
               }
@@ -320,10 +321,10 @@ class GroupSafetyScreenV2 extends StatelessWidget {
                   if (consent != true || !context.mounted) return;
                   final room = context.read<RoomProvider>();
                   room.setSharingLocation(true);
-                  room.createAndJoinRoom(
+                  unawaited(room.createAndJoinRoom(
                     userId: tourist.touristId,
                     name: tourist.fullName,
-                  );
+                  ));
                 }
                 Navigator.pop(context);
               }

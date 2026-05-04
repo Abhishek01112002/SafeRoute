@@ -289,8 +289,8 @@ class _DeveloperSandboxScreenState extends State<DeveloperSandboxScreen> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.m),
       decoration: BoxDecoration(
-        color: AppColors.zoneYellow.withOpacity(0.1),
-        border: Border.all(color: AppColors.zoneYellow.withOpacity(0.3)),
+        color: AppColors.zoneYellow.withValues(alpha: 0.1),
+        border: Border.all(color: AppColors.zoneYellow.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusM),
       ),
       child: const Row(

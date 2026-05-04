@@ -3,7 +3,7 @@
 class Env {
   /// Defines whether the app is running in a development/sandbox environment.
   /// Set this using --dart-define=ENV=dev
-  static const bool isDev = bool.fromEnvironment('ENV') == 'dev';
+  static const bool isDev = String.fromEnvironment('ENV') == 'dev';
 
   /// The base URL for the backend API.
   /// Automatically routes to a staging/local environment when in dev mode

@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 
 /// 🎨 SafeRoute Unified Design System
 class DesignSystem {
-  static const _ColorTokens colors = _ColorTokens();
-  static const _SpacingTokens spacing = _SpacingTokens();
-  static const _MotionTokens motion = _MotionTokens();
-  static const _StyleTokens style = _StyleTokens();
+  static const ColorTokens colors = ColorTokens();
+  static const SpacingTokens spacing = SpacingTokens();
+  static const MotionTokens motion = MotionTokens();
+  static const StyleTokens style = StyleTokens();
 }
 
-class _ColorTokens {
-  const _ColorTokens();
-  
+class ColorTokens {
+  const ColorTokens();
+
   final Color primary = const Color(0xFF8B5CF6);
   final Color primaryLight = const Color(0xFFA78BFA);
   final Color primaryDark = const Color(0xFF6D28D9);
@@ -43,9 +43,9 @@ class _ColorTokens {
   final Color dividerDark = const Color(0xFF1E293B);
 }
 
-class _SpacingTokens {
-  const _SpacingTokens();
-  
+class SpacingTokens {
+  const SpacingTokens();
+
   final double xs = 4.0;
   final double s = 8.0;
   final double m = 16.0;
@@ -62,8 +62,8 @@ class _SpacingTokens {
   final double minTouchTarget = 48.0;
 }
 
-class _MotionTokens {
-  const _MotionTokens();
+class MotionTokens {
+  const MotionTokens();
   final Duration micro = const Duration(milliseconds: 100);
   final Duration fast = const Duration(milliseconds: 150);
   final Duration standard = const Duration(milliseconds: 200);
@@ -75,6 +75,6 @@ class _MotionTokens {
   final Curve smooth = Curves.easeInOutCubic;
 }
 
-class _StyleTokens {
-  const _StyleTokens();
+class StyleTokens {
+  const StyleTokens();
 }

@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:saferoute/tourist/models/room_member_model.dart';
 import 'package:saferoute/services/notification_service.dart';
-import '../utils/constants.dart';
 import 'package:saferoute/core/config/env_config.dart';
 
 class RoomService {

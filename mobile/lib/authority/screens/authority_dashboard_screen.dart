@@ -2,6 +2,7 @@
 // Full rebuild — 4 tabs: Zone Manager, Tourist Overview, SOS Events, Trail Graph.
 // All data is from real API calls, not simulated.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -24,7 +25,6 @@ class AuthorityDashboardScreen extends StatefulWidget {
 class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-  final ApiService _api = locator<ApiService>();
 
   @override
   void initState() {
@@ -54,11 +54,12 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
       ),
     );
     if (confirmed == true && mounted) {
+      final navigator = Navigator.of(context);
       await context.read<AuthProvider>().logout();
-      Navigator.of(context).pushAndRemoveUntil(
+      unawaited(navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         (route) => false,
-      );
+      ));
     }
   }
 
@@ -98,7 +99,7 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
           controller: _tabCtrl,
           indicatorColor: AppColors.primaryHighContrast,
           labelColor: AppColors.primaryHighContrast,
-          unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.5),
+          unselectedLabelColor: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
           tabs: const [
             Tab(icon: Icon(Icons.layers_rounded,   size: 18), text: 'ZONES'),
@@ -242,7 +243,7 @@ class _ZoneCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _color.withOpacity(0.15),
+          backgroundColor: _color.withValues(alpha: 0.15),
           child: Icon(Icons.layers_rounded, color: _color),
         ),
         title: Text(zone.name, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -272,7 +273,7 @@ class _TouristOverviewTabState extends State<_TouristOverviewTab> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.people_rounded, size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.4)),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           const Text('Live tourist tracking', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
@@ -317,6 +318,7 @@ class _SosEventsTabState extends State<_SosEventsTab> {
       await _api.respondToSos(sosId);
       setState(() => _events[index]['status'] = 'RESOLVED');
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to respond: $e')),
       );
@@ -339,11 +341,11 @@ class _SosEventsTabState extends State<_SosEventsTab> {
           final isActive = e['status'] == 'ACTIVE';
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
-            color: isActive ? AppColors.danger.withOpacity(0.08) : null,
+            color: isActive ? AppColors.danger.withValues(alpha: 0.08) : null,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: isActive ? AppColors.danger.withOpacity(0.4) : Colors.transparent,
+                color: isActive ? AppColors.danger.withValues(alpha: 0.4) : Colors.transparent,
               ),
             ),
             child: Padding(
@@ -351,7 +353,7 @@ class _SosEventsTabState extends State<_SosEventsTab> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: (isActive ? AppColors.danger : Colors.green).withOpacity(0.15),
+                    backgroundColor: (isActive ? AppColors.danger : Colors.green).withValues(alpha: 0.15),
                     child: Icon(
                       isActive ? Icons.sos_rounded : Icons.check_circle_outline_rounded,
                       color: isActive ? AppColors.danger : Colors.green,
@@ -525,7 +527,7 @@ class _GraphStat extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -567,9 +569,9 @@ class _ErrorBanner extends StatelessWidget {
     margin: const EdgeInsets.all(12),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: AppColors.danger.withOpacity(0.1),
+      color: AppColors.danger.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+      border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
     ),
     child: Row(
       children: [

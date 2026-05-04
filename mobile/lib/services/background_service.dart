@@ -18,7 +18,7 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 }
 
 @pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
+Future<void> onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -66,7 +66,7 @@ void onStart(ServiceInstance service) async {
         debugPrint("Background GPS Fail ($failedGpsCount/$maxGpsErrors): $e");
 
         if (failedGpsCount >= maxGpsErrors) {
-          flutterLocalNotificationsPlugin.show(
+          await flutterLocalNotificationsPlugin.show(
             889,
             '🚨 GPS Signal Unavailable',
             'SafeRoute cannot acquire your location. Please move to an open area.',
@@ -134,7 +134,7 @@ void onStart(ServiceInstance service) async {
       // 6. Show persistent notification
       final now = DateTime.now();
       final statusText = success ? "✅ Online" : "⚠️ Queued";
-      flutterLocalNotificationsPlugin.show(
+      await flutterLocalNotificationsPlugin.show(
         888,
         'SafeRoute Active $statusText',
         'Last sync: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} | Errors: $networkErrorCount',
@@ -152,7 +152,7 @@ void onStart(ServiceInstance service) async {
       if (networkErrorCount >= maxNetworkErrors) {
         debugPrint(
             "🚨 Too many network errors ($networkErrorCount). Showing alert.");
-        flutterLocalNotificationsPlugin.show(
+        await flutterLocalNotificationsPlugin.show(
           890,
           '⚠️ Network Issues',
           'SafeRoute cannot reach the server. Your location is being saved locally and will sync when connection is restored.',

@@ -14,7 +14,6 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:saferoute/core/errors/app_error.dart';
-import 'package:saferoute/core/models/api_responses.dart';
 import 'package:saferoute/core/service_locator.dart';
 import 'package:saferoute/core/utils/result.dart';
 import 'package:saferoute/services/api_service.dart';

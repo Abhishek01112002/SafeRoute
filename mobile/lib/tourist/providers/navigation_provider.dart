@@ -139,7 +139,7 @@ class MainNavigationProvider extends ChangeNotifier {
       return;
     }
 
-    var remaining = (_currentLeg!.remainingDistanceMeters - movedMeters)
+    final remaining = (_currentLeg!.remainingDistanceMeters - movedMeters)
         .clamp(0.0, double.infinity);
 
     if (remaining <= 1.0) {

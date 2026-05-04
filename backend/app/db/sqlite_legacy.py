@@ -105,6 +105,7 @@ def init_db():
                 latitude      REAL NOT NULL,
                 longitude     REAL NOT NULL,
                 trigger_type  TEXT DEFAULT 'MANUAL',
+                dispatch_status TEXT DEFAULT 'not_configured',
                 timestamp     TEXT NOT NULL,
                 status        TEXT DEFAULT 'ACTIVE',
                 responded_by  TEXT,
@@ -154,6 +155,7 @@ def init_db():
         })
 
         _migrate_columns(conn, "sos_events", {
+            "dispatch_status": "TEXT DEFAULT 'not_configured'",
             "status": "TEXT DEFAULT 'ACTIVE'",
             "responded_by": "TEXT",
             "responded_at": "TEXT",
@@ -256,9 +258,9 @@ def save_authority(authority_id: str, data: dict):
 def persist_sos(tourist_id: str, latitude: float, longitude: float, trigger_type: str):
     with get_db() as conn:
         conn.execute(
-            """INSERT INTO sos_events (tourist_id, latitude, longitude, trigger_type, timestamp)
-               VALUES (?, ?, ?, ?, ?)""",
-            (tourist_id, latitude, longitude, trigger_type, datetime.datetime.now().isoformat()),
+            """INSERT INTO sos_events (tourist_id, latitude, longitude, trigger_type, dispatch_status, timestamp)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (tourist_id, latitude, longitude, trigger_type, "not_configured", datetime.datetime.now().isoformat()),
         )
         conn.commit()
 

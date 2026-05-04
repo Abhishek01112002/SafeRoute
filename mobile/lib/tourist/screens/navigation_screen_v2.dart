@@ -15,7 +15,6 @@ import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/widgets/sync_status_chip.dart';
 import 'package:saferoute/tourist/providers/navigation_provider.dart';
 import 'package:saferoute/tourist/screens/tactical_ar_screen.dart';
-import 'package:saferoute/core/service_locator.dart';
 
 class NavigationScreenV2 extends StatefulWidget {
   const NavigationScreenV2({super.key});
