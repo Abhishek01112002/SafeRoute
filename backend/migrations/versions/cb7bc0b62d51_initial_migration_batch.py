@@ -101,41 +101,47 @@ def upgrade() -> None:
             batch_op.create_foreign_key('fk_sos_events_tourist_id', 'tourists', ['tourist_id'], ['tourist_id'])
 
     with op.batch_alter_table('tourists', schema=None) as batch_op:
-        for col_name, col_type, nullable in [
-            ('full_name', sa.String(length=255), False),
-            ('document_type', sa.String(length=20), False),
-            ('document_number', sa.String(length=50), False),
-            ('photo_url', sa.Text(), True),
-            ('photo_base64_legacy', sa.Text(), True),
-            ('emergency_contact_name', sa.String(length=255), True),
-            ('emergency_contact_phone', sa.String(length=30), True),
-            ('trip_start_date', sa.DateTime(), False),
-            ('trip_end_date', sa.DateTime(), False),
-            ('destination_state', sa.String(length=100), False),
-            ('qr_data', sa.String(length=255), True),
-            ('connectivity_level', sa.String(length=20), False),
-            ('offline_mode_required', sa.Boolean(), False),
-            ('risk_level', sa.String(length=20), False),
-            ('blood_group', sa.String(length=10), True),
+        # NOTE: All new columns added to an existing table MUST be nullable=True
+        # or have a server_default, because Postgres refuses to add a NOT NULL
+        # column when rows already exist (they would have NULL for the new column).
+        # NOT NULL is enforced at the ORM/application layer instead.
+        for col_name, col_type in [
+            ('full_name', sa.String(length=255)),
+            ('document_type', sa.String(length=20)),
+            ('document_number', sa.String(length=50)),  # deprecated, use document_number_hash
+            ('photo_url', sa.Text()),
+            ('photo_base64_legacy', sa.Text()),
+            ('emergency_contact_name', sa.String(length=255)),
+            ('emergency_contact_phone', sa.String(length=30)),
+            ('trip_start_date', sa.DateTime()),
+            ('trip_end_date', sa.DateTime()),
+            ('destination_state', sa.String(length=100)),
+            ('qr_data', sa.String(length=255)),
+            ('connectivity_level', sa.String(length=20)),
+            ('risk_level', sa.String(length=20)),
+            ('blood_group', sa.String(length=10)),
         ]:
             if not _column_exists('tourists', col_name):
-                batch_op.add_column(sa.Column(col_name, col_type, nullable=nullable))
+                batch_op.add_column(sa.Column(col_name, col_type, nullable=True))
+
+        # Boolean columns need a server_default so existing rows get False
+        if not _column_exists('tourists', 'offline_mode_required'):
+            batch_op.add_column(sa.Column('offline_mode_required', sa.Boolean(), server_default=sa.text('false'), nullable=False))
 
         if not _column_exists('tourists', 'created_at'):
             batch_op.add_column(sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False))
         if not _column_exists('tourists', 'updated_at'):
             batch_op.add_column(sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False))
-        
+
         batch_op.alter_column('tourist_id',
                existing_type=sa.TEXT(),
                type_=sa.String(length=30),
                nullable=False)
-        
+
         if not _index_exists('tourists', 'ix_tourists_created_at'):
             batch_op.create_index(batch_op.f('ix_tourists_created_at'), ['created_at'], unique=False)
         if not _index_exists('tourists', 'ix_tourists_destination_state'):
             batch_op.create_index(batch_op.f('ix_tourists_destination_state'), ['destination_state'], unique=False)
-        # batch_op.drop_column('data')
 
     # ### end Alembic commands ###
 
