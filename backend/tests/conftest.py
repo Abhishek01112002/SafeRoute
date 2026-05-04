@@ -44,7 +44,21 @@ def app():
 
 @pytest.fixture(scope="session")
 def client(app):
-    """HTTP test client for the full FastAPI app."""
+    """HTTP test client for the full FastAPI app.
+
+    NOTE: TestClient with scope='session' does NOT trigger FastAPI's
+    @app.on_event('startup'). We therefore call init_models() manually
+    so that SQLAlchemy ORM tables (sos_events, location_pings, …) exist
+    before any test hits the database.
+    """
+    import asyncio
+    from app.db.session import init_models
+    from app.db.sqlite_legacy import init_db, sync_from_db
+
+    asyncio.get_event_loop().run_until_complete(init_models())
+    init_db()
+    sync_from_db()
+
     return TestClient(app)
 
 
