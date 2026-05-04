@@ -66,8 +66,7 @@ def upgrade() -> None:
             batch_op.add_column(sa.Column('correlation_id', sa.String(length=50), nullable=True))
         batch_op.alter_column('id',
                existing_type=sa.INTEGER(),
-               nullable=False,
-               autoincrement=True)
+               nullable=False)
         batch_op.alter_column('tourist_id',
                existing_type=sa.TEXT(),
                type_=sa.String(length=30),
@@ -205,8 +204,7 @@ def downgrade() -> None:
                nullable=True)
         batch_op.alter_column('id',
                existing_type=sa.INTEGER(),
-               nullable=True,
-               autoincrement=True)
+               nullable=True)
         batch_op.drop_column('correlation_id')
         batch_op.drop_column('dispatch_status')
 
