@@ -182,7 +182,7 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
           child: _loading && _destinations.isEmpty
               ? const LinearProgressIndicator()
               : DropdownButtonFormField<String>(
-                  initialValue: _selectedDestId,
+                  value: _selectedDestId,
                   decoration: InputDecoration(
                     labelText: 'Select Destination',
                     prefixIcon: const Icon(Icons.place_rounded),
@@ -447,7 +447,7 @@ class _TrailGraphTabState extends State<_TrailGraphTab> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
-            initialValue: _selectedDestId,
+            value: _selectedDestId,
             decoration: InputDecoration(
               labelText: 'Select Destination',
               prefixIcon: const Icon(Icons.place_rounded),

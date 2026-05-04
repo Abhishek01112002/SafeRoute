@@ -156,7 +156,7 @@ class GroupSafetyScreenV2 extends StatelessWidget {
                   ),
                   Switch.adaptive(
                     value: room.isSharingLocation,
-                    activeThumbColor: AppColors.primary,
+                    activeColor: AppColors.primary,
                     onChanged: (val) => room.setSharingLocation(val),
                   ),
                 ],
