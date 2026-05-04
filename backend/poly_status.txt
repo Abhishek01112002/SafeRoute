@@ -1,4 +1,0 @@
-Checking 3 zones:
- - Zone: Nitin Red 1 | Shape: POLYGON | Has Polygon JSON: YES
- - Zone: Abhishek Caution 1 | Shape: POLYGON | Has Polygon JSON: YES
- - Zone: Anshuman Safe 1 | Shape: POLYGON | Has Polygon JSON: YES
