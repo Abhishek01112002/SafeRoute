@@ -144,6 +144,36 @@ async def get_sos_events(
     """Authority endpoint — list all SOS events with pagination."""
     return await crud.get_sos_events_paginated(db, limit=limit, offset=offset)
 
+@router.post("/events/{event_id}/respond")
+async def respond_to_sos(
+    event_id: int,
+    payload: dict = Body(...),
+    authority_id: str = Depends(get_current_authority),
+    db: AsyncSession = Depends(get_db)
+):
+    """Authority endpoint — respond to an SOS event."""
+    from app.models.database import SOSEvent
+    from sqlalchemy import select
+
+    result = await db.execute(select(SOSEvent).where(SOSEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="SOS event not found")
+
+    response_text = payload.get("response")
+    if not response_text:
+        raise HTTPException(status_code=400, detail="Response text is required")
+
+    event.authority_response = response_text
+    event.resolved_at = datetime.datetime.now()
+    event.is_synced = True  # Mark as resolved/synced
+    
+    await db.commit()
+    
+    log.info("sos.event.responded", event_id=event_id, authority_id=authority_id)
+    return {"status": "responded", "event_id": event_id}
+
 @router.post(
     "/sync",
     responses={

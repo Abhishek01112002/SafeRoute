@@ -93,6 +93,8 @@ class SOSEvent(Base):
     # Accept client timestamp when available (no server_default)
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     is_synced: Mapped[bool] = mapped_column(Boolean, default=False)
+    authority_response: Mapped[Optional[str]] = mapped_column(Text)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     tourist: Mapped["Tourist"] = relationship(back_populates="sos_events")
 

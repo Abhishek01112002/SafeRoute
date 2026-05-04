@@ -79,7 +79,7 @@ async def register_authority(request: Request, auth: AuthorityRegister, db: Asyn
         "email_verified": True,  # Auto-verified for now
     }
 
-    await crud.create_authority(db, auth_data)
+    await crud.create_authority(db, auth, authority_id, hashed_pw)
 
     # Auto-login after registration
     access_token = create_jwt_token(authority_id, role="authority")
