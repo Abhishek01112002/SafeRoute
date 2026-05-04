@@ -205,6 +205,17 @@ class LocationPing(BaseModel):
             raise ValueError(f"accuracy_meters must be >= 0, got {v}")
         return v
 
+    @field_validator("zone_status")
+    @classmethod
+    def validate_zone_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.upper().strip()
+        allowed = {"SAFE", "CAUTION", "RESTRICTED", "UNKNOWN"}
+        if v not in allowed:
+            raise ValueError(f"zone_status must be one of {allowed}")
+        return v
+
 
 class MediaUploadRequest(BaseModel):
     """Request body for POST /v3/media/upload-url"""

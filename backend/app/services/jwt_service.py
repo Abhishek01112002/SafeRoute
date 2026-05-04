@@ -58,8 +58,8 @@ def create_jwt_token(
 def verify_jwt_payload(token: str) -> Optional[Dict[str, Any]]:
     """Verify JWT token and return the decoded payload."""
     try:
-        # FIX #4: Add leeway to handle clock skew
-        return jwt.decode(token, PUBLIC_KEY, algorithms=[JWT_ALGORITHM], leeway=60)
+        # Allow only small clock skew; larger leeway lets expired access tokens pass.
+        return jwt.decode(token, PUBLIC_KEY, algorithms=[JWT_ALGORITHM], leeway=5)
     except jwt.ExpiredSignatureError:
         logger.warning("JWT verification failed: Token expired")
         return None

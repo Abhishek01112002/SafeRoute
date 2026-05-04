@@ -64,3 +64,13 @@ async def init_models() -> None:
     """Create local SQLite tables for development and hackathon deployments."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if engine.dialect.name == "sqlite":
+            for ddl in (
+                "ALTER TABLE sos_events ADD COLUMN authority_response TEXT",
+                "ALTER TABLE sos_events ADD COLUMN resolved_at DATETIME",
+            ):
+                try:
+                    await conn.exec_driver_sql(ddl)
+                except Exception:
+                    # SQLite has no IF NOT EXISTS for ADD COLUMN on older builds.
+                    pass

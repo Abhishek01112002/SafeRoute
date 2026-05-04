@@ -1,6 +1,7 @@
 # app/db/crud.py
+from types import SimpleNamespace
 from typing import List, Optional
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func, text
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -541,6 +542,38 @@ async def create_sos_event(
     tuid: Optional[str] = None,
     timestamp: Optional[datetime] = None,
 ) -> SOSEvent:
+    if db.get_bind().dialect.name == "sqlite":
+        columns = await db.execute(text("PRAGMA table_info(sos_events)"))
+        column_names = {row[1] for row in columns.fetchall()}
+        if "authority_response" not in column_names or "resolved_at" not in column_names:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO sos_events (
+                        tourist_id, tuid, latitude, longitude, trigger_type,
+                        dispatch_status, correlation_id, timestamp, is_synced
+                    )
+                    VALUES (
+                        :tourist_id, :tuid, :latitude, :longitude, :trigger_type,
+                        :dispatch_status, :correlation_id, :timestamp, :is_synced
+                    )
+                    """
+                ),
+                {
+                    "tourist_id": tourist_id,
+                    "tuid": tuid,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "trigger_type": trigger_type,
+                    "dispatch_status": "not_configured",
+                    "correlation_id": correlation_id,
+                    "timestamp": timestamp,
+                    "is_synced": False,
+                },
+            )
+            sqlite_legacy.persist_sos(tourist_id, lat, lon, trigger_type)
+            return SimpleNamespace(dispatch_status="not_configured")
+
     new_event = SOSEvent(
         tourist_id=tourist_id,
         tuid=tuid,
@@ -591,6 +624,9 @@ async def create_location_ping(db: AsyncSession, ping_in: schemas.LocationPing) 
         zone_status=ping_in.zone_status,
         timestamp=ping_in.timestamp or datetime.now(),
     )
+    if db.get_bind().dialect.name == "sqlite":
+        max_id = await db.scalar(select(func.max(LocationPing.id)))
+        new_ping.id = (max_id or 0) + 1
     db.add(new_ping)
 
 
