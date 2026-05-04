@@ -374,6 +374,43 @@ async def get_destinations(db: AsyncSession, state: Optional[str] = None) -> Lis
     result = await db.execute(query)
     return [_destination_to_dict(d) for d in result.scalars().all()]
 
+async def get_states(db: AsyncSession) -> List[str]:
+    from sqlalchemy import func as sqlfunc
+    result = await db.execute(select(Destination.state).distinct().where(Destination.is_active == True))
+    return sorted([r for r in result.scalars().all()])
+
+async def create_destination(db: AsyncSession, dest_in: schemas.DestinationCreate, authority_id: str) -> dict:
+    new_dest = Destination(
+        id=dest_in.id,
+        state=dest_in.state,
+        name=dest_in.name,
+        district=dest_in.district,
+        altitude_m=dest_in.altitude_m,
+        center_lat=dest_in.center_lat,
+        center_lng=dest_in.center_lng,
+        category=dest_in.category,
+        difficulty=dest_in.difficulty,
+        connectivity=dest_in.connectivity,
+        best_season=dest_in.best_season,
+        warnings_json=dest_in.warnings_json,
+        authority_id=authority_id
+    )
+    db.add(new_dest)
+    await db.flush()
+    return _destination_to_dict(new_dest)
+
+async def delete_destination(db: AsyncSession, dest_id: str, authority_id: str) -> bool:
+    result = await db.execute(select(Destination).where(Destination.id == dest_id))
+    dest = result.scalar_one_or_none()
+    if dest:
+        if dest.authority_id != authority_id:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Jurisdiction mismatch")
+        dest.is_active = False
+        await db.flush()
+        return True
+    return False
+
 async def create_zone(db: AsyncSession, zone_in: schemas.ZoneCreate, authority_id: str, zone_id: str) -> dict:
     import json
     new_zone = Zone(

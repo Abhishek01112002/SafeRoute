@@ -144,43 +144,23 @@ class AuthorityRegister(BaseModel):
     badge_id: str
     jurisdiction_zone: Optional[str] = None
     phone: Optional[str] = None
-    email: str  # Will be validated by EmailStr
+    email: str
     password: str
 
-    @field_validator("full_name", "badge_id")
-    @classmethod
-    def not_empty(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Field cannot be empty")
-        return v
-
-    @field_validator("email")
-    @classmethod
-    def validate_email_format(cls, v: str) -> str:
-        """Validate email format"""
-        v = v.strip().lower()
-        # Simple email validation pattern
-        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(pattern, v):
-            raise ValueError("Invalid email format")
-        return v
-
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        """Validate password strength"""
-        if len(v) < 8:
-            raise ValueError("password must be at least 8 characters")
-        if not any(c.isupper() for c in v):
-            raise ValueError("password must contain at least one uppercase letter")
-        if not any(c.islower() for c in v):
-            raise ValueError("password must contain at least one lowercase letter")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("password must contain at least one digit")
-        if not any(c in "!@#$%^&*()-_=+" for c in v):
-            raise ValueError("password must contain at least one special character (!@#$%^&*()-_=+)")
-        return v
+class DestinationCreate(BaseModel):
+    id: str
+    state: str
+    name: str
+    district: str
+    altitude_m: Optional[int] = None
+    center_lat: float
+    center_lng: float
+    category: Optional[str] = None
+    difficulty: Optional[str] = None
+    connectivity: Optional[str] = None
+    best_season: Optional[str] = None
+    warnings_json: Optional[str] = None
+    authority_id: str
 
 
 class LocationPing(BaseModel):
