@@ -12,7 +12,9 @@ import sys
 # Ensure app can be imported when running from backend/ directory
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Disable external dependencies for tests
+# Force SQLite for tests to avoid hitting production Postgres
+# Using a file-based SQLite for tests to ensure tables persist across sessions
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_saferoute.db"
 os.environ["REDIS_URL"] = ""
 
 from fastapi.testclient import TestClient
@@ -39,26 +41,33 @@ TEST_AUTHORITY_ID = "AUTH-2025-TEST-001"
 @pytest.fixture(scope="session")
 def app():
     """Create the FastAPI app once per test session."""
-    return create_app()
-
-
-@pytest.fixture(scope="session")
-def client(app):
-    """HTTP test client for the full FastAPI app.
-
-    NOTE: TestClient with scope='session' does NOT trigger FastAPI's
-    @app.on_event('startup'). We therefore call init_models() manually
-    so that SQLAlchemy ORM tables (sos_events, location_pings, …) exist
-    before any test hits the database.
-    """
+    # Ensure tables are created in the test SQLite DB
     import asyncio
     from app.db.session import init_models
     from app.db.sqlite_legacy import init_db, sync_from_db
 
-    asyncio.get_event_loop().run_until_complete(init_models())
+    # Use a fresh event loop for initialization
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(init_models())
+    loop.close()
+
     init_db()
     sync_from_db()
 
+    yield create_app()
+
+    # Cleanup test DB file
+    if os.path.exists("./test_saferoute.db"):
+        try:
+            os.remove("./test_saferoute.db")
+        except:
+            pass
+
+
+@pytest.fixture(scope="session")
+def client(app):
+    """HTTP test client for the full FastAPI app."""
     return TestClient(app)
 
 
