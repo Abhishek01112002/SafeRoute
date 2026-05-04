@@ -5,6 +5,7 @@ This file is a thin wrapper around the modular app package.
 """
 import uvicorn
 import os
+from app.main import app
 
 if __name__ == "__main__":
     is_production = os.getenv("ENVIRONMENT") == "production"
