@@ -183,8 +183,9 @@ void main() {
       );
 
       expect(provider.currentLeg, isNotNull);
-      // ETA = (2000m / (60*1000/60)) = 2 minutes
-      expect(provider.currentLeg!.eta.inMinutes, equals(2));
+      // Speed is clamped to 35 km/h max for trekking safety.
+      // ETA = ceil(2000m / (35*1000/60 m/min)) = ceil(3.43) = 4 minutes
+      expect(provider.currentLeg!.eta.inMinutes, equals(4));
     });
 
     test('clamps ETA between 1 and 30 minutes', () {

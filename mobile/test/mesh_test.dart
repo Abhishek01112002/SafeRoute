@@ -14,17 +14,13 @@ void main() {
 
       final map = packet.toMap();
 
-      expect(map['sourceId'],
-          packet.sourceId.hashCode.toString()); // map stores hash string
+      expect(map['sourceId'], packet.sourceId); // toMap stores raw string
       expect(map['type'], MeshPacketType.sosAlert.index);
 
       final deserialized = MeshPacket.fromMap(map);
 
-      expect(
-          deserialized.packetId,
-          packet.packetId.hashCode
-              .toString()); // DB persistence stores hash IDs
-      expect(deserialized.sourceId, packet.sourceId.hashCode.toString());
+      expect(deserialized.packetId, packet.packetId); // round-trips cleanly
+      expect(deserialized.sourceId, packet.sourceId);
       expect(deserialized.type, packet.type);
       expect(deserialized.lat, 28.6);
       expect(deserialized.lng, 77.2);
