@@ -91,7 +91,7 @@ class LocationProvider with ChangeNotifier {
       // Fallback to state-based zones if primary destination is not set
       final state = prefs.getString('destination_state');
       if (state != null) {
-        final legacyZones = await _dbService.getGeofenceZones(state);
+        final legacyZones = await _dbService.getZonesForDestination(state);
         if (legacyZones.isNotEmpty) {
           _geofencing.setDynamicZones(legacyZones);
         }

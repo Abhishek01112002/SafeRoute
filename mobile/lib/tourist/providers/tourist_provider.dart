@@ -346,7 +346,7 @@ class TouristProvider with ChangeNotifier {
       unawaited(_apiService.checkServerHealth().then((connected) {
         debugPrint("Backend Server Reachable: $connected");
         if (connected && wasOffline) {
-          unawaited(locator<SyncService>().syncOfflineData());
+          unawaited(locator<SyncEngine>().processQueue());
         }
       }));
     }

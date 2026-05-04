@@ -15,8 +15,7 @@ import 'package:saferoute/services/database_service.dart';
 
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
-import 'package:saferoute/utils/app_theme.dart';
-import 'package:saferoute/core/providers/theme_provider.dart';
+
 import 'package:saferoute/core/service_locator.dart';
 
 // Mock classes for testing

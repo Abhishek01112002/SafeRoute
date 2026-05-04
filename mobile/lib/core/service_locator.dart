@@ -20,7 +20,7 @@ import 'package:saferoute/services/safety_engine.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/services/simulation_engine.dart';
 import 'package:saferoute/services/sync_engine.dart';
-import 'package:saferoute/services/sync_service.dart';
+
 import 'package:saferoute/services/telemetry_service.dart';
 import 'package:saferoute/services/tile_downloader_service.dart';
 
@@ -54,7 +54,7 @@ void setupLocator() {
   locator.registerLazySingleton(() => SafetyEngine());
   locator.registerLazySingleton(() => SimulationEngine());
   locator.registerLazySingleton(() => SyncEngine());
-  locator.registerLazySingleton(() => SyncService());
+
   locator.registerLazySingleton(() => TelemetryService());
   locator.registerLazySingleton(() => TileDownloaderService());
 

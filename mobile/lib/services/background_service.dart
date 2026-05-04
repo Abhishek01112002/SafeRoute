@@ -8,7 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
-import 'package:saferoute/services/sync_service.dart';
+import 'package:saferoute/services/sync_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/core/service_locator.dart';
 
@@ -96,7 +96,7 @@ Future<void> onStart(ServiceInstance service) async {
 
       final apiService = locator<ApiService>();
       final dbService = locator<DatabaseService>();
-      final syncService = locator<SyncService>();
+      final syncEngine = locator<SyncEngine>();
 
       // 3. Try to POST to API
       bool success = false;
@@ -126,7 +126,7 @@ Future<void> onStart(ServiceInstance service) async {
       // Identity sync must run even when current ping failed, otherwise
       // offline IDs may never upgrade to server-issued IDs/TUID.
       try {
-        await syncService.syncOfflineData(touristId: touristId);
+        await syncEngine.processQueue();
       } catch (e) {
         debugPrint("Error during sync cycle: $e");
       }
