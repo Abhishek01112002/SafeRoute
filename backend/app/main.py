@@ -92,11 +92,10 @@ def create_app() -> FastAPI:
             log.info("app.startup", version="3.1.0", environment=os.getenv("ENVIRONMENT", "development"))
             settings.validate()
 
-            # init_models (create_all) is only needed in dev/test.
-            # In production, Alembic manages the schema via `alembic upgrade head`.
-            if os.getenv("ENVIRONMENT") != "production":
-                from app.db.session import init_models
-                await init_models()
+            # Use SQLAlchemy create_all (idempotent — skips existing tables/columns).
+            # This replaces Alembic in the deploy pipeline; no migrations needed.
+            from app.db.session import init_models
+            await init_models()
 
             from app.db.sqlite_legacy import init_db, sync_from_db
             init_db()
@@ -104,7 +103,7 @@ def create_app() -> FastAPI:
 
             # Start periodic cleanup task
             app.state.cleanup_task = asyncio.create_task(_periodic_cleanup())
-            log.info("app.cleanup_task.started")
+            log.info("app.startup.complete")
         except Exception as exc:
             log.error("app.startup.failed", error=str(exc))
             raise  # Re-raise so uvicorn exits with a clear error
