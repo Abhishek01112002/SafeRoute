@@ -9,6 +9,6 @@ class Env {
   /// Automatically routes to a staging/local environment when in dev mode
   /// to prevent accidental corruption of production databases.
   static const String apiBaseUrl = isDev
-      ? 'http://10.198.71.18:8000' // Your laptop's local IP address
+      ? 'http://10.198.71.18:8001' // Your laptop's local IP address
       : 'https://api.saferoute.app';
 }

@@ -441,82 +441,13 @@ class ApiService {
         }
         throw ApiException("Registration failed before reaching the backend: $e");
       }
-      debugPrint("API Error during registration: $e. Using offline fallback.");
-
-      try {
-        final String touristId =
-            "TID-OFFLINE-${const Uuid().v4().toUpperCase().substring(0, 8)}";
-
-        final offlineTourist = Tourist(
-          touristId: touristId,
-          fullName: formData["full_name"] ?? "Tourist",
-          documentType: formData["document_type"] == "PASSPORT"
-              ? DocumentType.passport
-              : DocumentType.aadhaar,
-          documentNumber: formData["document_number"] ?? "0000-0000-0000",
-          photoBase64: formData["photo_base64"] ?? "",
-          emergencyContactName:
-              formData["emergency_contact_name"] ?? "Emergency",
-          emergencyContactPhone: formData["emergency_contact_phone"] ?? "112",
-          tripStartDate: DateTime.tryParse(formData["trip_start_date"] ?? "") ??
-              DateTime.now(),
-          tripEndDate: DateTime.tryParse(formData["trip_end_date"] ?? "") ??
-              DateTime.now().add(const Duration(days: 7)),
-          destinationState: formData["destination_state"] ?? "Uttarakhand",
-          qrData: "SAFEROUTE-$touristId",
-          createdAt: DateTime.now(),
-          selectedDestinations: (formData["selected_destinations"] as List?)
-                  ?.map((d) => DestinationVisit(
-                        destinationId: d['destination_id'] ?? 'UK_001',
-                        name: d['name'] ?? 'Destination',
-                        visitDateFrom:
-                            DateTime.tryParse(d['visit_date_from'] ?? "") ??
-                                 DateTime.now(),
-                        visitDateTo:
-                            DateTime.tryParse(d['visit_date_to'] ?? "") ??
-                                 DateTime.now().add(const Duration(days: 2)),
-                      ))
-                  .toList() ??
-              [],
-          connectivityLevel: "MODERATE",
-          bloodGroup: formData["blood_group"] ?? "Unknown",
-          offlineModeRequired: true,
-          riskLevel: "LOW",
-        );
-
-        await _secureStorage.saveTouristId(touristId);
-        await _secureStorage.saveToken('offline-token');
-
-        return {
-          'token': 'offline-token',
-          'tourist': offlineTourist,
-        };
-      } catch (innerError) {
-        debugPrint("CRITICAL: Even offline fallback failed: $innerError");
-        final emergencyTourist = Tourist(
-          touristId: "TID-EMERGENCY-${DateTime.now().millisecondsSinceEpoch}",
-          fullName: "Guest Tourist",
-          documentType: DocumentType.aadhaar,
-          documentNumber: "UNKNOWN",
-          photoBase64: "",
-          emergencyContactName: "Emergency",
-          emergencyContactPhone: "112",
-          tripStartDate: DateTime.now(),
-          tripEndDate: DateTime.now().add(const Duration(days: 7)),
-          destinationState: "Uttarakhand",
-          qrData: "EMERGENCY",
-          createdAt: DateTime.now(),
-          bloodGroup: "Unknown",
-        );
-
-        await _secureStorage.saveTouristId(emergencyTourist.touristId);
-        await _secureStorage.saveToken('offline-token');
-
-        return {
-          'token': 'offline-token',
-          'tourist': emergencyTourist,
-        };
-      }
+      // PHASE 1 FIX: No offline registration fallback — require network for auth
+      // This prevents ghost identities and security anti-patterns
+      throw ApiException(
+        'No internet connection. Please connect to register. '
+        'Your data is safe once you complete registration.',
+        statusCode: e is DioException ? e.response?.statusCode : 0,
+      );
     }
   }
 

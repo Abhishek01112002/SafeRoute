@@ -4,6 +4,7 @@ import 'package:saferoute/tourist/models/mesh/mesh_node.dart';
 import 'package:saferoute/tourist/models/mesh/mesh_packet.dart';
 import 'package:saferoute/services/mesh_service.dart';
 import 'package:saferoute/services/analytics_service.dart';
+import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/core/service_locator.dart';
 
 class MeshProvider extends ChangeNotifier {
@@ -72,6 +73,8 @@ class MeshProvider extends ChangeNotifier {
     if (_isGuest) {
       debugPrint("🛡️ Mesh Safety: Guest originating SOS relay. Identity will be limited on backend.");
     }
+
+    // PHASE 1 FIX: Add HMAC-SHA256 signature to prevent SOS spoofing
     final packet = MeshPacket(
       sourceId: _meshService.myUserId ?? "unknown",
       type: MeshPacketType.sosAlert,
@@ -79,8 +82,26 @@ class MeshProvider extends ChangeNotifier {
       lng: lng,
       priority: 1, // High priority overrides queue
     );
-    await _meshService.sendPacket(packet);
-    _recentActivity.insert(0, packet);
+
+    // Get JWT secret for signing (fallback to TUID if offline)
+    final jwtSecret = await locator<SecureStorageService>().getToken() ??
+                      await locator<SecureStorageService>().getTouristId() ??
+                      "SAFEROUTE_OFFLINE_SECRET";
+
+    // Generate 4-byte HMAC signature from the packet data
+    final signedPacket = MeshPacket(
+      packetId: packet.packetId,
+      sourceId: packet.sourceId,
+      type: packet.type,
+      lat: packet.lat,
+      lng: packet.lng,
+      hopCount: packet.hopCount,
+      priority: packet.priority,
+      signature: packet.generateSignature(jwtSecret),
+    );
+
+    await _meshService.sendPacket(signedPacket);
+    _recentActivity.insert(0, signedPacket);
     if (_recentActivity.length > 50) _recentActivity.removeLast();
     notifyListeners();
   }

@@ -290,47 +290,9 @@ class TouristProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint("Registration (Multipart) API failed: $e. Falling back to offline mode.");
-
-      // OFFLINE FALLBACK (Issue #15.2): Save locally for background sync
-      final String tempId = "TID-OFFLINE-${DateTime.now().millisecondsSinceEpoch}";
-      final offlineTourist = Tourist(
-        touristId: tempId,
-        fullName: fields['full_name'] ?? "Unknown",
-        documentType: DocumentType.values.firstWhere(
-            (e) => e.name.toUpperCase() == (fields['document_type'] ?? '').toUpperCase(),
-            orElse: () => DocumentType.aadhaar),
-        documentNumber: fields['document_number'] ?? "",
-        photoBase64: "", // We have photoPath instead
-        emergencyContactName: fields['emergency_contact_name'] ?? "",
-        emergencyContactPhone: fields['emergency_contact_phone'] ?? "",
-        tripStartDate: DateTime.tryParse(fields['trip_start_date'] ?? "") ?? DateTime.now(),
-        tripEndDate: DateTime.tryParse(fields['trip_end_date'] ?? "") ?? DateTime.now().add(const Duration(days: 7)),
-        destinationState: fields['destination_state'] ?? "Uttarakhand",
-        qrData: "OFFLINE-ID-$tempId",
-        createdAt: DateTime.now(),
-        bloodGroup: fields['blood_group'] ?? "Unknown",
-        isSynced: false,
-        registrationFields: {
-          ...fields,
-          'local_photo_path': photoPath,
-          'local_doc_path': docPath,
-        },
-      );
-
-      await _dbService.saveTourist(offlineTourist);
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_registered', true);
-      await prefs.setString('tourist_id', tempId);
-      await prefs.setString('user_state', 'REGISTERED'); // Let them in, but restricted
-
-      _tourist = offlineTourist;
-      _userState = UserState.registered;
-
-      _errorMessage = "Registered offline. Identity will sync when online.";
+      _errorMessage = "Registration failed. Please check your connection and try again.";
       notifyListeners();
-      return true; // Return true because they are successfully registered LOCALLY
+      return false;  // PHASE 1 FIX: Require network for registration — no offline fallback
     } finally {
       _isLoading = false;
       notifyListeners();

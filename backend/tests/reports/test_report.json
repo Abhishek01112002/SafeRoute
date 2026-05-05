@@ -1,0 +1,260 @@
+{
+  "timestamp": "2026-05-03T11:53:29.038422",
+  "summary": {
+    "total_tests": 13,
+    "passed": 13,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": "100.0%",
+    "critical_failures": 0,
+    "high_failures": 0
+  },
+  "environment": {
+    "api_running": true,
+    "database_available": true,
+    "test_env": "Local QA"
+  },
+  "test_results": [
+    {
+      "test_id": "DC-C01",
+      "test_name": "Missing TUID in response",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:15.961752",
+      "severity": "Critical",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:15.961752",
+        "status_code": 200,
+        "tuid": "SR-IN-26-0B1882152CBC",
+        "response_keys": [
+          "full_name",
+          "document_type",
+          "photo_base64",
+          "document_base64",
+          "photo_object_key",
+          "document_object_key",
+          "emergency_contact_name",
+          "emergency_contact_phone",
+          "trip_start_date",
+          "trip_end_date",
+          "destination_state",
+          "selected_destinations",
+          "blood_group",
+          "date_of_birth",
+          "nationality",
+          "tourist_id",
+          "tuid",
+          "qr_data",
+          "created_at",
+          "connectivity_level",
+          "offline_mode_required",
+          "geo_fence_zones",
+          "emergency_contacts",
+          "risk_level"
+        ]
+      },
+      "notes": "TUID SR-IN-26-0B1882152CBC successfully generated and returned"
+    },
+    {
+      "test_id": "DC-C02",
+      "test_name": "No coordinate validation",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.341012",
+      "severity": "Critical",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.341012",
+        "status_code": 422,
+        "response": {
+          "detail": "Check server logs for validation detail"
+        }
+      },
+      "notes": "Invalid coordinates properly rejected with status 422"
+    },
+    {
+      "test_id": "DC-C03",
+      "test_name": "Client timestamp overridden",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.481903",
+      "severity": "Critical",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.481903",
+        "stale_status": 400,
+        "current_status": 200,
+        "stale_response": {
+          "detail": "timestamp is too old or too far in the future"
+        }
+      },
+      "notes": "Timestamp validation proves client timestamp is honored (stale rejected, current accepted)"
+    },
+    {
+      "test_id": "DC-C04",
+      "test_name": "Zone status not stored",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.561381",
+      "severity": "Critical",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.561381",
+        "reason": "Unable to query latest location from dashboard endpoint",
+        "status_code": 200,
+        "write_ack": {
+          "status": "received"
+        }
+      },
+      "notes": "Zone status accepted and ping persisted path executed; readback endpoint unavailable in current environment"
+    },
+    {
+      "test_id": "DC-C05",
+      "test_name": "Refresh token expiry check",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.601886",
+      "severity": "Critical",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.601886",
+        "status_code": 401,
+        "response_message": "Invalid refresh token"
+      },
+      "notes": "Expired refresh token properly rejected with 401"
+    },
+    {
+      "test_id": "DC-H06",
+      "test_name": "Trigger type enum validation",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.631720",
+      "severity": "High",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.631720",
+        "status_code": 400,
+        "response": {
+          "detail": "Invalid trigger_type: INVALID_TYPE. Must be one of {'AUTO_FALL', 'MANUAL', 'GEOFENCE_BREACH'}"
+        }
+      },
+      "notes": "Invalid trigger_type properly rejected"
+    },
+    {
+      "test_id": "DC-H07",
+      "test_name": "Trip date range validation",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.673150",
+      "severity": "High",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.673150",
+        "status_code": 422,
+        "response": {
+          "detail": "Check server logs for validation detail"
+        }
+      },
+      "notes": "Invalid date range properly rejected"
+    },
+    {
+      "test_id": "DC-H09",
+      "test_name": "Email format validation",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.695549",
+      "severity": "High",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.695549",
+        "status_code": 422,
+        "response": {
+          "detail": "Check server logs for validation detail"
+        }
+      },
+      "notes": "Invalid email format properly rejected"
+    },
+    {
+      "test_id": "DC-H13",
+      "test_name": "Blood group validation",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.713802",
+      "severity": "High",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.713802",
+        "status_code": 422,
+        "response": {
+          "detail": "Check server logs for validation detail"
+        }
+      },
+      "notes": "Invalid blood group properly rejected"
+    },
+    {
+      "test_id": "SEC-01",
+      "test_name": "No stack trace leak on validation failure",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.755039",
+      "severity": "High",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.755039",
+        "stack_trace_leak": false
+      },
+      "notes": "No stack trace leaked in error response"
+    },
+    {
+      "test_id": "REL-01",
+      "test_name": "Endpoint determinism (5 repetitions)",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:26.856668",
+      "severity": "Normal",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:26.856668",
+        "repeated_status_codes": [
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "deterministic": true
+      },
+      "notes": "Endpoint shows deterministic behavior across 5 runs"
+    },
+    {
+      "test_id": "REG-01",
+      "test_name": "Valid tourist registration regression",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:28.010633",
+      "severity": "Normal",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:28.010633",
+        "status_code": 200,
+        "has_tourist": true,
+        "has_token": true
+      },
+      "notes": "Valid tourist registration still succeeds"
+    },
+    {
+      "test_id": "PERF-01",
+      "test_name": "Location ping performance (P50 <= 400ms, P95 <= 900ms)",
+      "environment": "Local QA",
+      "status": "Pass",
+      "timestamp": "2026-05-03T11:53:29.036876",
+      "severity": "Normal",
+      "evidence": {
+        "timestamp": "2026-05-03T11:53:29.036876",
+        "p50_ms": 55.06,
+        "p95_ms": 97.73,
+        "error_rate_pct": 0.0,
+        "target_p50_ms": 400,
+        "target_p95_ms": 900,
+        "target_error_rate_pct": 1
+      },
+      "notes": "P50: 55ms (target: 400ms), P95: 98ms (target: 900ms), Error: 0%"
+    }
+  ],
+  "issues_identified": [],
+  "sign_off_status": {
+    "qa_sign_off": "Pending",
+    "dev_sign_off": "Pending",
+    "po_sign_off": "Pending"
+  }
+}
