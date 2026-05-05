@@ -1,9 +1,7 @@
-import pytest
 import time
 from app.db.sqlite_legacy import tourists_db
 
-@pytest.mark.asyncio
-async def test_tourist_registration_success(client):
+def test_tourist_registration_success(client):
     """
     Test that a new tourist can be successfully registered via the API.
     Uses a unique 12-digit document number to satisfy Aadhaar validation.

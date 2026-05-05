@@ -11,6 +11,14 @@ from app.db import sqlite_legacy
 from app.config import settings
 
 
+def _persist_legacy_sos_event(tourist_id: str, lat: float, lon: float, trigger_type: str) -> None:
+    """Best-effort legacy SOS write; never fail the primary emergency flow."""
+    try:
+        sqlite_legacy.persist_sos(tourist_id, lat, lon, trigger_type)
+    except Exception as exc:
+        print(f"Legacy SOS cache write skipped for {tourist_id}: {exc}")
+
+
 def _tourist_to_dict(tourist: Tourist) -> dict:
     return {
         "tourist_id": tourist.tourist_id,
@@ -177,7 +185,7 @@ async def create_tourist(
     try:
         sqlite_legacy.save_tourist(tourist_id, legacy_data)
     except Exception as e:
-        print(f"⚠️ Legacy tourist cache write skipped for {tourist_id}: {e}")
+        print(f"Legacy tourist cache write skipped for {tourist_id}: {e}")
     # Keep in-memory cache warm even if disk persistence fails.
     sqlite_legacy.tourists_db[tourist_id] = legacy_data
 
@@ -216,10 +224,10 @@ async def get_tourist(db: AsyncSession, tourist_id: str) -> Optional[dict]:
         if tourist_data:
             # Warm the cache for next time
             sqlite_legacy.tourists_db[tourist_id] = tourist_data
-            print(f"✅ Loaded tourist {tourist_id} from SQLite file (was not in cache)")
+            print(f"Loaded tourist {tourist_id} from SQLite file (was not in cache)")
             return tourist_data
     except Exception as e:
-        print(f"⚠️ SQLite file read failed for {tourist_id}: {e}")
+        print(f"SQLite file read failed for {tourist_id}: {e}")
 
     return None
 
@@ -330,7 +338,7 @@ async def create_authority(db: AsyncSession, auth_in: schemas.AuthorityRegister,
     try:
         sqlite_legacy.save_authority(authority_id, legacy_data)
     except Exception as e:
-        print(f"⚠️ Legacy authority cache write skipped for {authority_id}: {e}")
+        print(f"Legacy authority cache write skipped for {authority_id}: {e}")
     sqlite_legacy.authorities_db[authority_id] = legacy_data
     return legacy_data
 
@@ -571,7 +579,7 @@ async def create_sos_event(
                     "is_synced": False,
                 },
             )
-            sqlite_legacy.persist_sos(tourist_id, lat, lon, trigger_type)
+            _persist_legacy_sos_event(tourist_id, lat, lon, trigger_type)
             return SimpleNamespace(dispatch_status="not_configured")
 
     new_event = SOSEvent(
@@ -585,7 +593,7 @@ async def create_sos_event(
     )
     db.add(new_event)
     await db.flush()
-    sqlite_legacy.persist_sos(tourist_id, lat, lon, trigger_type)
+    _persist_legacy_sos_event(tourist_id, lat, lon, trigger_type)
     return new_event
 
 

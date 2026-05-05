@@ -2,6 +2,8 @@ import requests
 import json
 import time
 import sys
+import datetime
+import uuid
 
 # Ensure stdout uses UTF-8 to avoid charmap errors on Windows
 if sys.platform == "win32":
@@ -13,14 +15,15 @@ BASE_URL = "http://127.0.0.1:8000"
 def test_hardened_sos_flow():
     # 1. Test Structured 422 (Past Date)
     print("\n--- Testing Structured 422 (Invalid Date) ---")
+    today = datetime.date.today()
     reg_payload = {
         "full_name": "Test User",
         "document_type": "AADHAAR",
-        "document_number": "123456789012",
+        "document_number": str(uuid.uuid4().int % 10**12).zfill(12),
         "emergency_contact_name": "Emergency",
         "emergency_contact_phone": "112",
         "trip_start_date": "2020-01-01", # PAST DATE
-        "trip_end_date": "2026-05-20",
+        "trip_end_date": (today + datetime.timedelta(days=14)).isoformat(),
         "destination_state": "Uttarakhand",
         "blood_group": "O+",
         "date_of_birth": "1990-01-01",
@@ -45,9 +48,9 @@ def test_hardened_sos_flow():
 
     # 2. Register properly
     print("\n--- Registering Properly ---")
-    reg_payload["trip_start_date"] = "2026-12-01"
-    # Use unique doc number to avoid 409 Conflict if possible
-    reg_payload["document_number"] = str(int(time.time()))[:12].zfill(12)
+    reg_payload["trip_start_date"] = (today + datetime.timedelta(days=1)).isoformat()
+    reg_payload["trip_end_date"] = (today + datetime.timedelta(days=14)).isoformat()
+    reg_payload["document_number"] = str(uuid.uuid4().int % 10**12).zfill(12)
 
     response = requests.post(f"{BASE_URL}/v3/tourist/register-multipart", data=reg_payload, files=files)
 
@@ -66,7 +69,8 @@ def test_hardened_sos_flow():
     bad_headers = {"Authorization": "Bearer garbage.token.here"}
     sos_payload = {
         "latitude": 30.3165, "longitude": 78.0322,
-        "trigger_type": "MANUAL", "timestamp": "2026-05-03T13:00:00Z"
+        "trigger_type": "MANUAL",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
     print("Sending SOS with invalid token...")

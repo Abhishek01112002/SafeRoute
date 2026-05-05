@@ -8,5 +8,6 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.198.71.18</domain>
+        <domain includeSubdomains="true">10.198.71.74</domain>
     </domain-config>
 </network-security-config>

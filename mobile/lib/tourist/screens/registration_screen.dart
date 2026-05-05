@@ -183,7 +183,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             );
             if (!status.isGranted && !status.isLimited) return;
 
-            final FilePickerResult? result = await FilePicker.platform.pickFiles(
+            final FilePickerResult? result =
+                await FilePicker.platform.pickFiles(
               type: FileType.custom,
               allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
             );
@@ -210,6 +211,97 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.red),
     );
+  }
+
+  void _handleNextStep() {
+    final formState = _formKey.currentState;
+
+    if (_currentStep == 0) {
+      formState?.save();
+
+      final errors = _identityStepErrors();
+      if (errors.isNotEmpty) {
+        _showError(errors.first);
+        return;
+      }
+    } else {
+      formState?.save();
+    }
+
+    setState(() => _currentStep++);
+  }
+
+  List<String> _identityStepErrors() {
+    final errors = <String>[];
+    final fullName = _fullName.trim();
+    final docError = _documentNumberError(_docNumber);
+
+    if (fullName.isEmpty) {
+      errors.add("Full legal name is required");
+    }
+    if (docError != null) {
+      errors.add(docError);
+    }
+    if (_selectedDob == null) {
+      errors.add("Date of birth is required");
+    } else {
+      final age = DateTime.now().difference(_selectedDob!).inDays ~/ 365;
+      if (age < 18) {
+        errors.add("You must be at least 18 years old");
+      }
+    }
+    if (_selectedCountry == null) {
+      errors.add("Nationality is required");
+    }
+    if (_photoFile == null) {
+      errors.add("Profile photo is required");
+    }
+    if (_documentFile == null) {
+      errors.add("Document scan is required");
+    }
+    if (_emergencyPhone.trim().length != 10) {
+      errors.add("Emergency phone must be exactly 10 digits");
+    }
+
+    return errors;
+  }
+
+  String? _documentNumberError(String value) {
+    final rawValue = value.trim();
+    final cleanValue = rawValue.replaceAll(RegExp(r'[\s-]'), '');
+
+    if (cleanValue.isEmpty) {
+      return "ID number is required";
+    }
+
+    switch (_docType) {
+      case DocumentType.aadhaar:
+        if (!RegExp(r'^\d{12}$').hasMatch(cleanValue)) {
+          return "Aadhaar must be exactly 12 digits";
+        }
+        return null;
+      case DocumentType.passport:
+        if (!RegExp(r'^[A-Z0-9]{8,12}$').hasMatch(cleanValue.toUpperCase())) {
+          return "Passport must be 8-12 alphanumeric characters";
+        }
+        return null;
+      case DocumentType.drivingLicense:
+        if (cleanValue.length < 10 || cleanValue.length > 16) {
+          return "Driving license number must be 10-16 characters";
+        }
+        return null;
+    }
+  }
+
+  String get _documentTypeApiValue {
+    switch (_docType) {
+      case DocumentType.aadhaar:
+        return "AADHAAR";
+      case DocumentType.passport:
+        return "PASSPORT";
+      case DocumentType.drivingLicense:
+        return "DRIVING_LICENSE";
+    }
   }
 
   Widget _buildSourceSheet({
@@ -286,7 +378,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState?.save();
+
+    final identityErrors = _identityStepErrors();
+    if (identityErrors.isNotEmpty) {
+      setState(() => _currentStep = 0);
+      _showError(identityErrors.first);
+      return;
+    }
+
     if (_photoFile == null) {
       _showError("Profile photo is required");
       return;
@@ -299,10 +399,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _showError("DOB and Nationality are required");
       return;
     }
+    if (_emergencyPhone.trim().length != 10) {
+      setState(() => _currentStep = 0);
+      _showError("Emergency phone must be exactly 10 digits");
+      return;
+    }
 
-    _formKey.currentState!.save();
-
+    final fullName = _fullName.trim();
     final cleanedDocNumber = _docNumber.replaceAll(RegExp(r'[\s-]'), '');
+    if (fullName.isEmpty || cleanedDocNumber.isEmpty) {
+      setState(() => _currentStep = 0);
+      _showError("Full legal name and ID number are required");
+      return;
+    }
+
     final dobString = DateFormat('yyyy-MM-dd').format(_selectedDob!);
     final nationalityCode = _selectedCountry!.countryCode;
 
@@ -314,8 +424,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     final Map<String, String> fields = {
-      "full_name": _fullName,
-      "document_type": _docType.name,
+      "full_name": fullName,
+      "document_type": _documentTypeApiValue,
       "document_number": cleanedDocNumber,
       "trip_start_date": start.toIso8601String(),
       "trip_end_date": end.toIso8601String(),
@@ -325,12 +435,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       "emergency_contact_phone": _emergencyPhone,
       "date_of_birth": dobString,
       "nationality": nationalityCode,
-      "selected_destinations_json": jsonEncode(_selectedDestinations.map((d) => {
-        "destination_id": d['id'] ?? d['destination_id'],
-        "name": d['name'],
-        "visit_date_from": start.toIso8601String(),
-        "visit_date_to": end.toIso8601String(),
-      }).toList()),
+      "selected_destinations_json": jsonEncode(_selectedDestinations
+          .map((d) => {
+                "destination_id": d['id'] ?? d['destination_id'],
+                "name": d['name'],
+                "visit_date_from": start.toIso8601String(),
+                "visit_date_to": end.toIso8601String(),
+              })
+          .toList()),
     };
 
     final touristProvider = context.read<TouristProvider>();
@@ -542,7 +654,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               _eliteField(
                   label: "FULL LEGAL NAME",
                   icon: Icons.person_rounded,
-                  onSaved: (v) => _fullName = v!),
+                  initialValue: _fullName,
+                  onChanged: (v) => _fullName = v,
+                  onSaved: (v) => _fullName = v?.trim() ?? ''),
               const SizedBox(height: AppSpacing.m),
               Row(
                 children: [
@@ -562,7 +676,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     child: _eliteField(
                         label: "ID NUMBER",
                         icon: Icons.badge_rounded,
-                        onSaved: (v) => _docNumber = v!),
+                        initialValue: _docNumber,
+                        onChanged: (v) => _docNumber = v,
+                        onSaved: (v) => _docNumber = v?.trim() ?? ''),
                   ),
                 ],
               ),
@@ -652,19 +768,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     required String label,
     required IconData icon,
     required void Function(String?) onSaved,
+    String? initialValue,
+    ValueChanged<String>? onChanged,
   }) {
     final theme = Theme.of(context);
-    final String pattern;
-    final String errorMsg;
-
-    if (_docType == DocumentType.aadhaar) {
-      pattern = r"^\d{12}$";
-      errorMsg = "AADHAAR must be 12 digits";
-    } else {
-      // Basic Passport regex (usually alphanumeric 8-9 chars)
-      pattern = r"^[A-Z0-9]{8,12}$";
-      errorMsg = "Invalid PASSPORT format (8-12 chars)";
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,26 +786,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         EliteSurface(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
           child: TextFormField(
+            initialValue: initialValue,
+            onChanged: onChanged,
             onSaved: onSaved,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             validator: (value) {
-              if (value == null || value.isEmpty) return "Field is required";
-              final cleanValue = value.replaceAll(RegExp(r'[\s-]'), '');
-
+              if (value == null || value.trim().isEmpty) {
+                return "Field is required";
+              }
               if (label.contains("ID NUMBER")) {
-                if (!RegExp(pattern).hasMatch(cleanValue.toUpperCase())) {
-                  return errorMsg;
-                }
-              }
-              if (label.contains("PHONE") && cleanValue.length < 10) {
-                return "Invalid phone number";
-              }
-              if (label.contains("DOB") &&
-                  !RegExp(r"^\d{4}-\d{2}-\d{2}$").hasMatch(value)) {
-                return "Format: YYYY-MM-DD";
-              }
-              if (label.contains("NATIONALITY") && value.trim().length != 2) {
-                return "Use 2-letter code (e.g. IN)";
+                return _documentNumberError(value);
               }
               return null;
             },
@@ -783,7 +880,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         EliteSurface(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
           child: TextFormField(
-            controller: TextEditingController(text: _emergencyPhone),
+            initialValue: _emergencyPhone,
             keyboardType: TextInputType.phone,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
@@ -1035,13 +1132,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           const SizedBox(width: AppSpacing.m),
           Expanded(
               child: EliteButton(
-                  onPressed: () {
-                    if (_currentStep < 2) {
-                      setState(() => _currentStep++);
-                    } else {
-                      _submitForm();
-                    }
-                  },
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          if (_currentStep < 2) {
+                            _handleNextStep();
+                          } else {
+                            _submitForm();
+                          }
+                        },
                   child: Text(_currentStep == 2 ? "FINALIZE" : "NEXT"))),
         ],
       ),

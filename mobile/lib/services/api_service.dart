@@ -87,7 +87,8 @@ class ApiService {
   factory ApiService() => _instance;
 
   ApiService._internal() {
-    debugPrint('🚀 ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
+    debugPrint(
+        '🚀 ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
     // Temporary log for registration handshake audit (visible in device & Render logs)
     debugPrint('[DBG] 📝 ApiService INIT: baseUrl=${EnvConfig.apiBaseUrl}');
     _validateNetworkConfiguration();
@@ -118,7 +119,8 @@ class ApiService {
   void _validateNetworkConfiguration() {
     final uri = Uri.tryParse(EnvConfig.apiBaseUrl);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      throw StateError('Invalid SAFEROUTE_API_BASE_URL: ${EnvConfig.apiBaseUrl}');
+      throw StateError(
+          'Invalid SAFEROUTE_API_BASE_URL: ${EnvConfig.apiBaseUrl}');
     }
 
     if (kReleaseMode && uri.scheme != 'https') {
@@ -234,7 +236,7 @@ class ApiService {
                 retryAfter: retryAfterSec != null
                     ? Duration(seconds: retryAfterSec)
                     : null,
-                ),
+              ),
             ),
           );
         }
@@ -314,8 +316,10 @@ class ApiService {
             } catch (refreshError) {
               _refreshFuture = null;
               debugPrint('❌ Refresh failed [CID: $cid]: $refreshError');
-              if (refreshError is DioException && refreshError.response?.statusCode == 401) {
-                debugPrint('🛑 Refresh Token invalid [CID: $cid]. Clearing session.');
+              if (refreshError is DioException &&
+                  refreshError.response?.statusCode == 401) {
+                debugPrint(
+                    '🛑 Refresh Token invalid [CID: $cid]. Clearing session.');
                 await _secureStorage.clearAuthData();
                 return handler.reject(
                   DioException(
@@ -326,7 +330,8 @@ class ApiService {
               }
             }
           }
-          debugPrint('⚠️ Unauthorized [CID: $cid] but session preserved for manual retry.');
+          debugPrint(
+              '⚠️ Unauthorized [CID: $cid] but session preserved for manual retry.');
           return handler.reject(e);
         }
 
@@ -364,8 +369,14 @@ class ApiService {
     }
 
     if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.sendTimeout) {
-      return ApiException("Server unreachable or slow connection");
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.connectionError) {
+      return ApiException(
+        "Cannot reach backend at ${EnvConfig.apiBaseUrl}. "
+        "Make sure the backend is running with --host 0.0.0.0, "
+        "the phone and computer are on the same Wi-Fi, and firewall allows the API port.",
+        statusCode: 0,
+      );
     } else if (e.type == DioExceptionType.receiveTimeout) {
       return ApiException("Server took too long to respond");
     } else if (e.response != null) {
@@ -378,8 +389,24 @@ class ApiService {
       if (status == 429) {
         return RateLimitException();
       } else if (status == 422) {
-        return ApiException("Data validation error. Please check your inputs.",
-            statusCode: 422);
+        return ApiException(
+          detail ?? "Data validation error. Please check your inputs.",
+          statusCode: 422,
+        );
+      } else if (status == 409) {
+        final detailMap =
+            data is Map && data['detail'] is Map ? data['detail'] as Map : null;
+        final errorText =
+            detailMap?['error']?.toString() ?? detail ?? "Request conflict";
+        final touristId = detailMap?['tourist_id']?.toString();
+        final tuid = detailMap?['tuid']?.toString();
+        final idText = touristId != null ? " Tourist ID: $touristId." : "";
+        final tuidText = tuid != null ? " TUID: $tuid." : "";
+
+        return ApiException(
+          "$errorText.$idText$tuidText",
+          statusCode: 409,
+        );
       } else if (status == 400 || status == 401) {
         return ApiException(
           detail ?? (status == 401 ? "Unauthorized" : "Bad request"),
@@ -400,7 +427,8 @@ class ApiService {
       Map<String, dynamic> formData) async {
     try {
       // Temporary log for registration handshake audit
-      debugPrint('[DBG] 📝 registerTouristWithToken: POST /v3/tourist/register fields=${formData.keys.toList()}');
+      debugPrint(
+          '[DBG] 📝 registerTouristWithToken: POST /v3/tourist/register fields=${formData.keys.toList()}');
       final response = await _retryWithBackoff(
         () => _dio
             .post('/v3/tourist/register', data: formData)
@@ -432,22 +460,27 @@ class ApiService {
         rethrow;
       }
       if (EnvConfig.isProd || kReleaseMode) {
-        debugPrint("Registration failed in production; offline fallback disabled: $e");
+        debugPrint(
+            "Registration failed in production; offline fallback disabled: $e");
         if (e is DioException) {
           throw _handleDioError(e);
         }
         if (e is ApiException) {
           rethrow;
         }
-        throw ApiException("Registration failed before reaching the backend: $e");
+        throw ApiException(
+            "Registration failed before reaching the backend: $e");
       }
       // PHASE 1 FIX: No offline registration fallback — require network for auth
       // This prevents ghost identities and security anti-patterns
-      throw ApiException(
-        'No internet connection. Please connect to register. '
-        'Your data is safe once you complete registration.',
-        statusCode: e is DioException ? e.response?.statusCode : 0,
-      );
+      debugPrint("Registration failed in development: $e");
+      if (e is DioException) {
+        throw _handleDioError(e);
+      }
+      if (e is ApiException) {
+        rethrow;
+      }
+      throw ApiException("Registration failed before reaching the backend: $e");
     }
   }
 
@@ -463,8 +496,10 @@ class ApiService {
   }) async {
     try {
       // Temporary log for registration handshake audit
-      debugPrint('[DBG] 📝 registerTouristMultipart: POST /v3/tourist/register-multipart fields=${fields.keys.toList()} photoPath=$photoPath docPath=$docPath');
-      final Map<String, dynamic> formDataMap = Map<String, dynamic>.from(fields);
+      debugPrint(
+          '[DBG] 📝 registerTouristMultipart: POST /v3/tourist/register-multipart fields=${fields.keys.toList()} photoPath=$photoPath docPath=$docPath');
+      final Map<String, dynamic> formDataMap =
+          Map<String, dynamic>.from(fields);
 
       formDataMap['profile_photo'] = await MultipartFile.fromFile(
         photoPath,
@@ -570,7 +605,8 @@ class ApiService {
   // -------------------------------------------------------------------------
 
   Future<bool> sendLocationPing(LocationPing ping) async {
-    final coordError = Validators.validateCoordinates(ping.latitude, ping.longitude);
+    final coordError =
+        Validators.validateCoordinates(ping.latitude, ping.longitude);
     if (coordError != null) {
       debugPrint("❌ Invalid coordinates: $coordError");
       return false;
@@ -619,7 +655,8 @@ class ApiService {
     final sosCorrelationId = 'SOS-${const Uuid().v4().substring(0, 8)}';
     final userType =
         touristId?.startsWith('GUEST-') == true ? 'guest' : 'authenticated';
-    final guestSessionId = touristId?.startsWith('GUEST-') == true ? touristId : null;
+    final guestSessionId =
+        touristId?.startsWith('GUEST-') == true ? touristId : null;
 
     final coordError = Validators.validateCoordinates(lat, lng);
     if (coordError != null) {
@@ -798,7 +835,8 @@ class ApiService {
   /// Typed zone fetch for a specific destination
   Future<List<ZoneModel>> getZonesForDestination(String destinationId) async {
     try {
-      final response = await _dio.get('/zones', queryParameters: {'destination_id': destinationId});
+      final response = await _dio
+          .get('/zones', queryParameters: {'destination_id': destinationId});
       return (response.data as List)
           .map((j) => ZoneModel.fromJson(j as Map<String, dynamic>))
           .toList();
@@ -812,7 +850,8 @@ class ApiService {
   /// Fetch trail graph for a destination (offline pathfinding)
   Future<TrailGraph?> getTrailGraph(String destinationId) async {
     try {
-      final response = await _dio.get('/destinations/$destinationId/trail-graph');
+      final response =
+          await _dio.get('/destinations/$destinationId/trail-graph');
       return TrailGraph.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -823,7 +862,8 @@ class ApiService {
   }
 
   /// Fetch emergency contacts for a destination
-  Future<List<EmergencyContact>> getEmergencyContacts(String destinationId) async {
+  Future<List<EmergencyContact>> getEmergencyContacts(
+      String destinationId) async {
     try {
       final response = await _dio.get('/destinations/$destinationId/detail');
       final contacts = response.data['emergency_contacts'] as List? ?? [];

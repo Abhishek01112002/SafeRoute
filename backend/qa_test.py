@@ -4,6 +4,7 @@ from app.services.identity_service import generate_tuid, hash_document_number
 from app.services.qr_service import qr_service
 from app.config import settings
 from app.db.session import AsyncSessionLocal
+from app.db.session import engine
 from sqlalchemy import text
 
 async def test_all():
@@ -59,6 +60,7 @@ async def test_all():
         assert decoded["sub"] == tuid1
         print("  [PASS] RS256 QR signed and verified locally.")
 
+    await engine.dispose()
     print("\n--- TEST COMPLETE ---")
 
 if __name__ == "__main__":

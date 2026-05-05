@@ -1,11 +1,16 @@
-
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.getcwd(), "app"))
-# Add current directory to path so it can find app/
 sys.path.append(os.getcwd())
 
-from app.services.jwt_service import JWT_ALGORITHM, PRIVATE_KEY, PUBLIC_KEY, create_jwt_token, verify_jwt_payload
+from app.services.jwt_service import (
+    JWT_ALGORITHM,
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    create_jwt_token,
+    verify_jwt_payload,
+)
 
 print(f"JWT_ALGORITHM: {JWT_ALGORITHM}")
 if JWT_ALGORITHM == "RS256":
@@ -19,6 +24,6 @@ print(f"Token generated: {token[:20]}...")
 payload = verify_jwt_payload(token)
 print(f"Payload verified: {payload}")
 if payload:
-    print("✅ JWT Service working correctly")
+    print("[OK] JWT Service working correctly")
 else:
-    print("❌ JWT Service FAILED self-test")
+    print("[FAIL] JWT Service FAILED self-test")

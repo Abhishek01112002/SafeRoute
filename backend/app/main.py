@@ -82,9 +82,9 @@ def create_app() -> FastAPI:
                 async with AsyncSessionLocal() as db:
                     await cleanup_old_pings(db)
                     await db.commit()
-                    print("🧹 Periodic cleanup: Old pings cleaned")
+                    print("Periodic cleanup: Old pings cleaned")
             except Exception as e:
-                print(f"⚠️ Cleanup task error: {e}")
+                print(f"Cleanup task error: {e}")
 
     @app.on_event("startup")
     async def startup_event():
@@ -111,6 +111,15 @@ def create_app() -> FastAPI:
     @app.on_event("shutdown")
     async def shutdown_event():
         log.info("app.shutdown")
+        cleanup_task = getattr(app.state, "cleanup_task", None)
+        if cleanup_task:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
+        from app.db.session import engine
+        await engine.dispose()
 
     return app
 

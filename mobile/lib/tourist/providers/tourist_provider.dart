@@ -11,6 +11,7 @@ import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/services/analytics_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:saferoute/core/service_locator.dart';
+import 'package:saferoute/core/config/env_config.dart';
 
 class TouristProvider with ChangeNotifier {
   Tourist? _tourist;
@@ -24,7 +25,8 @@ class TouristProvider with ChangeNotifier {
   int _failedLoginAttempts = 0;
   DateTime? _lockUntil;
   final int _maxFailedAttempts = 5;
-  final Duration _lockDuration = const Duration(minutes: 15);  // Sync with backend
+  final Duration _lockDuration =
+      const Duration(minutes: 15); // Sync with backend
 
   Tourist? get tourist => _tourist;
   UserState get userState => _userState;
@@ -125,7 +127,8 @@ class TouristProvider with ChangeNotifier {
       }
 
       // Only reset to guest if all recovery attempts failed AND we're offline
-      debugPrint("[!] All recovery failed. Keeping registered state for offline use.");
+      debugPrint(
+          "[!] All recovery failed. Keeping registered state for offline use.");
       // Don't reset is_registered - the user can still use offline features
       // They'll be prompted to re-authenticate when connectivity returns
       _userState = UserState.registered;
@@ -217,7 +220,8 @@ class TouristProvider with ChangeNotifier {
       _tourist = tempTourist;
       _userState = UserState.registered;
 
-      locator<AnalyticsService>().logEvent(AnalyticsEvent.onboardingRegisterSuccess,
+      locator<AnalyticsService>().logEvent(
+          AnalyticsEvent.onboardingRegisterSuccess,
           properties: {'id': tempTourist.touristId});
 
       debugPrint('✅ Tourist registered with transaction-based consistency');
@@ -284,19 +288,55 @@ class TouristProvider with ChangeNotifier {
       _tourist = tempTourist;
       _userState = UserState.authenticated;
 
-      locator<AnalyticsService>().logEvent(AnalyticsEvent.onboardingRegisterSuccess,
+      locator<AnalyticsService>().logEvent(
+          AnalyticsEvent.onboardingRegisterSuccess,
           properties: {'id': tempTourist.touristId, 'method': 'multipart'});
 
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = "Registration failed. Please check your connection and try again.";
+      _errorMessage = _registrationFailureMessage(e);
+      debugPrint("Multipart registration failed: $e");
       notifyListeners();
-      return false;  // PHASE 1 FIX: Require network for registration — no offline fallback
+      return false; // PHASE 1 FIX: Require network for registration — no offline fallback
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String _registrationFailureMessage(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 0) {
+        return "Cannot reach backend at ${EnvConfig.apiBaseUrl}. Start backend with --host 0.0.0.0, keep phone and computer on same Wi-Fi, and allow the API port in firewall.";
+      }
+      if (error.statusCode == 422) {
+        return "Registration details are invalid: ${_formatValidationMessage(error.message)}";
+      }
+      if (error.statusCode == 409) {
+        return "${error.message} Please login with the existing Tourist ID or use a different document.";
+      }
+      if (error.statusCode == 500) {
+        return "Backend error during registration. Please check backend logs.";
+      }
+      return error.message;
+    }
+
+    return "Registration failed: $error";
+  }
+
+  String _formatValidationMessage(String message) {
+    final missingFields = RegExp(r'type: missing, loc: \[body, ([^\]]+)\]')
+        .allMatches(message)
+        .map((match) => match.group(1))
+        .whereType<String>()
+        .toList();
+
+    if (missingFields.isNotEmpty) {
+      return "Missing required fields: ${missingFields.join(', ')}.";
+    }
+
+    return message;
   }
 
   Future<void> checkConnectivity() async {
@@ -373,7 +413,8 @@ class TouristProvider with ChangeNotifier {
 
         _failedLoginAttempts = 0;
         _lockUntil = null;
-        locator<AnalyticsService>().logEvent(AnalyticsEvent.onboardingLoginSuccess,
+        locator<AnalyticsService>().logEvent(
+            AnalyticsEvent.onboardingLoginSuccess,
             properties: {'id': touristId});
 
         notifyListeners();
@@ -386,8 +427,9 @@ class TouristProvider with ChangeNotifier {
       // Backend enforced lockout - sync with it
       if (e.retryAfter != null) {
         _lockUntil = DateTime.now().add(e.retryAfter!);
-        _failedLoginAttempts = 0;  // Reset counter as backend is now enforcing
-        _errorMessage = "Account temporarily locked due to failed attempts. Try again in ${e.retryAfter!.inMinutes} minutes.";
+        _failedLoginAttempts = 0; // Reset counter as backend is now enforcing
+        _errorMessage =
+            "Account temporarily locked due to failed attempts. Try again in ${e.retryAfter!.inMinutes} minutes.";
       } else {
         _handleFailedLogin();
       }
@@ -396,7 +438,8 @@ class TouristProvider with ChangeNotifier {
       // Check if error contains remaining_attempts info
       if (e.message.contains('remaining_attempts')) {
         _handleFailedLogin();
-        _errorMessage = "Invalid tourist ID. ${_maxFailedAttempts - _failedLoginAttempts} attempts remaining.";
+        _errorMessage =
+            "Invalid tourist ID. ${_maxFailedAttempts - _failedLoginAttempts} attempts remaining.";
       } else {
         _handleFailedLogin();
         _errorMessage = "Login failed: ${e.message}";
@@ -433,11 +476,13 @@ class TouristProvider with ChangeNotifier {
     if (_failedLoginAttempts >= _maxFailedAttempts) {
       _lockUntil = DateTime.now().add(_lockDuration);
       _failedLoginAttempts = 0;
-      _errorMessage = "Too many failed attempts. Account locked for 15 minutes.";
+      _errorMessage =
+          "Too many failed attempts. Account locked for 15 minutes.";
       debugPrint(
           "🚨 Security: Brute force protection triggered. Locked for 15 minutes.");
     } else {
-      _errorMessage = "Invalid tourist ID. Attempt $_failedLoginAttempts of $_maxFailedAttempts.";
+      _errorMessage =
+          "Invalid tourist ID. Attempt $_failedLoginAttempts of $_maxFailedAttempts.";
     }
   }
 

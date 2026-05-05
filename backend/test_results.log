@@ -393,3 +393,38 @@ Test report saved to: test_report.json
 2026-05-03 11:53:29,037 - __main__ - INFO - ================================================================================
 2026-05-03 11:53:29,039 - __main__ - INFO -
 Test report saved to: test_report.json
+2026-05-06 01:16:36,965 - __main__ - INFO - API health check passed
+2026-05-06 01:16:36,966 - __main__ - INFO - ================================================================================
+2026-05-06 01:16:36,966 - __main__ - INFO - SafeRoute Comprehensive Test Suite - Starting Execution
+2026-05-06 01:16:36,966 - __main__ - INFO - API Running: True
+2026-05-06 01:16:36,966 - __main__ - INFO - Database Available: True
+2026-05-06 01:16:36,966 - __main__ - INFO - ================================================================================
+2026-05-06 01:16:36,966 - __main__ - INFO - 
+[CRITICAL TESTS]
+2026-05-06 01:16:36,999 - __main__ - INFO - DC-C01: Pass - TUID SR-IN-26-9950037B5637 successfully generated and returned
+2026-05-06 01:16:37,008 - __main__ - INFO - DC-C02: Pass - Invalid coordinates properly rejected with status 422
+2026-05-06 01:16:37,046 - __main__ - INFO - DC-C03: Pass - Timestamp validation proves client timestamp is honored (stale rejected, current accepted)
+2026-05-06 01:16:37,475 - __main__ - INFO - DC-C04: Pass - Zone status RESTRICTED properly stored in database
+2026-05-06 01:16:37,501 - __main__ - INFO - DC-C05: Pass - Expired refresh token properly rejected with 401
+2026-05-06 01:16:37,501 - __main__ - INFO - 
+[HIGH-PRIORITY TESTS]
+2026-05-06 01:16:37,521 - __main__ - INFO - DC-H06: Pass - Invalid trigger_type properly rejected
+2026-05-06 01:16:37,528 - __main__ - INFO - DC-H07: Pass - Invalid date range properly rejected
+2026-05-06 01:16:37,538 - __main__ - INFO - DC-H09: Pass - Invalid email format properly rejected
+2026-05-06 01:16:37,570 - __main__ - INFO - DC-H13: Pass - Invalid blood group properly rejected
+2026-05-06 01:16:37,570 - __main__ - INFO - 
+[NON-FUNCTIONAL TESTS]
+2026-05-06 01:16:37,597 - __main__ - INFO - SEC-01: Pass - No stack trace leaked in error response
+2026-05-06 01:16:37,741 - __main__ - INFO - REL-01: Pass - Endpoint shows deterministic behavior across 5 runs
+2026-05-06 01:16:37,741 - __main__ - INFO - 
+[REGRESSION TESTS]
+2026-05-06 01:16:37,778 - __main__ - INFO - REG-01: Pass - Valid tourist registration still succeeds
+2026-05-06 01:16:37,779 - __main__ - INFO - 
+[PERFORMANCE TESTS]
+2026-05-06 01:16:38,334 - __main__ - INFO - PERF-01: Pass - P50: 31ms (target: 400ms), P95: 56ms (target: 900ms), Error: 0%
+2026-05-06 01:16:38,334 - __main__ - INFO - 
+================================================================================
+2026-05-06 01:16:38,334 - __main__ - INFO - Test Suite Execution Complete
+2026-05-06 01:16:38,334 - __main__ - INFO - ================================================================================
+2026-05-06 01:16:38,336 - __main__ - INFO - 
+Test report saved to: test_report.json

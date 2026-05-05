@@ -43,7 +43,7 @@ def app():
     """Create the FastAPI app once per test session."""
     # Ensure tables are created in the test SQLite DB
     import asyncio
-    from app.db.session import init_models
+    from app.db.session import engine, init_models
     from app.db.sqlite_legacy import init_db, sync_from_db
 
     # Use a fresh event loop for initialization
@@ -57,6 +57,10 @@ def app():
 
     yield create_app()
 
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(engine.dispose())
+    loop.close()
+
     # Cleanup test DB file
     if os.path.exists("./test_saferoute.db"):
         try:
@@ -68,7 +72,8 @@ def app():
 @pytest.fixture(scope="session")
 def client(app):
     """HTTP test client for the full FastAPI app."""
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,7 @@
-import pytest
 import datetime
 import time
 
-@pytest.mark.asyncio
-async def test_full_trip_lifecycle(client):
+def test_full_trip_lifecycle(client):
     """
     E2E Test: Exercises the full Trip lifecycle using the test client.
     1. Register a tourist

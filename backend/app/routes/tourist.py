@@ -7,6 +7,7 @@ import os
 import re
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile, Form
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.schemas import TouristRegister, TouristLoginRequest, DestinationVisit
 from app.services.jwt_service import create_jwt_token
@@ -127,7 +128,7 @@ async def register_tourist(
         qr_jwt = qr_service.sign_qr_jwt(tuid, tourist.full_name, nationality)
     except Exception as e:
         # Graceful fallback: use legacy QR string if signing fails (dev mode)
-        print(f"⚠️  QR JWT signing failed (key missing?): {e}")
+        print(f"QR JWT signing failed (key missing?): {e}")
 
     # --- Persist to DB ---
     tourist_data = await crud.create_tourist(
@@ -301,7 +302,7 @@ async def register_tourist_multipart(
             # Structured 422 logging (FIX #3)
             error_detail = str(e)
             if hasattr(e, "errors") and callable(e.errors):
-                error_detail = e.errors()
+                error_detail = jsonable_encoder(e.errors())
 
             logger.error(f"Registration validation failed [TUID: {tuid}]: {error_detail}")
             raise HTTPException(status_code=422, detail=error_detail)
