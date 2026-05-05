@@ -1,67 +1,67 @@
-/* dashboard/src/components/ZoneMap.css */
 .zone-map-wrapper {
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
   position: relative;
-  border: var(--border-neon);
-  margin-bottom: 2rem;
 }
 
 .map-controls {
-  position: absolute;
-  bottom: 20px;
+  align-items: center;
+  background: rgba(10, 15, 22, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 0.75rem;
   left: 50%;
+  padding: 0.75rem;
+  position: absolute;
   transform: translateX(-50%);
   z-index: 1000;
-  background: var(--bg-panel);
-  backdrop-filter: blur(8px);
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--accent-pink);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
 .control-button-group {
   display: flex;
-  gap: 10px;
+  gap: 0.5rem;
 }
 
 .map-controls p {
-  font-family: var(--font-heading);
-  font-size: 0.75rem;
-  text-transform: uppercase;
+  color: var(--info);
+  font-size: 0.82rem;
+  font-weight: 800;
   margin: 0;
-  letter-spacing: 1px;
 }
 
-.btn-small {
-  padding: 0.3rem 0.8rem;
-  font-size: 0.7rem;
-}
-
-/* Fix leaflet popups and attribution for dark mode */
 .leaflet-container {
-  background: #000 !important;
+  background: #101720 !important;
 }
 
 .leaflet-control-attribution {
-  background: rgba(0, 0, 0, 0.7) !important;
-  color: #555 !important;
+  background: rgba(10, 15, 22, 0.85) !important;
+  color: var(--text-muted) !important;
 }
 
 .leaflet-control-attribution a {
-  color: #777 !important;
+  color: var(--primary) !important;
 }
 
 .leaflet-bar a {
-  background-color: var(--bg-surface) !important;
-  color: var(--accent-cyan) !important;
-  border-bottom: 1px solid #333 !important;
+  background-color: #101720 !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-main) !important;
 }
 
 .leaflet-bar a:hover {
-  background-color: var(--accent-cyan-dim) !important;
+  background-color: #182230 !important;
+}
+
+@media (max-width: 760px) {
+  .map-controls {
+    align-items: stretch;
+    flex-direction: column;
+    left: 12px;
+    right: 12px;
+    transform: none;
+  }
 }

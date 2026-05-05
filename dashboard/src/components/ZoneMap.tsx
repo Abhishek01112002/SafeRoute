@@ -40,6 +40,7 @@ interface ZoneMapProps {
   onPointsChange?: (points: Point[]) => void;
   zoneType?: string;
   currentShape?: string;
+  radiusM?: number;
 }
 
 // Internal component to handle map clicks for drawing
@@ -67,10 +68,10 @@ const ZoneMap: React.FC<ZoneMapProps> = ({
   drawingMode,
   onPointsChange,
   zoneType = 'SAFE',
-  currentShape = 'CIRCLE'
+  currentShape = 'CIRCLE',
+  radiusM = 500
 }) => {
   const [newPoints, setNewPoints] = useState<Point[]>([]);
-  const tempRadius = 500;
 
   // Sync internal points to parent
   useEffect(() => {
@@ -146,7 +147,7 @@ const ZoneMap: React.FC<ZoneMapProps> = ({
             {currentShape === 'CIRCLE' && newPoints.length > 0 && (
               <Circle
                 center={[newPoints[0].lat, newPoints[0].lng]}
-                radius={tempRadius}
+                radius={radiusM}
                 pathOptions={{ color: getZoneColor(zoneType), dashArray: '5, 5' }}
               />
             )}

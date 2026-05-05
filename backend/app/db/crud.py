@@ -1,14 +1,84 @@
 # app/db/crud.py
+import json
 from types import SimpleNamespace
 from typing import List, Optional
-from sqlalchemy import select, delete, func, text
-from datetime import datetime
+from sqlalchemy import select, delete, func, text, and_
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.models.database import Tourist, TouristDestination, Authority, SOSEvent, LocationPing, AuthorityScanLog, Destination, Zone
 from app.models import schemas
 from app.db import sqlite_legacy
 from app.config import settings
+
+try:
+    from destinations_data import DESTINATIONS_DATA
+except Exception:
+    DESTINATIONS_DATA = {}
+
+
+LOCATION_STALE_THRESHOLD_MINUTES = 15
+
+LEGACY_DESTINATION_DETAILS = {
+    "UK_KED_001": {
+        "district": "Rudraprayag",
+        "altitude_m": 3583,
+        "category": "Pilgrimage",
+        "best_season": "May to October",
+    },
+    "UK_TUN_002": {
+        "district": "Rudraprayag",
+        "altitude_m": 3680,
+        "category": "Pilgrimage",
+        "best_season": "April to November",
+    },
+    "UK_BAD_003": {
+        "district": "Chamoli",
+        "altitude_m": 3133,
+        "category": "Pilgrimage",
+        "best_season": "May to October",
+    },
+    "UK_GAN_004": {
+        "district": "Uttarkashi",
+        "altitude_m": 3415,
+        "category": "Pilgrimage",
+        "best_season": "May to October",
+    },
+    "UK_JIM_012": {
+        "district": "Nainital",
+        "altitude_m": 385,
+        "category": "Wildlife",
+        "best_season": "November to June",
+    },
+    "ML_CHE_001": {
+        "district": "East Khasi Hills",
+        "altitude_m": 1430,
+        "category": "Nature",
+        "best_season": "October to May",
+        "center_lat": 25.2841,
+        "center_lng": 91.7256,
+    },
+    "AR_TAW_001": {
+        "district": "Tawang",
+        "altitude_m": 3048,
+        "category": "Monastery",
+        "best_season": "March to October",
+        "center_lat": 27.5861,
+        "center_lng": 91.8594,
+    },
+    "DEMO_SCE_001": {
+        "district": "Dehradun",
+        "altitude_m": 640,
+        "category": "Demo",
+        "best_season": "All year",
+    },
+}
+
+
+def _isoformat(value) -> Optional[str]:
+    if value is None:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
 def _persist_legacy_sos_event(tourist_id: str, lat: float, lon: float, trigger_type: str) -> None:
@@ -377,16 +447,17 @@ async def get_authority_by_email(db: AsyncSession, email: str) -> Optional[dict]
 # ---------------------------------------------------------------------------
 
 async def get_destinations(db: AsyncSession, state: Optional[str] = None) -> List[dict]:
-    query = select(Destination)
+    query = select(Destination).where(Destination.is_active == True)
     if state:
-        query = query.where(Destination.state == state)
+        query = query.where(func.lower(Destination.state) == state.strip().lower())
     result = await db.execute(query)
-    return [_destination_to_dict(d) for d in result.scalars().all()]
+    rows = [_destination_to_dict(d) for d in result.scalars().all()]
+    return rows or _legacy_destinations(state)
 
 async def get_states(db: AsyncSession) -> List[str]:
-    from sqlalchemy import func as sqlfunc
     result = await db.execute(select(Destination.state).distinct().where(Destination.is_active == True))
-    return sorted([r for r in result.scalars().all()])
+    rows = sorted([r for r in result.scalars().all()])
+    return rows or sorted(DESTINATIONS_DATA.keys())
 
 async def create_destination(db: AsyncSession, dest_in: schemas.DestinationCreate, authority_id: str) -> dict:
     new_dest = Destination(
@@ -458,26 +529,29 @@ async def count_all_zones(db: AsyncSession) -> int:
     return result.scalar() or 0
 
 async def get_destination_by_id(db: AsyncSession, destination_id: str) -> Optional[dict]:
-    result = await db.execute(select(Destination).where(Destination.id == destination_id))
+    result = await db.execute(
+        select(Destination).where(Destination.id == destination_id, Destination.is_active == True)
+    )
     dest = result.scalar_one_or_none()
-    return _destination_to_dict(dest) if dest else None
+    if dest:
+        return _destination_to_dict(dest)
+    return next(
+        (destination for destination in _legacy_destinations() if destination["id"] == destination_id),
+        None,
+    )
 
 async def get_dashboard_metrics(db: AsyncSession) -> dict:
-    """Aggregate metrics for the Command Center overview card."""
-    from sqlalchemy import func as sqlfunc
-
-    zone_count_result = await db.execute(
-        select(sqlfunc.count()).select_from(Zone).where(Zone.is_active == True)
-    )
-    zone_count = zone_count_result.scalar() or 0
-
-    # Tourist count from legacy SQLite (in-memory map is always current)
-    tourist_count = len(sqlite_legacy.tourists_db)
-
-    # SOS counts from legacy (persisted to SQLite)
-    sos_events = sqlite_legacy.get_sos_events_legacy()
-    active_sos = sum(1 for e in sos_events if e.get("is_synced") == 0)
-    resolved_sos = sum(1 for e in sos_events if e.get("is_synced") == 1)
+    """Aggregate metrics for the Command Center overview card from canonical DB tables."""
+    zone_count = await db.scalar(
+        select(func.count()).select_from(Zone).where(Zone.is_active == True)
+    ) or 0
+    tourist_count = await db.scalar(select(func.count()).select_from(Tourist)) or 0
+    active_sos = await db.scalar(
+        select(func.count()).select_from(SOSEvent).where(SOSEvent.is_synced == False)
+    ) or 0
+    resolved_sos = await db.scalar(
+        select(func.count()).select_from(SOSEvent).where(SOSEvent.is_synced == True)
+    ) or 0
 
     return {
         "active_zones": zone_count,
@@ -486,28 +560,258 @@ async def get_dashboard_metrics(db: AsyncSession) -> dict:
         "resolved_sos": resolved_sos,
     }
 
-async def get_tourist_last_locations(limit: int = 200, offset: int = 0) -> list:
-    """Return the most recent location ping for each tourist from the rolling deque with pagination."""
-    seen = {}
-    logs = list(sqlite_legacy.location_logs)
-    # Iterate in reverse so we get the newest ping per tourist
-    count = 0
-    skipped = 0
-    for ping in reversed(logs):
-        tid = ping.get("tourist_id")
-        if tid and tid not in seen:
-            if skipped < offset:
-                skipped += 1
-                seen[tid] = None # placeholder to skip this tourist in next iterations
-                continue
 
-            seen[tid] = ping
-            count += 1
+def _legacy_destination_to_dict(state: str, dest: dict) -> dict:
+    details = LEGACY_DESTINATION_DETAILS.get(dest.get("id", ""), {})
+    restricted_points = (
+        dest.get("geo_fence", {}).get("restricted_zones_coords", [])
+        if isinstance(dest.get("geo_fence"), dict)
+        else []
+    )
+    first_point = restricted_points[0] if restricted_points else []
+    center_lat = details.get("center_lat")
+    center_lng = details.get("center_lng")
+    if center_lat is None and len(first_point) >= 2:
+        center_lat = first_point[0]
+    if center_lng is None and len(first_point) >= 2:
+        center_lng = first_point[1]
 
-        if count >= limit:
-            break
+    return {
+        "id": dest.get("id"),
+        "state": state,
+        "name": dest.get("name"),
+        "district": details.get("district", state),
+        "altitude_m": details.get("altitude_m"),
+        "center_lat": center_lat or 0,
+        "center_lng": center_lng or 0,
+        "category": details.get("category"),
+        "difficulty": dest.get("difficulty"),
+        "connectivity": dest.get("connectivity"),
+        "best_season": details.get("best_season"),
+        "warnings_json": json.dumps([]),
+        "authority_id": "SYSTEM",
+        "is_active": True,
+    }
 
-    return [p for p in seen.values() if p is not None]
+
+def _legacy_destinations(state: Optional[str] = None) -> List[dict]:
+    if not DESTINATIONS_DATA:
+        return []
+
+    requested_state = state.strip().lower() if state else None
+    rows: List[dict] = []
+    for state_name, state_data in DESTINATIONS_DATA.items():
+        if requested_state and state_name.lower() != requested_state:
+            continue
+        for destination in state_data.get("destinations", []):
+            rows.append(_legacy_destination_to_dict(state_name, destination))
+    return rows
+
+async def get_tourist_last_locations(
+    db: AsyncSession, limit: int = 200, offset: int = 0
+) -> list:
+    """Return the latest persisted location ping per tourist with pagination."""
+    latest_per_tourist = (
+        select(
+            LocationPing.tourist_id.label("tourist_id"),
+            func.max(LocationPing.timestamp).label("latest_timestamp"),
+        )
+        .group_by(LocationPing.tourist_id)
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(LocationPing)
+        .join(
+            latest_per_tourist,
+            and_(
+                LocationPing.tourist_id == latest_per_tourist.c.tourist_id,
+                LocationPing.timestamp == latest_per_tourist.c.latest_timestamp,
+            ),
+        )
+        .order_by(LocationPing.timestamp.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    pings = result.scalars().all()
+    return [
+        {
+            "tourist_id": ping.tourist_id,
+            "tuid": ping.tuid,
+            "latitude": ping.latitude,
+            "longitude": ping.longitude,
+            "speed_kmh": ping.speed_kmh,
+            "accuracy_meters": ping.accuracy_meters,
+            "zone_status": ping.zone_status,
+            "timestamp": _isoformat(ping.timestamp),
+        }
+        for ping in pings
+    ]
+
+
+async def get_dashboard_analytics(db: AsyncSession) -> dict:
+    """Full command-centre analytics for the dashboard."""
+    from app.models.trips import Trip
+
+    now = datetime.now()
+    stale_threshold = now - timedelta(minutes=LOCATION_STALE_THRESHOLD_MINUTES)
+    metrics = await get_dashboard_metrics(db)
+
+    trip_rows = (
+        await db.execute(
+            select(Trip.status, func.count())
+            .select_from(Trip)
+            .group_by(Trip.status)
+        )
+    ).all()
+    trip_counts = {str(status or "UNKNOWN").lower(): count for status, count in trip_rows}
+    for status in ("active", "planned", "completed", "cancelled"):
+        metrics[f"{status}_trips"] = trip_counts.get(status, 0)
+
+    zone_rows = (
+        await db.execute(
+            select(Zone.type, func.count())
+            .where(Zone.is_active == True)
+            .group_by(Zone.type)
+        )
+    ).all()
+    zone_breakdown = {"SAFE": 0, "CAUTION": 0, "RESTRICTED": 0, "UNKNOWN": 0}
+    for zone_type, count in zone_rows:
+        key = str(zone_type or "UNKNOWN").upper()
+        zone_breakdown[key if key in zone_breakdown else "UNKNOWN"] += count
+
+    sos_status_rows = (
+        await db.execute(
+            select(SOSEvent.is_synced, func.count())
+            .select_from(SOSEvent)
+            .group_by(SOSEvent.is_synced)
+        )
+    ).all()
+    sos_by_status = {"ACTIVE": 0, "RESOLVED": 0}
+    for is_synced, count in sos_status_rows:
+        sos_by_status["RESOLVED" if is_synced else "ACTIVE"] = count
+
+    sos_trigger_rows = (
+        await db.execute(
+            select(SOSEvent.trigger_type, func.count())
+            .select_from(SOSEvent)
+            .group_by(SOSEvent.trigger_type)
+        )
+    ).all()
+    sos_dispatch_rows = (
+        await db.execute(
+            select(SOSEvent.dispatch_status, func.count())
+            .select_from(SOSEvent)
+            .group_by(SOSEvent.dispatch_status)
+        )
+    ).all()
+    sos_breakdown = {
+        "by_status": sos_by_status,
+        "by_trigger_type": {str(k or "UNKNOWN"): v for k, v in sos_trigger_rows},
+        "by_dispatch_status": {str(k or "UNKNOWN"): v for k, v in sos_dispatch_rows},
+    }
+
+    latest_location_timestamp = await db.scalar(select(func.max(LocationPing.timestamp)))
+    latest_sos_timestamp = await db.scalar(select(func.max(SOSEvent.timestamp)))
+    total_tourists = metrics["registered_tourists"]
+
+    latest_per_tourist = (
+        select(
+            LocationPing.tourist_id.label("tourist_id"),
+            func.max(LocationPing.timestamp).label("latest_timestamp"),
+        )
+        .group_by(LocationPing.tourist_id)
+        .subquery()
+    )
+    fresh_tourists = await db.scalar(
+        select(func.count())
+        .select_from(latest_per_tourist)
+        .where(latest_per_tourist.c.latest_timestamp >= stale_threshold)
+    ) or 0
+    stale_tourist_count = max(total_tourists - fresh_tourists, 0)
+
+    recent_activity = []
+
+    sos_events = (
+        await db.execute(select(SOSEvent).order_by(SOSEvent.timestamp.desc()).limit(10))
+    ).scalars().all()
+    for event in sos_events:
+        recent_activity.append(
+            {
+                "type": "sos",
+                "id": str(event.id),
+                "tourist_id": event.tourist_id,
+                "tuid": event.tuid,
+                "label": f"{event.trigger_type} SOS",
+                "status": "RESOLVED" if event.is_synced else "ACTIVE",
+                "timestamp": _isoformat(event.timestamp),
+            }
+        )
+
+    locations = (
+        await db.execute(
+            select(LocationPing).order_by(LocationPing.timestamp.desc()).limit(10)
+        )
+    ).scalars().all()
+    for ping in locations:
+        recent_activity.append(
+            {
+                "type": "location",
+                "id": str(ping.id),
+                "tourist_id": ping.tourist_id,
+                "tuid": ping.tuid,
+                "label": f"Location ping ({ping.zone_status or 'UNKNOWN'})",
+                "status": ping.zone_status or "UNKNOWN",
+                "timestamp": _isoformat(ping.timestamp),
+            }
+        )
+
+    trips = (
+        await db.execute(select(Trip).order_by(Trip.created_at.desc()).limit(10))
+    ).scalars().all()
+    for trip in trips:
+        recent_activity.append(
+            {
+                "type": "trip",
+                "id": trip.trip_id,
+                "tourist_id": trip.tourist_id,
+                "label": f"Trip {trip.status}",
+                "status": trip.status,
+                "timestamp": _isoformat(trip.created_at),
+            }
+        )
+
+    tourists = (
+        await db.execute(select(Tourist).order_by(Tourist.created_at.desc()).limit(10))
+    ).scalars().all()
+    for tourist in tourists:
+        recent_activity.append(
+            {
+                "type": "tourist",
+                "id": tourist.tourist_id,
+                "tourist_id": tourist.tourist_id,
+                "tuid": tourist.tuid,
+                "label": f"Tourist registered: {tourist.full_name}",
+                "status": "REGISTERED",
+                "timestamp": _isoformat(tourist.created_at),
+            }
+        )
+
+    recent_activity.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+
+    return {
+        "generated_at": _isoformat(now),
+        "metrics": metrics,
+        "freshness": {
+            "last_location_ping_at": _isoformat(latest_location_timestamp),
+            "stale_tourist_count": stale_tourist_count,
+            "stale_threshold_minutes": LOCATION_STALE_THRESHOLD_MINUTES,
+            "latest_sos_at": _isoformat(latest_sos_timestamp),
+        },
+        "zone_breakdown": zone_breakdown,
+        "sos_breakdown": sos_breakdown,
+        "recent_activity": recent_activity[:20],
+    }
 
 # ---------------------------------------------------------------------------
 # Audit Scan Log

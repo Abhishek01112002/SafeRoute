@@ -37,8 +37,8 @@ const Login = () => {
     <div className="login-container">
       <div className="login-box glass-panel">
         <div className="login-header">
-          <h1 className="neon-text-cyan">SYS.ACCESS</h1>
-          <p className="subtitle">Command Center Authorization Required</p>
+          <h1>SafeRoute Command</h1>
+          <p className="subtitle">Authority dashboard authorization required</p>
         </div>
 
         {error && <div className="error-banner">{error}</div>}
@@ -67,7 +67,7 @@ const Login = () => {
           </div>
 
           <button type="submit" className="btn-primary login-btn" disabled={loading}>
-            {loading ? 'VERIFYING...' : 'INITIATE UPLINK'}
+            {loading ? 'Verifying...' : 'Sign in'}
           </button>
         </form>
       </div>

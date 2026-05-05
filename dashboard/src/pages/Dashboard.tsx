@@ -1,187 +1,330 @@
-import { useEffect, useState, useCallback } from 'react';
-import { ShieldCheck, ShieldAlert, Users, RadioTower, MapPin } from 'lucide-react';
-import api from '../api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  AlertTriangle,
+  Clock,
+  MapPin,
+  RadioTower,
+  RefreshCw,
+  Route,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+import {
+  POLL_INTERVAL_MS,
+  fetchDashboardAnalytics,
+  fetchLocations,
+  fetchSosEvents,
+  getErrorMessage,
+  type ActivityItem,
+  type DashboardAnalytics,
+  type LocationRecord,
+  type SOSEvent,
+} from '../api';
 import './Dashboard.css';
 
-interface DashboardMetrics {
-  active_zones: number;
-  registered_tourists: number;
-  active_sos: number;
-  resolved_sos: number;
-}
+const PAGE_SIZE = 50;
 
-interface Location {
-  tourist_id: string;
-  latitude: number;
-  longitude: number;
-  zone_status: string;
-  timestamp: string;
-}
+const formatDateTime = (value?: string | null) =>
+  value ? new Date(value).toLocaleString() : 'No data';
+
+const minutesSince = (value?: string | null) => {
+  if (!value) return 'No signal';
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(0, Math.floor(diff / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+};
+
+const statusClass = (status?: string | null) =>
+  (status || 'UNKNOWN').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 const Dashboard = () => {
-  const [stats, setStats] = useState<DashboardMetrics>({
-    active_zones: 0,
-    registered_tourists: 0,
-    active_sos: 0,
-    resolved_sos: 0,
-  });
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [showLocations, setShowLocations] = useState(false);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [locations, setLocations] = useState<LocationRecord[]>([]);
+  const [incidents, setIncidents] = useState<SOSEvent[]>([]);
   const [locationOffset, setLocationOffset] = useState(0);
   const [hasMoreLocations, setHasMoreLocations] = useState(true);
-  const PAGE_SIZE = 50;
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  interface Authority {
-    state?: string;
-    authority_id?: string;
-    district?: string;
-    jurisdiction_zone?: string;
-  }
-
-  let authority: Authority = {};
-  try {
-    const authData = localStorage.getItem('authority');
-    if (authData) {
-      authority = JSON.parse(authData);
-    }
-  } catch {
-    // Silent fail
-  }
-
-  const fetchMetrics = useCallback(async () => {
+  const refreshDashboard = useCallback(async () => {
+    setRefreshing(true);
+    setError('');
     try {
-      const res = await api.get('/dashboard/metrics');
-      setStats(res.data);
-    } catch {
-      console.error('Failed to fetch metrics');
+      const [nextAnalytics, nextLocations, nextIncidents] = await Promise.all([
+        fetchDashboardAnalytics(),
+        fetchLocations(PAGE_SIZE, 0),
+        fetchSosEvents(20, 0),
+      ]);
+      setAnalytics(nextAnalytics);
+      setLocations(nextLocations);
+      setIncidents(nextIncidents);
+      setLocationOffset(0);
+      setHasMoreLocations(nextLocations.length === PAGE_SIZE);
+      setLastUpdated(new Date().toISOString());
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  const fetchLocations = useCallback(async (offset = 0) => {
-    try {
-      const res = await api.get(`/dashboard/locations?limit=${PAGE_SIZE}&offset=${offset}`);
-      if (offset === 0) {
-        setLocations(res.data);
-      } else {
-        setLocations(prev => [...prev, ...res.data]);
-      }
-      setHasMoreLocations(res.data.length === PAGE_SIZE);
-      setLocationOffset(offset);
-    } catch {
-      console.error('Failed to fetch locations');
-    }
-  }, [PAGE_SIZE]);
-
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 10000);
-    return () => clearInterval(interval);
-  }, [fetchMetrics]);
+    void Promise.resolve().then(refreshDashboard);
+    const interval = window.setInterval(refreshDashboard, POLL_INTERVAL_MS);
+    const manualRefresh = () => refreshDashboard();
+    window.addEventListener('saferoute:manual-refresh', manualRefresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('saferoute:manual-refresh', manualRefresh);
+    };
+  }, [refreshDashboard]);
 
-  const handleShowLocations = () => {
-    if (!showLocations && locations.length === 0) fetchLocations(0);
-    setShowLocations(!showLocations);
+  const loadMoreLocations = async () => {
+    const nextOffset = locationOffset + PAGE_SIZE;
+    try {
+      const next = await fetchLocations(PAGE_SIZE, nextOffset);
+      setLocations((current) => [...current, ...next]);
+      setLocationOffset(nextOffset);
+      setHasMoreLocations(next.length === PAGE_SIZE);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
   };
 
-  const loadMoreLocations = () => {
-    fetchLocations(locationOffset + PAGE_SIZE);
-  };
+  const activeIncidents = useMemo(
+    () =>
+      incidents
+        .filter((event) => event.status === 'ACTIVE')
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+    [incidents],
+  );
 
-  const zoneColor = (status: string) => {
-    if (status === 'RESTRICTED') return '#ff2d55';
-    if (status === 'CAUTION') return '#ffcc00';
-    return '#00ffcc';
+  const metrics = analytics?.metrics;
+  const zoneBreakdown = analytics?.zone_breakdown ?? {
+    SAFE: 0,
+    CAUTION: 0,
+    RESTRICTED: 0,
+    UNKNOWN: 0,
   };
+  const totalZones = Object.values(zoneBreakdown).reduce((sum, count) => sum + count, 0);
+
+  if (loading && !analytics) {
+    return <div className="page-state">Loading command dashboard...</div>;
+  }
 
   return (
     <div className="dashboard-container">
-      <header className="page-header">
-        <h1 className="neon-text-cyan">Command Center</h1>
-        <p className="subtitle">
-          JURISDICTION: {authority.district?.toUpperCase() || 'NATIONAL'}, {authority.jurisdiction_zone?.toUpperCase() || authority.state?.toUpperCase()}
-        </p>
-      </header>
-
-      <div className="metrics-grid">
-        <div className="metric-card glass-panel glitch-hover">
-          <div className="metric-icon cyan"><RadioTower size={28} /></div>
-          <div className="metric-details">
-            <span className="metric-value">{stats.active_zones}</span>
-            <span className="metric-label">Active Zones</span>
-          </div>
+      <section className="page-title-row">
+        <div>
+          <p className="eyebrow">Authority Dashboard</p>
+          <h1>Command Overview</h1>
+          <p className="page-subtitle">
+            Operational view of tourists, locations, zones, trips, and SOS events.
+          </p>
         </div>
+        <button className="btn-primary" onClick={refreshDashboard} disabled={refreshing}>
+          <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
+          Refresh data
+        </button>
+      </section>
 
-        <div className="metric-card glass-panel glitch-hover" style={{ cursor: 'pointer' }} onClick={handleShowLocations}>
-          <div className="metric-icon green"><Users size={28} /></div>
-          <div className="metric-details">
-            <span className="metric-value">{stats.registered_tourists}</span>
-            <span className="metric-label">Registered Tourists ↓</span>
+      {error && <div className="alert-banner">{error}</div>}
+
+      <section className="kpi-grid">
+        <KpiCard icon={<Users />} label="Registered tourists" value={metrics?.registered_tourists ?? 0} />
+        <KpiCard icon={<AlertTriangle />} label="Active SOS" value={metrics?.active_sos ?? 0} tone="danger" />
+        <KpiCard icon={<RadioTower />} label="Active zones" value={metrics?.active_zones ?? 0} />
+        <KpiCard icon={<Route />} label="Active trips" value={metrics?.active_trips ?? 0} />
+        <KpiCard icon={<ShieldCheck />} label="Resolved SOS" value={metrics?.resolved_sos ?? 0} tone="success" />
+      </section>
+
+      <section className="dashboard-grid">
+        <Panel title="Active incident queue" action={`${activeIncidents.length} active`}>
+          {activeIncidents.length === 0 ? (
+            <EmptyState message="No active SOS events." />
+          ) : (
+            <div className="incident-list">
+              {activeIncidents.map((event) => (
+                <div className="incident-row" key={event.id}>
+                  <div>
+                    <strong>{event.tourist_id}</strong>
+                    <span>{event.trigger_type} - {minutesSince(event.timestamp)}</span>
+                  </div>
+                  <div className="incident-location">
+                    <MapPin size={14} />
+                    {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Location freshness" action={`Updated ${minutesSince(lastUpdated)}`}>
+          <div className="freshness-stack">
+            <div>
+              <span className="field-label">Latest location ping</span>
+              <strong>{formatDateTime(analytics?.freshness.last_location_ping_at)}</strong>
+            </div>
+            <div>
+              <span className="field-label">Stale tourists</span>
+              <strong>{analytics?.freshness.stale_tourist_count ?? 0}</strong>
+              <small>Threshold {analytics?.freshness.stale_threshold_minutes ?? 15} minutes</small>
+            </div>
+            <div>
+              <span className="field-label">Latest SOS</span>
+              <strong>{formatDateTime(analytics?.freshness.latest_sos_at)}</strong>
+            </div>
           </div>
-        </div>
+        </Panel>
 
-        <div className="metric-card glass-panel glitch-hover" style={{ borderColor: stats.active_sos > 0 ? 'var(--accent-alert)' : ''}}>
-          <div className={`metric-icon ${stats.active_sos > 0 ? 'alert' : 'muted'}`}><ShieldAlert size={28} /></div>
-          <div className="metric-details">
-            <span className={`metric-value ${stats.active_sos > 0 ? 'neon-text-pink' : ''}`}>{stats.active_sos}</span>
-            <span className="metric-label">Active SOS</span>
+        <Panel title="Zone risk distribution" action={`${totalZones} zones`}>
+          <div className="distribution-list">
+            {Object.entries(zoneBreakdown).map(([status, count]) => (
+              <DistributionBar key={status} label={status} value={count} total={Math.max(totalZones, 1)} />
+            ))}
           </div>
-        </div>
+        </Panel>
 
-        <div className="metric-card glass-panel glitch-hover">
-          <div className="metric-icon cyan"><ShieldCheck size={28} /></div>
-          <div className="metric-details">
-            <span className="metric-value">{stats.resolved_sos}</span>
-            <span className="metric-label">Resolved Events</span>
+        <Panel title="Trip workload" action="Lifecycle">
+          <div className="trip-grid">
+            <TripMetric label="Active" value={metrics?.active_trips ?? 0} />
+            <TripMetric label="Planned" value={metrics?.planned_trips ?? 0} />
+            <TripMetric label="Completed" value={metrics?.completed_trips ?? 0} />
+            <TripMetric label="Cancelled" value={metrics?.cancelled_trips ?? 0} />
           </div>
-        </div>
-      </div>
+        </Panel>
+      </section>
 
-      {showLocations && (
-        <div className="tourist-tracker glass-panel mt-5">
-          <h3 className="neon-text-cyan mb-4">
-            <MapPin size={18} style={{ display: 'inline', marginRight: 8 }} />
-            LAST KNOWN POSITIONS ({locations.length})
-          </h3>
+      <section className="wide-grid">
+        <Panel title="Last known positions" action={`${locations.length} loaded`}>
           {locations.length === 0 ? (
-            <div className="empty-state">No location pings received yet.</div>
+            <EmptyState message="No location pings received yet." />
           ) : (
             <>
-              <div className="location-table">
-                <div className="location-header-row">
-                  <span>TOURIST ID</span>
-                  <span>LAT / LNG</span>
-                  <span>ZONE STATUS</span>
-                  <span>LAST PING</span>
+              <div className="data-table location-table">
+                <div className="table-header">
+                  <span>Tourist</span>
+                  <span>Coordinates</span>
+                  <span>Zone</span>
+                  <span>Freshness</span>
                 </div>
-                {locations.map((loc) => (
-                  <div key={loc.tourist_id} className="location-row">
-                    <span className="neon-text-cyan">{loc.tourist_id}</span>
-                    <span>{loc.latitude?.toFixed(5)}, {loc.longitude?.toFixed(5)}</span>
-                    <span style={{ color: zoneColor(loc.zone_status) }}>{loc.zone_status || '—'}</span>
-                    <span style={{ opacity: 0.6 }}>{loc.timestamp ? new Date(loc.timestamp).toLocaleTimeString() : '—'}</span>
+                {locations.map((location) => (
+                  <div className="table-row" key={`${location.tourist_id}-${location.timestamp}`}>
+                    <span>
+                      <strong>{location.tourist_id}</strong>
+                      <small>{location.tuid || 'No TUID'}</small>
+                    </span>
+                    <span>{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</span>
+                    <span className={`status-chip ${statusClass(location.zone_status)}`}>
+                      {location.zone_status || 'UNKNOWN'}
+                    </span>
+                    <span>{minutesSince(location.timestamp)}</span>
                   </div>
                 ))}
               </div>
               {hasMoreLocations && (
-                <div className="load-more-container mt-4">
-                  <button className="btn-secondary" onClick={loadMoreLocations}>LOAD MORE</button>
-                </div>
+                <button className="btn-secondary load-more" onClick={loadMoreLocations}>
+                  Load more locations
+                </button>
               )}
             </>
           )}
-        </div>
-      )}
+        </Panel>
 
-      <div className="system-status glass-panel mt-4">
-        <h3 className="neon-text-cyan">SYSTEM UPLINK</h3>
-        <div className="status-indicator">
-          <div className="status-dot pulsing"></div>
-          <span>Connection Stable — Monitoring Active</span>
-        </div>
-      </div>
+        <Panel title="Recent activity" action="Latest 20">
+          {analytics?.recent_activity.length ? (
+            <div className="activity-list">
+              {analytics.recent_activity.map((item) => (
+                <ActivityRow item={item} key={`${item.type}-${item.id}-${item.timestamp}`} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No activity recorded yet." />
+          )}
+        </Panel>
+      </section>
     </div>
   );
 };
+
+const KpiCard = ({
+  icon,
+  label,
+  value,
+  tone = 'default',
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  tone?: 'default' | 'danger' | 'success';
+}) => (
+  <div className={`kpi-card ${tone}`}>
+    <div className="kpi-icon">{icon}</div>
+    <div>
+      <span>{label}</span>
+      <strong>{value.toLocaleString()}</strong>
+    </div>
+  </div>
+);
+
+const Panel = ({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: string;
+  children: ReactNode;
+}) => (
+  <section className="ops-panel">
+    <div className="panel-header">
+      <h2>{title}</h2>
+      {action && <span>{action}</span>}
+    </div>
+    {children}
+  </section>
+);
+
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="empty-state">{message}</div>
+);
+
+const DistributionBar = ({ label, value, total }: { label: string; value: number; total: number }) => (
+  <div className="distribution-row">
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+    <div className="bar-track">
+      <div className={`bar-fill ${statusClass(label)}`} style={{ width: `${(value / total) * 100}%` }} />
+    </div>
+  </div>
+);
+
+const TripMetric = ({ label, value }: { label: string; value: number }) => (
+  <div className="trip-metric">
+    <span>{label}</span>
+    <strong>{value}</strong>
+  </div>
+);
+
+const ActivityRow = ({ item }: { item: ActivityItem }) => (
+  <div className="activity-row">
+    <Clock size={15} />
+    <div>
+      <strong>{item.label}</strong>
+      <span>
+        {item.tourist_id || item.id} - {item.status} - {minutesSince(item.timestamp)}
+      </span>
+    </div>
+  </div>
+);
 
 export default Dashboard;

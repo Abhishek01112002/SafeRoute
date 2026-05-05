@@ -46,7 +46,8 @@ async def get_destination_detail(dest_id: str, db: AsyncSession = Depends(get_db
         select(Destination).where(Destination.id == dest_id, Destination.is_active == True)
     )
     dest = result.scalar_one_or_none()
-    if not dest:
+    destination = crud._destination_to_dict(dest) if dest else await crud.get_destination_by_id(db, dest_id)
+    if not destination:
         raise HTTPException(status_code=404, detail="Destination not found")
 
     # Get associated zones
@@ -57,22 +58,22 @@ async def get_destination_detail(dest_id: str, db: AsyncSession = Depends(get_db
 
     warnings = []
     try:
-        warnings = json.loads(dest.warnings_json or "[]")
+        warnings = json.loads(destination.get("warnings_json") or "[]")
     except Exception:
         pass
 
     return {
-        "id": dest.id,
-        "name": dest.name,
-        "state": dest.state,
-        "district": dest.district,
-        "altitude_m": dest.altitude_m,
-        "center_lat": dest.center_lat,
-        "center_lng": dest.center_lng,
-        "category": dest.category,
-        "difficulty": dest.difficulty,
-        "connectivity": dest.connectivity,
-        "best_season": dest.best_season,
+        "id": destination["id"],
+        "name": destination["name"],
+        "state": destination["state"],
+        "district": destination["district"],
+        "altitude_m": destination["altitude_m"],
+        "center_lat": destination["center_lat"],
+        "center_lng": destination["center_lng"],
+        "category": destination["category"],
+        "difficulty": destination["difficulty"],
+        "connectivity": destination["connectivity"],
+        "best_season": destination["best_season"],
         "warnings": warnings,
         "zone_count": len(zones),
         # Emergency contacts are stored as advisory info

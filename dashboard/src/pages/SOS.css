@@ -1,115 +1,145 @@
-/* dashboard/src/pages/SOS.css */
 .sos-container {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  max-width: 1000px;
+  gap: 1.25rem;
   margin: 0 auto;
+  max-width: 1280px;
 }
 
-.sos-content {
-  display: flex;
-  flex-direction: column;
-  gap: 3rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.25rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 0.5rem;
-}
-
-.mt-5 {
-  margin-top: 2rem;
-}
-
-.events-list {
-  display: flex;
-  flex-direction: column;
+.triage-layout {
+  display: grid;
   gap: 1rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
 }
 
-.event-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-left: 4px solid transparent;
-}
-
-.event-card.active {
-  border-left-color: var(--accent-alert);
-  background: rgba(255, 42, 42, 0.05);
-}
-
-.event-card.resolved {
-  border-left-color: var(--accent-cyan);
-  opacity: 0.7;
-  padding: 1rem 1.5rem;
-}
-
-.event-main {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.event-icon {
-  color: var(--accent-alert);
+.triage-section {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   padding: 1rem;
-  background: rgba(255, 42, 42, 0.1);
-  border-radius: 50%;
 }
 
-.pulse-alert {
-  animation: pulse-red 1.5s infinite;
-}
-
-@keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0 rgba(255, 42, 42, 0.5); }
-  70% { box-shadow: 0 0 0 15px rgba(255, 42, 42, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 42, 42, 0); }
-}
-
-.event-info h3 {
-  margin-bottom: 0.5rem;
-  font-size: 1.1rem;
-  color: var(--text-main);
-}
-
-.event-meta {
-  display: flex;
-  gap: 1.5rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.event-meta span {
-  display: flex;
+.section-heading {
   align-items: center;
-  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.7rem;
 }
 
-.trigger-type {
-  color: var(--accent-caution);
-  font-family: var(--font-heading);
-  letter-spacing: 1px;
+.section-heading h2 {
+  flex: 1;
+  font-size: 1rem;
 }
 
-.respond-btn {
-  padding: 0.75rem 2rem;
+.section-heading span {
+  background: rgba(15, 21, 28, 0.82);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-weight: 900;
+  padding: 0.25rem 0.6rem;
 }
 
-.resolved-badge {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  background: var(--accent-cyan-dim);
-  color: var(--accent-cyan);
-  border-radius: 4px;
-  margin-left: 1rem;
-  vertical-align: middle;
+.section-heading.danger {
+  color: var(--danger);
+}
+
+.incident-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sos-card {
+  background: rgba(15, 21, 28, 0.72);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.sos-card.active {
+  background: linear-gradient(90deg, rgba(255, 95, 95, 0.16), rgba(15, 21, 28, 0.82));
+}
+
+.sos-card-main {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+}
+
+.incident-badge {
+  background: var(--danger-soft);
+  border-radius: 8px;
+  color: var(--danger);
+  font-weight: 900;
+  padding: 0.45rem 0.55rem;
+}
+
+.sos-card h3 {
+  font-size: 1rem;
+}
+
+.sos-card p {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.incident-meta-grid {
+  color: var(--text-muted);
+  display: grid;
+  font-size: 0.83rem;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.incident-meta-grid span {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.resolved-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.resolved-row {
+  align-items: center;
+  background: rgba(15, 21, 28, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto 1fr auto;
+  padding: 0.7rem;
+}
+
+.resolved-row svg {
+  color: var(--success);
+}
+
+.resolved-row strong,
+.resolved-row span {
+  display: block;
+}
+
+.resolved-row span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 980px) {
+  .triage-layout,
+  .incident-meta-grid {
+    grid-template-columns: 1fr;
+  }
 }

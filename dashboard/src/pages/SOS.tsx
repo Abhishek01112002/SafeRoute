@@ -1,132 +1,179 @@
-import { useEffect, useState, useCallback } from 'react';
-import { AlertTriangle, Clock, Crosshair, CheckCircle } from 'lucide-react';
-import api from '../api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Crosshair,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
+import {
+  POLL_INTERVAL_MS,
+  fetchSosEvents,
+  getErrorMessage,
+  respondToSos,
+  type SOSEvent,
+} from '../api';
 import './SOS.css';
 
-interface SOSEvent {
-  id: number;
-  tourist_id: string;
-  latitude: number;
-  longitude: number;
-  trigger_type: string;
-  status: string;
-  timestamp: string;
-}
+const PAGE_SIZE = 50;
+
+const eventAge = (timestamp: string) => {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m active`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m active`;
+};
 
 const SOS = () => {
   const [events, setEvents] = useState<SOSEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 50;
+  const [error, setError] = useState('');
 
-  const fetchEvents = useCallback(async (newOffset = 0) => {
+  const refreshEvents = useCallback(async (newOffset = 0) => {
+    setRefreshing(true);
+    setError('');
     try {
-      const res = await api.get(`/sos/events?limit=${PAGE_SIZE}&offset=${newOffset}`);
-      if (newOffset === 0) {
-        setEvents(res.data);
-      } else {
-        setEvents(prev => [...prev, ...res.data]);
-      }
-      setHasMore(res.data.length === PAGE_SIZE);
+      const nextEvents = await fetchSosEvents(PAGE_SIZE, newOffset);
+      setEvents((current) => (newOffset === 0 ? nextEvents : [...current, ...nextEvents]));
+      setHasMore(nextEvents.length === PAGE_SIZE);
       setOffset(newOffset);
-    } catch {
-      console.error('Failed to fetch SOS events');
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [PAGE_SIZE]);
+  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchEvents(0);
-    const interval = setInterval(() => fetchEvents(0), 10000); // Poll first page only for new alerts
-    return () => clearInterval(interval);
-  }, [fetchEvents]);
-
-  const loadMore = () => {
-    fetchEvents(offset + PAGE_SIZE);
-  };
+    void Promise.resolve().then(() => refreshEvents(0));
+    const interval = window.setInterval(() => refreshEvents(0), POLL_INTERVAL_MS);
+    const manualRefresh = () => refreshEvents(0);
+    window.addEventListener('saferoute:manual-refresh', manualRefresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('saferoute:manual-refresh', manualRefresh);
+    };
+  }, [refreshEvents]);
 
   const handleRespond = async (id: number) => {
+    const confirmed = window.confirm('Mark response initiated for this SOS event?');
+    if (!confirmed) return;
+
     try {
-      await api.post(`/sos/events/${id}/respond`);
-      // Optimistically update
-      setEvents(events.map(e => e.id === id ? { ...e, status: 'RESOLVED' } : e));
-    } catch {
-      alert('Failed to respond to SOS');
+      await respondToSos(id);
+      setEvents((current) =>
+        current.map((event) => (event.id === id ? { ...event, status: 'RESOLVED' } : event)),
+      );
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
     }
   };
 
-  const activeEvents = events.filter(e => e.status === 'ACTIVE');
-  const resolvedEvents = events.filter(e => e.status === 'RESOLVED');
+  const activeEvents = useMemo(
+    () =>
+      events
+        .filter((event) => event.status === 'ACTIVE')
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+    [events],
+  );
+  const resolvedEvents = useMemo(
+    () =>
+      events
+        .filter((event) => event.status !== 'ACTIVE')
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    [events],
+  );
 
   return (
     <div className="sos-container">
-      <header className="page-header">
-        <h1 className="neon-text-pink">Emergency Monitoring</h1>
-        <p className="subtitle">Real-time distress signal tracking</p>
-      </header>
+      <section className="page-title-row">
+        <div>
+          <p className="eyebrow">Emergency Response</p>
+          <h1>SOS Triage Board</h1>
+          <p className="page-subtitle">
+            Active incidents are sorted oldest first so unresolved alerts cannot drift.
+          </p>
+        </div>
+        <button className="btn-primary" onClick={() => refreshEvents(0)} disabled={refreshing}>
+          <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
+          Refresh
+        </button>
+      </section>
+
+      {error && <div className="alert-banner">{error}</div>}
 
       {loading && events.length === 0 ? (
-        <div className="loading-state">ESTABLISHING CONNECTION...</div>
+        <div className="page-state">Loading SOS events...</div>
       ) : (
-        <div className="sos-content">
-          <section className="sos-section">
-            <h2 className="section-title neon-text-pink">
-              <AlertTriangle size={20} /> ACTIVE DISTRESS SIGNALS ({activeEvents.length})
-            </h2>
+        <div className="triage-layout">
+          <section className="triage-section">
+            <div className="section-heading danger">
+              <AlertTriangle size={20} />
+              <h2>Active incidents</h2>
+              <span>{activeEvents.length}</span>
+            </div>
 
             {activeEvents.length === 0 ? (
-              <div className="empty-state glass-panel">ALL FREQUENCIES CLEAR</div>
+              <div className="empty-state">No active distress signals.</div>
             ) : (
-              <div className="events-list">
-                {activeEvents.map(e => (
-                  <div key={e.id} className="event-card active glass-panel">
-                    <div className="event-main">
-                      <div className="event-icon pulse-alert"><AlertTriangle size={24} /></div>
-                      <div className="event-info">
-                        <h3>TOURIST: {e.tourist_id}</h3>
-                        <div className="event-meta">
-                          <span><Crosshair size={14} /> {e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}</span>
-                          <span><Clock size={14} /> {new Date(e.timestamp).toLocaleTimeString()}</span>
-                          <span className="trigger-type">TRIGGER: {e.trigger_type}</span>
-                        </div>
+              <div className="incident-stack">
+                {activeEvents.map((event) => (
+                  <article className="sos-card active" key={event.id}>
+                    <div className="sos-card-main">
+                      <div className="incident-badge">SOS-{event.id}</div>
+                      <div>
+                        <h3>{event.tourist_id}</h3>
+                        <p>{event.tuid || 'No TUID'} - {eventAge(event.timestamp)}</p>
                       </div>
                     </div>
-                    <button className="btn-danger respond-btn" onClick={() => handleRespond(e.id)}>
-                      INITIATE RESPONSE
+                    <div className="incident-meta-grid">
+                      <span><Crosshair size={14} /> {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}</span>
+                      <span><Clock size={14} /> {new Date(event.timestamp).toLocaleString()}</span>
+                      <span>Trigger: {event.trigger_type}</span>
+                      <span>Dispatch: {event.dispatch_status || 'unknown'}</span>
+                    </div>
+                    <button className="btn-danger" onClick={() => handleRespond(event.id)}>
+                      Initiate response
                     </button>
-                  </div>
+                  </article>
                 ))}
               </div>
             )}
           </section>
 
-          <section className="sos-section mt-5">
-            <h2 className="section-title neon-text-cyan">
-              <CheckCircle size={20} /> RESOLVED LOGS ({resolvedEvents.length})
-            </h2>
-
-            <div className="events-list resolved-list">
-              {resolvedEvents.map(e => (
-                <div key={e.id} className="event-card resolved glass-panel">
-                  <div className="event-main">
-                    <div className="event-info">
-                      <h3>TOURIST: {e.tourist_id} <span className="resolved-badge">RESOLVED</span></h3>
-                      <div className="event-meta">
-                        <span>{e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}</span>
-                        <span>{new Date(e.timestamp).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <section className="triage-section">
+            <div className="section-heading">
+              <ShieldCheck size={20} />
+              <h2>Resolved log</h2>
+              <span>{resolvedEvents.length}</span>
             </div>
-            {hasMore && (
-              <div className="load-more-container mt-4 text-center">
-                <button className="btn-secondary" onClick={loadMore}>LOAD MORE RESOLVED</button>
+
+            {resolvedEvents.length === 0 ? (
+              <div className="empty-state">No resolved SOS records in this page.</div>
+            ) : (
+              <div className="resolved-table">
+                {resolvedEvents.map((event) => (
+                  <div className="resolved-row" key={event.id}>
+                    <CheckCircle2 size={16} />
+                    <div>
+                      <strong>{event.tourist_id}</strong>
+                      <span>{event.trigger_type} - {new Date(event.timestamp).toLocaleString()}</span>
+                    </div>
+                    <span>{event.dispatch_status || 'unknown'}</span>
+                  </div>
+                ))}
               </div>
+            )}
+
+            {hasMore && (
+              <button className="btn-secondary load-more" onClick={() => refreshEvents(offset + PAGE_SIZE)}>
+                Load more
+              </button>
             )}
           </section>
         </div>

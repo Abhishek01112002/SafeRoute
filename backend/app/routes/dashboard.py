@@ -23,6 +23,15 @@ async def get_metrics(
     return await crud.get_dashboard_metrics(db)
 
 
+@router.get("/analytics")
+async def get_analytics(
+    authority_id: str = Depends(get_current_authority),
+    db: AsyncSession = Depends(get_db)
+):
+    """Full command-centre analytics and freshness rollup."""
+    return await crud.get_dashboard_analytics(db)
+
+
 @router.get("/tourists")
 async def list_tourists(
     limit: int = 50,
@@ -38,11 +47,12 @@ async def list_tourists(
 async def get_last_locations(
     limit: int = 50,
     offset: int = 0,
-    authority_id: str = Depends(get_current_authority)
+    authority_id: str = Depends(get_current_authority),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Returns the most recent location ping for each active tourist.
     The mobile app sends a ping every ~5m of displacement; this gives
     the authority a non-real-time position trail.
     """
-    return await crud.get_tourist_last_locations(limit=limit, offset=offset)
+    return await crud.get_tourist_last_locations(db, limit=limit, offset=offset)
