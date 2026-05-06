@@ -10,6 +10,14 @@ import 'package:saferoute/tourist/models/mesh/mesh_packet.dart';
 import 'package:saferoute/tourist/models/mesh/mesh_node.dart';
 import 'package:saferoute/core/service_locator.dart';
 
+enum MeshServiceStartResult {
+  success,
+  unsupported,
+  permissionDenied,
+  bluetoothOff,
+  failed,
+}
+
 class MeshService {
   static final MeshService _instance = MeshService._internal();
   factory MeshService() => _instance;
@@ -27,8 +35,11 @@ class MeshService {
   bool _isServiceRunning = false;
   String? _myUserId;
   String? _signingSecret;
+  StreamSubscription<List<ScanResult>>? _scanResultsSub;
+  String? _lastError;
 
   String? get myUserId => _myUserId;
+  String? get lastError => _lastError;
 
   // Queue Structures
   bool _isQueueRunning = false;
@@ -43,58 +54,111 @@ class MeshService {
     _signingSecret = await _storage.getToken();
 
     // If offline or no token, use TUID as a fallback stable secret for local mesh
-    if (_signingSecret == null || _signingSecret == 'offline-token') { // pragma: allowlist secret
-      _signingSecret = await _storage.getTouristId() ?? "SAFEROUTE_OFFLINE_SECRET_STUB"; // pragma: allowlist secret
+    if (_signingSecret == null || _signingSecret == 'offline-token') {
+      // pragma: allowlist secret
+      _signingSecret = await _storage.getTouristId() ??
+          "SAFEROUTE_OFFLINE_SECRET_STUB"; // pragma: allowlist secret
     }
   }
 
-  Future<void> start() async {
-    if (_isServiceRunning) return;
+  Future<MeshServiceStartResult> start() async {
+    if (_isServiceRunning) return MeshServiceStartResult.success;
+    _lastError = null;
 
-    // Secure Runtime Permissions or Android 12+ silently shuts down BLE layers
-    final scanPerm = await Permission.bluetoothScan.request();
-    final connPerm = await Permission.bluetoothConnect.request();
-    final advPerm = await Permission.bluetoothAdvertise.request();
-    final locPerm = await Permission.location.request();
+    try {
+      if (await FlutterBluePlus.isSupported == false) {
+        _lastError = "Bluetooth LE is not supported on this device.";
+        debugPrint("Mesh: $_lastError");
+        return MeshServiceStartResult.unsupported;
+      }
+    } catch (e) {
+      _lastError = "Could not check Bluetooth support: $e";
+      debugPrint("Mesh: $_lastError");
+      return MeshServiceStartResult.failed;
+    }
 
-    if (scanPerm.isPermanentlyDenied ||
-        connPerm.isPermanentlyDenied ||
-        advPerm.isPermanentlyDenied ||
-        locPerm.isPermanentlyDenied ||
-        scanPerm.isDenied ||
-        connPerm.isDenied ||
-        advPerm.isDenied ||
-        locPerm.isDenied) {
-      debugPrint("Mesh: Fatal. Missing BLE permissions.");
-      return;
+    final hasPermissions = await _requestRuntimePermissions();
+    if (!hasPermissions) {
+      _lastError = "Bluetooth mesh permissions were not granted.";
+      debugPrint("Mesh: $_lastError");
+      return MeshServiceStartResult.permissionDenied;
+    }
+
+    final bluetoothOn = await _isBluetoothAdapterOn();
+    if (!bluetoothOn) {
+      _lastError = "Bluetooth is off. Turn it on and start mesh again.";
+      debugPrint("Mesh: $_lastError");
+      return MeshServiceStartResult.bluetoothOff;
+    }
+
+    try {
+      await _scanResultsSub?.cancel();
+      _scanResultsSub = FlutterBluePlus.onScanResults.listen(
+        (results) {
+          for (final result in results) {
+            if (result.advertisementData.serviceUuids
+                .contains(Guid(_meshServiceUuid))) {
+              _handleDiscoveredNode(result);
+            }
+          }
+        },
+        onError: (Object error) {
+          _lastError = "BLE scan stream error: $error";
+          debugPrint("Mesh: $_lastError");
+        },
+      );
+
+      await FlutterBluePlus.startScan(continuousUpdates: true);
+      await _startDefaultAdvertising();
+    } catch (e) {
+      _lastError = "Could not start BLE mesh: $e";
+      debugPrint("Mesh: $_lastError");
+      await _safeStopBle();
+      return MeshServiceStartResult.failed;
     }
 
     _isServiceRunning = true;
-
-    // Scan/Advertise Strategy Defaults
-    // Scan Window: 80ms, Interval: 100ms
-    FlutterBluePlus.onScanResults.listen((results) {
-      for (ScanResult r in results) {
-        if (r.advertisementData.serviceUuids.contains(Guid(_meshServiceUuid))) {
-          _handleDiscoveredNode(r);
-        }
-      }
-    });
-
-    try {
-      // Check for Bluetooth & Location permissions before starting scan
-      if (await FlutterBluePlus.isSupported == false) {
-        debugPrint("Mesh: Bluetooth not supported");
-        return;
-      }
-
-      await FlutterBluePlus.startScan(continuousUpdates: true);
-    } catch (e) {
-      debugPrint("Mesh: Start scan failed (permissions?): $e");
-    }
-
     unawaited(_startQueueExecutionLoop());
-    await _startDefaultAdvertising();
+    return MeshServiceStartResult.success;
+  }
+
+  Future<bool> _requestRuntimePermissions() async {
+    try {
+      final statuses = await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.bluetoothAdvertise,
+        Permission.locationWhenInUse,
+      ].request();
+
+      return statuses.values.every((status) => status.isGranted);
+    } catch (e) {
+      _lastError = "Permission request failed: $e";
+      debugPrint("Mesh: $_lastError");
+      return false;
+    }
+  }
+
+  Future<bool> _isBluetoothAdapterOn() async {
+    try {
+      final state = await FlutterBluePlus.adapterState
+          .firstWhere(
+            (state) =>
+                state == BluetoothAdapterState.on ||
+                state == BluetoothAdapterState.off ||
+                state == BluetoothAdapterState.unavailable ||
+                state == BluetoothAdapterState.unauthorized,
+          )
+          .timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => BluetoothAdapterState.unknown,
+          );
+      return state == BluetoothAdapterState.on;
+    } catch (e) {
+      _lastError = "Could not read Bluetooth adapter state: $e";
+      debugPrint("Mesh: $_lastError");
+      return false;
+    }
   }
 
   Future<void> _startQueueExecutionLoop() async {
@@ -165,7 +229,13 @@ class MeshService {
       serviceUuid: _meshServiceUuid,
       includeDeviceName: true,
     );
-    await FlutterBlePeripheral().start(advertiseData: advertiseData);
+    try {
+      await FlutterBlePeripheral().start(advertiseData: advertiseData);
+    } catch (e) {
+      _lastError = "Default BLE advertising failed: $e";
+      debugPrint("Mesh: $_lastError");
+      rethrow;
+    }
   }
 
   void _handleDiscoveredNode(ScanResult result) {
@@ -200,15 +270,18 @@ class MeshService {
       // Verification logic:
       // If we are the source, we know our secret.
       // Otherwise, we check if it's signed with the 'trusted' global salt.
-      const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT', defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
+      const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT',
+          defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
       final expectedSig = packet.generateSignature(globalSalt);
 
       debugPrint("[MeshService] Validating packet signature...");
       if (packet.signature != expectedSig) {
-         debugPrint("❌ Invalid or missing signature. Dropping packet ${packet.packetId}. Possible spoofing attempt.");
-         return;
+        debugPrint(
+            "❌ Invalid or missing signature. Dropping packet ${packet.packetId}. Possible spoofing attempt.");
+        return;
       }
-      debugPrint("✅ Signature verified. Processing packet ${packet.packetId}...");
+      debugPrint(
+          "✅ Signature verified. Processing packet ${packet.packetId}...");
 
       // Strict State Dedup
       if (await _dbService.hasPacket(packet.packetId)) return;
@@ -251,10 +324,10 @@ class MeshService {
 
   Future<void> sendPacket(MeshPacket packet) async {
     // Cryptographically sign the packet before queuing
-    const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT', defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
-    final signedPacket = packet.copyWith(
-      signature: packet.generateSignature(globalSalt)
-    );
+    const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT',
+        defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
+    final signedPacket =
+        packet.copyWith(signature: packet.generateSignature(globalSalt));
 
     // Queue internal user packets instantly
     _enqueuePacket(signedPacket);
@@ -262,7 +335,27 @@ class MeshService {
 
   Future<void> stop() async {
     _isServiceRunning = false;
-    await FlutterBluePlus.stopScan();
-    await FlutterBlePeripheral().stop();
+    await _safeStopBle();
+  }
+
+  Future<void> _safeStopBle() async {
+    try {
+      await _scanResultsSub?.cancel();
+      _scanResultsSub = null;
+    } catch (e) {
+      debugPrint("Mesh: Scan subscription cleanup failed: $e");
+    }
+
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (e) {
+      debugPrint("Mesh: stopScan failed: $e");
+    }
+
+    try {
+      await FlutterBlePeripheral().stop();
+    } catch (e) {
+      debugPrint("Mesh: advertiser stop failed: $e");
+    }
   }
 }

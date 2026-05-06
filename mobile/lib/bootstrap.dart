@@ -82,7 +82,6 @@ Future<void> bootstrap() async {
   final bool isRegistered = prefs.getBool('is_registered') ?? false;
   final bool onboardingCompleted =
       prefs.getBool('onboarding_completed') ?? false;
-  final String? touristId = prefs.getString('tourist_id');
 
   // Initialize background service — deferred (not needed before first frame)
   // Moved to post-frame to eliminate startup lag
@@ -106,17 +105,6 @@ Future<void> bootstrap() async {
 
   if (isRegistered) {
     unawaited(roomProvider.initialize());
-  }
-
-  // Auto-start mesh AFTER first frame to avoid blocking the UI
-  if (isRegistered && touristId != null) {
-    unawaited(Future.delayed(const Duration(seconds: 2), () async {
-      final meshId =
-          touristProvider.tourist?.tuid?.substring(0, 8) ?? touristId;
-      await meshProvider.init(meshId);
-      await meshProvider.startMesh();
-      debugPrint("✅ BLE Mesh auto-started for registered user: $meshId");
-    }));
   }
 
   runApp(

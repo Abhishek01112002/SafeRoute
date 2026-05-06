@@ -7,41 +7,21 @@ class PermissionHelper {
     // Request critical permissions individually via PermissionService for robust handling
 
     // 1. Location (Foreground + Background)
-    final locationGranted = await PermissionService.requestBackgroundLocation(context);
+    final locationGranted =
+        await PermissionService.requestBackgroundLocation(context);
     if (!context.mounted) return false;
 
-    // 2. Bluetooth (Scan + Connect)
-    final bluetoothStatus = await PermissionService.requestPermission(
-      permission: Permission.bluetoothScan,
-      context: context,
-      rationaleTitle: 'Mesh Networking',
-      rationaleMessage: 'SafeRoute uses Bluetooth to communicate with other users and authorities in zero-signal areas.',
-    );
-    if (!context.mounted) return false;
-
-    if (bluetoothStatus.isGranted) {
-      await PermissionService.requestPermission(
-        permission: Permission.bluetoothConnect,
-        context: context,
-      );
-      if (!context.mounted) return false;
-      await PermissionService.requestPermission(
-        permission: Permission.bluetoothAdvertise,
-        context: context,
-      );
-      if (!context.mounted) return false;
-    }
-
-    // 3. Notifications
+    // 2. Notifications
     await PermissionService.requestPermission(
       permission: Permission.notification,
       context: context,
       rationaleTitle: 'Safety Alerts',
-      rationaleMessage: 'SafeRoute needs to send you critical alerts about nearby dangers.',
+      rationaleMessage:
+          'SafeRoute needs to send you critical alerts about nearby dangers.',
     );
     if (!context.mounted) return false;
 
-    // 4. Camera (Optional but good to have ready)
+    // 3. Camera (Optional but good to have ready)
     await PermissionService.requestPermission(
       permission: Permission.camera,
       context: context,

@@ -19,7 +19,6 @@ import 'package:saferoute/tourist/screens/sos_screen_v2.dart';
 import 'package:saferoute/tourist/screens/navigation_screen_v2.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
-import 'package:saferoute/tourist/providers/mesh_provider.dart';
 import 'package:saferoute/utils/env.dart';
 import 'package:saferoute/screens/developer_sandbox_screen.dart';
 
@@ -83,7 +82,6 @@ class _MainScreenState extends State<MainScreen>
   Future<void> _startSafetyServices() async {
     final touristProv = context.read<TouristProvider>();
     final locationProvider = context.read<LocationProvider>();
-    final meshProvider = context.read<MeshProvider>();
 
     if (touristProv.userState == UserState.guest &&
         touristProv.guestSessionId == null) {
@@ -92,24 +90,7 @@ class _MainScreenState extends State<MainScreen>
 
     if (!mounted) return;
 
-    final isGuest = touristProv.userState == UserState.guest;
-    final fallbackId = isGuest ? touristProv.guestSessionId : touristProv.tourist?.touristId;
-    final userId = isGuest
-        ? touristProv.guestSessionId
-        : (touristProv.tourist?.tuid?.substring(0, 8) ?? fallbackId);
-
-    if (userId == null || userId.isEmpty) {
-      debugPrint(
-          'MainScreen: skipping safety services until identity is ready.');
-      return;
-    }
-
     await locationProvider.startTracking(context);
-    if (!mounted) return;
-
-    meshProvider.setGuestMode(isGuest);
-    await meshProvider.init(userId);
-    await meshProvider.startMesh();
   }
 
   @override
@@ -191,14 +172,18 @@ class _MainScreenState extends State<MainScreen>
                       IconButton(
                         icon: const Icon(Icons.bug_report_rounded,
                             size: 20, color: AppColors.accent),
-                        onPressed: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const DeveloperSandboxScreen())),
+                        onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const DeveloperSandboxScreen())),
                         tooltip: 'Developer Sandbox',
                       ),
                     IconButton(
                       icon: Icon(Icons.logout_rounded,
                           size: 20,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.4)),
                       onPressed: () => _handleLogout(context),
                       tooltip: 'Logout',
                     ),
@@ -408,7 +393,8 @@ class _SpringDockItemState extends State<_SpringDockItem>
                   color: color,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)
+                    BoxShadow(
+                        color: color.withValues(alpha: 0.5), blurRadius: 4)
                   ],
                 ),
               ),

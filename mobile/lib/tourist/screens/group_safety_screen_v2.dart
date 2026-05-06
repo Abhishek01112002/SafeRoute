@@ -8,7 +8,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:saferoute/core/service_locator.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/tourist/models/room_member_model.dart';
+import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/tourist/providers/location_provider.dart';
+import 'package:saferoute/tourist/providers/mesh_provider.dart';
 import 'package:saferoute/tourist/providers/room_provider.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
@@ -169,6 +171,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
   ) {
     final maxDistanceKm = _maxSeparationKm(room);
     final state = _opsState(room, maxDistanceKm);
+    final mesh = context.watch<MeshProvider>();
 
     return RefreshIndicator(
       onRefresh: room.refreshActiveGroup,
@@ -184,6 +187,8 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
           _buildInvitePanel(room, isDark),
           const SizedBox(height: 14),
           _buildSharingControl(room, isDark),
+          const SizedBox(height: 14),
+          _buildMeshFallbackPanel(context, mesh, isDark),
           const SizedBox(height: 14),
           _buildSosBanner(context, room, isDark),
           const SizedBox(height: 14),
@@ -377,6 +382,57 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
             value: room.isSharingLocation,
             activeThumbColor: AppColors.success,
             onChanged: room.isOfflineSnapshot ? null : room.setSharingLocation,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeshFallbackPanel(
+    BuildContext context,
+    MeshProvider mesh,
+    bool isDark,
+  ) {
+    final color = mesh.isMeshActive ? AppColors.success : AppColors.warning;
+    return EliteSurface(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 18,
+      borderColor: color,
+      borderOpacity: 0.24,
+      child: Row(
+        children: [
+          Icon(
+            mesh.isMeshActive
+                ? Icons.bluetooth_connected_rounded
+                : Icons.bluetooth_disabled_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Offline Relay',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  mesh.statusMessage,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: mesh.meshState == MeshRuntimeState.starting ||
+                    mesh.meshState == MeshRuntimeState.checking
+                ? null
+                : () => unawaited(_toggleMeshRelay(context, mesh)),
+            child: Text(mesh.isMeshActive ? 'STOP' : 'START'),
           ),
         ],
       ),
@@ -677,6 +733,32 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
         setState(() => _isSendingSos = false);
       }
     }
+  }
+
+  Future<void> _toggleMeshRelay(
+    BuildContext context,
+    MeshProvider mesh,
+  ) async {
+    if (mesh.isMeshActive) {
+      await mesh.stopMesh();
+    } else {
+      final tourist = context.read<TouristProvider>().tourist;
+      if (tourist != null) {
+        await mesh.init(_meshIdForTourist(tourist));
+      }
+      await mesh.startMesh();
+    }
+
+    if (!context.mounted) return;
+    _snack(context, mesh.statusMessage);
+  }
+
+  String _meshIdForTourist(Tourist tourist) {
+    final candidate = (tourist.tuid != null && tourist.tuid!.isNotEmpty)
+        ? tourist.tuid!
+        : tourist.touristId;
+    if (candidate.length <= 8) return candidate;
+    return candidate.substring(0, 8);
   }
 
   void _showJoinRoomDialog(BuildContext context) {
