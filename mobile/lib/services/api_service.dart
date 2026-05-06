@@ -572,10 +572,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> loginTourist(String touristId) async {
     try {
-      final response =
-          await _retryWithBackoff(() => _dio.post('/v3/tourist/login', data: {
-                'tourist_id': touristId,
-              }));
+      final response = await _retryWithBackoff(
+        () => _dio.post('/v3/tourist/login', data: {
+          'tourist_id': touristId,
+        }).timeout(const Duration(seconds: 10)),
+        maxRetries: 0,
+      );
       final token = response.data['token'];
       final refreshToken = response.data['refresh_token'];
       final touristData = response.data['tourist'];
@@ -651,6 +653,7 @@ class ApiService {
     double lng,
     String triggerType, {
     String? touristId,
+    String? groupId,
   }) async {
     final sosCorrelationId = 'SOS-${const Uuid().v4().substring(0, 8)}';
     final userType =
@@ -700,6 +703,7 @@ class ApiService {
       'timestamp': DateTime.now().toIso8601String(),
       'user_type': userType,
       'guest_session_id': guestSessionId,
+      if (groupId != null && groupId.isNotEmpty) 'group_id': groupId,
     };
 
     debugPrint(

@@ -42,7 +42,8 @@ Future<void> bootstrap() async {
     _configureTelemetry();
   } catch (e) {
     debugPrint("⚠️ Firebase initialization failed: $e");
-    debugPrint("💡 Tip: Ensure google-services.json is present in android/app/");
+    debugPrint(
+        "💡 Tip: Ensure google-services.json is present in android/app/");
   }
 
   // Initialize notifications
@@ -62,7 +63,6 @@ Future<void> bootstrap() async {
     themeLoadTimedOut = true;
     prefs = await SharedPreferences.getInstance();
   }
-
 
   // PERF FIX: Tile pre-population removed from startup.
   // Tiles are now:
@@ -98,14 +98,21 @@ Future<void> bootstrap() async {
 
   // Initialize TripProvider — loads from local cache (fast), server refresh is async
   final tripProvider = TripProvider();
+  final roomProvider = RoomProvider();
   if (isRegistered) {
-    unawaited(tripProvider.initialize());  // fire-and-forget — cache is instant, server is async
+    unawaited(tripProvider
+        .initialize()); // fire-and-forget — cache is instant, server is async
+  }
+
+  if (isRegistered) {
+    unawaited(roomProvider.initialize());
   }
 
   // Auto-start mesh AFTER first frame to avoid blocking the UI
   if (isRegistered && touristId != null) {
     unawaited(Future.delayed(const Duration(seconds: 2), () async {
-      final meshId = touristProvider.tourist?.tuid?.substring(0, 8) ?? touristId;
+      final meshId =
+          touristProvider.tourist?.tuid?.substring(0, 8) ?? touristId;
       await meshProvider.init(meshId);
       await meshProvider.startMesh();
       debugPrint("✅ BLE Mesh auto-started for registered user: $meshId");
@@ -126,7 +133,7 @@ Future<void> bootstrap() async {
         ),
         ChangeNotifierProvider.value(value: touristProvider),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
-        ChangeNotifierProvider(create: (_) => RoomProvider()),
+        ChangeNotifierProvider.value(value: roomProvider),
         ChangeNotifierProxyProvider<LocationProvider, SafetySystemProvider>(
           create: (_) => SafetySystemProvider(),
           update: (_, location, safety) {

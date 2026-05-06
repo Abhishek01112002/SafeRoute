@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 # Load .env file from backend root if it exists
 load_dotenv()
 
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Settings:
     # ---------------------------------------------------------------------------
     # Database & Retention
     # ---------------------------------------------------------------------------
-    DATABASE_URL: str = "postgresql+asyncpg://postgres.hcsmypvaolyphuacgfbs:Anshuman%40SafeRoute@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./saferoute.db"
     RETENTION_DAYS_LOCATION: int = 30
     DB_POOL_SIZE: int = 5           # DEV: 5, STAGING: 10, PROD: 20-50
     DB_MAX_OVERFLOW: int = 5        # DEV: 5, STAGING: 10, PROD: 20
@@ -39,7 +39,7 @@ class Settings:
     # ---------------------------------------------------------------------------
     JWT_ACCESS_EXPIRY_MINUTES: int = 60
     JWT_REFRESH_EXPIRY_DAYS: int = 7
-    JWT_SECRET: str = "unsafe-secret-development-only"
+    JWT_SECRET: str = "unsafe-development-secret-change-me-32-bytes"
     DOC_NUMBER_SALT: str = "unsafe-doc-salt-dev"
 
     # ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ class Settings:
         self.DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", str(self.DB_POOL_TIMEOUT)))
         self.JWT_ACCESS_EXPIRY_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRY_MINUTES", str(self.JWT_ACCESS_EXPIRY_MINUTES)))
         self.JWT_REFRESH_EXPIRY_DAYS = int(os.getenv("JWT_REFRESH_EXPIRY_DAYS", str(self.JWT_REFRESH_EXPIRY_DAYS)))
-        self.JWT_SECRET = os.getenv("JWT_SECRET", self.JWT_SECRET)
+        self.JWT_SECRET = os.getenv("JWT_SECRET", os.getenv("JWT_SECRET_KEY", self.JWT_SECRET))
         self.DOC_NUMBER_SALT = os.getenv("DOC_NUMBER_SALT", self.DOC_NUMBER_SALT)
         self.ALLOWED_ORIGINS = os.getenv(
             "ALLOWED_ORIGINS",
@@ -152,7 +152,9 @@ class Settings:
 
         if is_production and (not self.JWT_SECRET or self.JWT_SECRET in {
             "YOUR_SUPER_SECRET_KEY_CHANGE_ME",
+            "your-super-secret-key-change-it",
             "unsafe-secret-development-only",
+            "unsafe-development-secret-change-me-32-bytes",
         }):
             missing.append("JWT_SECRET (security risk: default or missing)")
 

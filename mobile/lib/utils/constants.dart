@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 // --dart-define=SAFEROUTE_API_BASE_URL=https://api.your-domain.example
 const String kBaseUrl = String.fromEnvironment(
   'SAFEROUTE_API_BASE_URL',
-  defaultValue: 'http://10.198.71.18:8000',
+  defaultValue: 'http://10.43.205.74:8000',
 );
 
 // Optional SHA-256 fingerprint of the production TLS leaf certificate in hex.

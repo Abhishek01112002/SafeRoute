@@ -19,7 +19,8 @@ class AuthorityDashboardScreen extends StatefulWidget {
   const AuthorityDashboardScreen({super.key});
 
   @override
-  State<AuthorityDashboardScreen> createState() => _AuthorityDashboardScreenState();
+  State<AuthorityDashboardScreen> createState() =>
+      _AuthorityDashboardScreenState();
 }
 
 class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
@@ -45,10 +46,13 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
         title: const Text('Logout'),
         content: const Text('Exit the Command Center?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('CANCEL')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('LOGOUT', style: TextStyle(color: AppColors.danger)),
+            child:
+                const Text('LOGOUT', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -99,13 +103,15 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
           controller: _tabCtrl,
           indicatorColor: AppColors.primaryHighContrast,
           labelColor: AppColors.primaryHighContrast,
-          unselectedLabelColor: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
+          unselectedLabelColor:
+              theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          labelStyle: const TextStyle(
+              fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
           tabs: const [
-            Tab(icon: Icon(Icons.layers_rounded,   size: 18), text: 'ZONES'),
-            Tab(icon: Icon(Icons.people_rounded,   size: 18), text: 'TOURISTS'),
-            Tab(icon: Icon(Icons.sos_rounded,      size: 18), text: 'SOS'),
-            Tab(icon: Icon(Icons.route_rounded,    size: 18), text: 'TRAIL MAP'),
+            Tab(icon: Icon(Icons.layers_rounded, size: 18), text: 'ZONES'),
+            Tab(icon: Icon(Icons.people_rounded, size: 18), text: 'TOURISTS'),
+            Tab(icon: Icon(Icons.sos_rounded, size: 18), text: 'SOS'),
+            Tab(icon: Icon(Icons.route_rounded, size: 18), text: 'TRAIL MAP'),
           ],
         ),
       ),
@@ -145,7 +151,10 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
   }
 
   Future<void> _loadDestinations() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final states = await _api.getStates();
       final List<Map<String, dynamic>> all = [];
@@ -153,19 +162,34 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
         final dests = await _api.getDestinationsByState(s as String);
         all.addAll(dests.cast<Map<String, dynamic>>());
       }
-      setState(() { _destinations = all; _loading = false; });
+      setState(() {
+        _destinations = all;
+        _loading = false;
+      });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
   Future<void> _loadZones(String destId) async {
-    setState(() { _loading = true; _selectedDestId = destId; });
+    setState(() {
+      _loading = true;
+      _selectedDestId = destId;
+    });
     try {
       final zones = await _api.getZonesForDestination(destId);
-      setState(() { _zones = zones; _loading = false; });
+      setState(() {
+        _zones = zones;
+        _loading = false;
+      });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -182,28 +206,34 @@ class _ZoneManagerTabState extends State<_ZoneManagerTab> {
           child: _loading && _destinations.isEmpty
               ? const LinearProgressIndicator()
               : DropdownButtonFormField<String>(
-                  value: _selectedDestId,
+                  initialValue: _selectedDestId,
                   decoration: InputDecoration(
                     labelText: 'Select Destination',
                     prefixIcon: const Icon(Icons.place_rounded),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  items: _destinations.map((d) => DropdownMenuItem<String>(
-                    value: d['id'] as String,
-                    child: Text(d['name'] as String? ?? d['id'] as String),
-                  )).toList(),
-                  onChanged: (id) { if (id != null) _loadZones(id); },
+                  items: _destinations
+                      .map((d) => DropdownMenuItem<String>(
+                            value: d['id'] as String,
+                            child:
+                                Text(d['name'] as String? ?? d['id'] as String),
+                          ))
+                      .toList(),
+                  onChanged: (id) {
+                    if (id != null) _loadZones(id);
+                  },
                 ),
         ),
         if (_error != null) _ErrorBanner(_error!),
-
         Expanded(
           child: _selectedDestId == null
               ? const _EmptyHint('Select a destination to manage its zones')
               : _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _zones.isEmpty
-                      ? const _EmptyHint('No zones configured. Tap + to add a zone.')
+                      ? const _EmptyHint(
+                          'No zones configured. Tap + to add a zone.')
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
                           itemCount: _zones.length,
@@ -225,10 +255,14 @@ class _ZoneCard extends StatelessWidget {
 
   Color get _color {
     switch (zone.type) {
-      case ZoneType.safe:       return Colors.green;
-      case ZoneType.caution:    return Colors.amber;
-      case ZoneType.restricted: return Colors.red;
-      case ZoneType.syncing:    return Colors.grey;
+      case ZoneType.safe:
+        return Colors.green;
+      case ZoneType.caution:
+        return Colors.amber;
+      case ZoneType.restricted:
+        return Colors.red;
+      case ZoneType.syncing:
+        return Colors.grey;
     }
   }
 
@@ -246,11 +280,13 @@ class _ZoneCard extends StatelessWidget {
           backgroundColor: _color.withValues(alpha: 0.15),
           child: Icon(Icons.layers_rounded, color: _color),
         ),
-        title: Text(zone.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(zone.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${zone.type.displayLabel} · $shape',
             style: const TextStyle(fontSize: 12)),
         trailing: IconButton(
-          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+          icon:
+              const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
           onPressed: onDelete,
           tooltip: 'Delete zone',
         ),
@@ -272,10 +308,13 @@ class _TouristOverviewTabState extends State<_TouristOverviewTab> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.people_rounded, size: 64,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
+          Icon(Icons.people_rounded,
+              size: 64,
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
-          const Text('Live tourist tracking', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Live tourist tracking',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text('GET /tourists endpoint coming in next sprint.',
               style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
@@ -304,12 +343,21 @@ class _SosEventsTabState extends State<_SosEventsTab> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final events = await _api.getSosEvents();
-      setState(() { _events = events.cast<Map<String,dynamic>>(); _loading = false; });
+      setState(() {
+        _events = events.cast<Map<String, dynamic>>();
+        _loading = false;
+      });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -329,7 +377,9 @@ class _SosEventsTabState extends State<_SosEventsTab> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return _ErrorBanner(_error!);
-    if (_events.isEmpty) return const _EmptyHint('No SOS events in your jurisdiction.');
+    if (_events.isEmpty) {
+      return const _EmptyHint('No SOS events in your jurisdiction.');
+    }
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -345,7 +395,9 @@ class _SosEventsTabState extends State<_SosEventsTab> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: isActive ? AppColors.danger.withValues(alpha: 0.4) : Colors.transparent,
+                color: isActive
+                    ? AppColors.danger.withValues(alpha: 0.4)
+                    : Colors.transparent,
               ),
             ),
             child: Padding(
@@ -353,9 +405,13 @@ class _SosEventsTabState extends State<_SosEventsTab> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: (isActive ? AppColors.danger : Colors.green).withValues(alpha: 0.15),
+                    backgroundColor:
+                        (isActive ? AppColors.danger : Colors.green)
+                            .withValues(alpha: 0.15),
                     child: Icon(
-                      isActive ? Icons.sos_rounded : Icons.check_circle_outline_rounded,
+                      isActive
+                          ? Icons.sos_rounded
+                          : Icons.check_circle_outline_rounded,
                       color: isActive ? AppColors.danger : Colors.green,
                     ),
                   ),
@@ -365,14 +421,16 @@ class _SosEventsTabState extends State<_SosEventsTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Tourist: ${e['tourist_id'] ?? 'Unknown'}',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         Text(
                           '${e['trigger_type'] ?? 'MANUAL'} · (${(e['latitude'] as num?)?.toStringAsFixed(4)}, ${(e['longitude'] as num?)?.toStringAsFixed(4)})',
                           style: const TextStyle(fontSize: 11),
                         ),
                         Text(
                           e['timestamp'] ?? '',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade500),
                         ),
                       ],
                     ),
@@ -383,8 +441,10 @@ class _SosEventsTabState extends State<_SosEventsTab> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.danger,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        textStyle: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700),
                       ),
                       child: const Text('RESPOND'),
                     ),
@@ -427,31 +487,42 @@ class _TrailGraphTabState extends State<_TrailGraphTab> {
   }
 
   Future<void> _loadGraph(String destId) async {
-    setState(() { _loading = true; _selectedDestId = destId; _graph = null; });
+    setState(() {
+      _loading = true;
+      _selectedDestId = destId;
+      _graph = null;
+    });
     try {
       final graph = await _api.getTrailGraph(destId);
-      setState(() { _graph = graph?.toJson(); _loading = false; });
+      setState(() {
+        _graph = graph?.toJson();
+        _loading = false;
+      });
     } catch (e) {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final nodeCount  = (_graph?['nodes']  as List?)?.length ?? 0;
-    final edgeCount  = (_graph?['edges']  as List?)?.length ?? 0;
-    final nodes = (_graph?['nodes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final nodeCount = (_graph?['nodes'] as List?)?.length ?? 0;
+    final edgeCount = (_graph?['edges'] as List?)?.length ?? 0;
+    final nodes =
+        (_graph?['nodes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
-            value: _selectedDestId,
+            initialValue: _selectedDestId,
             decoration: InputDecoration(
               labelText: 'Select Destination',
               prefixIcon: const Icon(Icons.place_rounded),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
             items: _destinations.map((d) {
               final m = d as Map<String, dynamic>;
@@ -460,7 +531,9 @@ class _TrailGraphTabState extends State<_TrailGraphTab> {
                 child: Text(m['name'] as String? ?? m['id'] as String),
               );
             }).toList(),
-            onChanged: (id) { if (id != null) _loadGraph(id); },
+            onChanged: (id) {
+              if (id != null) _loadGraph(id);
+            },
           ),
         ),
         if (_loading) const LinearProgressIndicator(),
@@ -473,7 +546,8 @@ class _TrailGraphTabState extends State<_TrailGraphTab> {
                 const SizedBox(width: 12),
                 _GraphStat('Edges', edgeCount.toString(), Icons.route_rounded),
                 const SizedBox(width: 12),
-                _GraphStat('v${_graph!['version'] ?? 1}', 'version', Icons.history_rounded),
+                _GraphStat('v${_graph!['version'] ?? 1}', 'version',
+                    Icons.history_rounded),
               ],
             ),
           ),
@@ -492,14 +566,21 @@ class _TrailGraphTabState extends State<_TrailGraphTab> {
                     initialZoom: 15,
                   ),
                   children: [
-                    TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                    TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
                     MarkerLayer(
                       markers: nodes.map((n) {
-                        final zt = ZoneTypeExtension.fromString(n['zone_type'] as String? ?? '');
-                        final color = zt == ZoneType.restricted ? Colors.red
-                            : zt == ZoneType.caution ? Colors.amber : Colors.green;
+                        final zt = ZoneTypeExtension.fromString(
+                            n['zone_type'] as String? ?? '');
+                        final color = zt == ZoneType.restricted
+                            ? Colors.red
+                            : zt == ZoneType.caution
+                                ? Colors.amber
+                                : Colors.green;
                         return Marker(
-                          point: LatLng((n['lat'] as num).toDouble(), (n['lng'] as num).toDouble()),
+                          point: LatLng((n['lat'] as num).toDouble(),
+                              (n['lng'] as num).toDouble()),
                           child: Tooltip(
                             message: n['name'] as String? ?? n['id'] as String,
                             child: Icon(Icons.circle, color: color, size: 14),
@@ -537,8 +618,11 @@ class _GraphStat extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                Text(label, style: const TextStyle(fontSize: 9, letterSpacing: 0.5)),
+                Text(value,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(label,
+                    style: const TextStyle(fontSize: 9, letterSpacing: 0.5)),
               ],
             ),
           ],
@@ -553,12 +637,13 @@ class _EmptyHint extends StatelessWidget {
   const _EmptyHint(this.text);
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Text(text, textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade500, height: 1.6)),
-    ),
-  );
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade500, height: 1.6)),
+        ),
+      );
 }
 
 class _ErrorBanner extends StatelessWidget {
@@ -566,19 +651,20 @@ class _ErrorBanner extends StatelessWidget {
   const _ErrorBanner(this.message);
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.all(12),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.danger.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.error_outline, color: AppColors.danger),
-        const SizedBox(width: 8),
-        Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
-      ],
-    ),
-  );
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.danger.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.danger),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(message, style: const TextStyle(fontSize: 12))),
+          ],
+        ),
+      );
 }

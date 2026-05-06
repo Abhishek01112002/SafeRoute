@@ -65,12 +65,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres.hcsmypvaolyphuacgfbs:Anshuman%40SafeRoute@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-saferoute_secret_2026}@db:5432/${DB_NAME:-saferoute}
       - SQLITE_URL=sqlite:///./data/saferoute.db
       - ENABLE_PG=true
       - ENABLE_DUAL_WRITE=true
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-key-change-it}
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-saferoute_access}

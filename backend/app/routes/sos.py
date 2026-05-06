@@ -3,10 +3,11 @@ import datetime
 from fastapi import APIRouter, Depends, Body, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_tourist, get_current_authority
-from app.db import sqlite_legacy, crud
+from app.db import crud
 from app.db.session import get_db
 from app.services.sos_dispatch import dispatch_sos_alert
 from app.core import limiter
+from app.services import group_safety
 
 from app.models.schemas import MeshSOSSync
 from app.services.identity_service import verify_sos_signature
@@ -33,6 +34,7 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
     latitude = payload.get("latitude")
     longitude = payload.get("longitude")
     trigger_type = payload.get("trigger_type", "MANUAL")
+    group_id = payload.get("group_id")
 
     # Validate coordinates
     if latitude is None or longitude is None:
@@ -67,8 +69,19 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
 
     tourist_data = await crud.get_tourist(db, tourist_id)
     if not tourist_data:
-        log.warning("sos.trigger.tourist_not_found", tourist_id=tourist_id)
-        raise HTTPException(status_code=404, detail="Tourist not found")
+        from app.models.database import Tourist
+
+        tourist = await db.get(Tourist, tourist_id)
+        if not tourist:
+            log.warning("sos.trigger.tourist_not_found", tourist_id=tourist_id)
+            raise HTTPException(status_code=404, detail="Tourist not found")
+        tourist_data = {
+            "tourist_id": tourist.tourist_id,
+            "tuid": tourist.tuid,
+            "full_name": tourist.full_name,
+            "emergency_contact_name": tourist.emergency_contact_name,
+            "emergency_contact_phone": tourist.emergency_contact_phone,
+        }
 
     tuid = tourist_data.get("tuid")
 
@@ -90,6 +103,23 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
             detail="timestamp is too old or too far in the future",
         )
 
+    if group_id:
+        group = await group_safety.assert_group_member(db, str(group_id), str(tourist_id))
+        recent_group_sos = await crud.check_recent_group_sos(
+            db,
+            tourist_id=str(tourist_id),
+            group_id=group.group_id,
+            timestamp=timestamp,
+        )
+        if recent_group_sos:
+            return {
+                "status": "duplicate_group_sos_ignored",
+                "tourist_id": tourist_id,
+                "group_id": group.group_id,
+                "existing_event_id": recent_group_sos.id,
+            }
+        group_id = group.group_id
+
     sos_event = await crud.create_sos_event(
         db,
         tourist_id=str(tourist_id),
@@ -99,6 +129,7 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         correlation_id=getattr(request.state, "correlation_id", None),
         tuid=tuid,
         timestamp=timestamp,
+        group_id=group_id,
     )
 
     correlation_id = getattr(request.state, "correlation_id", None)
@@ -111,6 +142,7 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         "latitude": float(latitude),
         "longitude": float(longitude),
         "trigger_type": str(trigger_type),
+        "group_id": group_id,
         "timestamp": timestamp.isoformat(),
         "correlation_id": correlation_id,
     }
@@ -121,15 +153,26 @@ async def trigger_sos(request: Request, payload: dict = Body(...), tourist_id: s
         "sos.trigger.dispatched",
         tourist_id=tourist_id,
         tuid=tuid,
+        group_id=group_id,
         trigger_type=trigger_type,
         dispatch_status=dispatch.get("status"),
         lat=latitude,
         lng=longitude,
     )
 
+    if group_id:
+        await group_safety.record_group_event(
+            db,
+            group_ref=group_id,
+            tourist_id=str(tourist_id),
+            event_type="sos_triggered",
+            payload={"sos_event_id": getattr(sos_event, "id", None), "trigger_type": trigger_type},
+        )
+
     return {
         "status": "alert_dispatched" if dispatch.get("status") == "delivered" else "alert_recorded",
         "tourist_id": tourist_id,
+        "group_id": group_id,
         "timestamp": event["timestamp"],
         "dispatch": dispatch,
     }
@@ -218,8 +261,21 @@ async def sync_mesh_sos(
     if existing:
         return {"status": "already_synced", "id": existing.id}
 
+    group_id = None
+    if payload.group_id:
+        group = await group_safety.assert_group_member(db, payload.group_id, tourist.tourist_id)
+        group_id = group.group_id
+        recent_group_sos = await crud.check_recent_group_sos(
+            db,
+            tourist_id=tourist.tourist_id,
+            group_id=group_id,
+            timestamp=payload.timestamp,
+        )
+        if recent_group_sos:
+            return {"status": "already_synced", "id": recent_group_sos.id, "group_id": group_id}
+
     # 5. Record SOS
-    await crud.create_sos_event(
+    sos_event = await crud.create_sos_event(
         db,
         tourist_id=tourist.tourist_id,
         lat=payload.latitude,
@@ -227,7 +283,19 @@ async def sync_mesh_sos(
         trigger_type="MESH_SYNC",
         tuid=tourist.tuid,
         timestamp=payload.timestamp,
-        correlation_id=getattr(request.state, "correlation_id", None)
+        correlation_id=getattr(request.state, "correlation_id", None),
+        group_id=group_id,
     )
 
-    return {"status": "mesh_sos_recorded", "tuid": tourist.tuid}
+    if group_id:
+        await group_safety.record_group_event(
+            db,
+            group_ref=group_id,
+            tourist_id=tourist.tourist_id,
+            event_type="sos_relay",
+            source="mesh",
+            trust_level=group_safety.TRUST_MESH,
+            payload={"sos_event_id": sos_event.id, "packet_id": payload.packet_id},
+        )
+
+    return {"status": "mesh_sos_recorded", "tuid": tourist.tuid, "group_id": group_id}

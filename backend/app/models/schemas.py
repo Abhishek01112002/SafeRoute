@@ -269,3 +269,27 @@ class MeshSOSSync(BaseModel):
     longitude: float
     timestamp: datetime
     signature: str
+    group_id: Optional[str] = None
+    packet_id: Optional[str] = None
+
+
+class GroupCreate(BaseModel):
+    name: Optional[str] = None
+    trip_id: Optional[str] = None
+    destination_id: Optional[str] = None
+
+
+class GroupSharingUpdate(BaseModel):
+    sharing: Optional[bool] = None
+    sharing_status: Optional[str] = None
+
+    @field_validator("sharing_status")
+    @classmethod
+    def validate_sharing_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        normalized = v.strip().upper()
+        allowed = {"SHARING", "PAUSED"}
+        if normalized not in allowed:
+            raise ValueError(f"sharing_status must be one of {allowed}")
+        return normalized

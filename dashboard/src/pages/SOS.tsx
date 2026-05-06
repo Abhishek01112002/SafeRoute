@@ -6,6 +6,7 @@ import {
   Crosshair,
   RefreshCw,
   ShieldCheck,
+  UsersRound,
 } from 'lucide-react';
 import {
   POLL_INTERVAL_MS,
@@ -134,6 +135,9 @@ const SOS = () => {
                     <div className="incident-meta-grid">
                       <span><Crosshair size={14} /> {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}</span>
                       <span><Clock size={14} /> {new Date(event.timestamp).toLocaleString()}</span>
+                      <span className={event.group_id ? 'group-context active' : 'group-context'}>
+                        <UsersRound size={14} /> Group: {event.group_id || 'solo'}
+                      </span>
                       <span>Trigger: {event.trigger_type}</span>
                       <span>Dispatch: {event.dispatch_status || 'unknown'}</span>
                     </div>
@@ -163,6 +167,7 @@ const SOS = () => {
                     <div>
                       <strong>{event.tourist_id}</strong>
                       <span>{event.trigger_type} - {new Date(event.timestamp).toLocaleString()}</span>
+                      {event.group_id && <span>Group: {event.group_id}</span>}
                     </div>
                     <span>{event.dispatch_status || 'unknown'}</span>
                   </div>

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-06T01:16:38.334458",
+  "timestamp": "2026-05-06T11:01:10.138166",
   "summary": {
     "total_tests": 13,
     "passed": 13,
@@ -21,12 +21,12 @@
       "test_name": "Missing TUID in response",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:36.999694",
+      "timestamp": "2026-05-06T11:01:08.908245",
       "severity": "Critical",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:36.999702",
+        "timestamp": "2026-05-06T11:01:08.908260",
         "status_code": 200,
-        "tuid": "SR-IN-26-9950037B5637",
+        "tuid": "SR-IN-26-5EC0F4447654",
         "response_keys": [
           "full_name",
           "document_type",
@@ -54,17 +54,17 @@
           "risk_level"
         ]
       },
-      "notes": "TUID SR-IN-26-9950037B5637 successfully generated and returned"
+      "notes": "TUID SR-IN-26-5EC0F4447654 successfully generated and returned"
     },
     {
       "test_id": "DC-C02",
       "test_name": "No coordinate validation",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.008077",
+      "timestamp": "2026-05-06T11:01:08.918545",
       "severity": "Critical",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.008088",
+        "timestamp": "2026-05-06T11:01:08.918553",
         "status_code": 422,
         "response": {
           "detail": [
@@ -90,10 +90,10 @@
       "test_name": "Client timestamp overridden",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.046647",
+      "timestamp": "2026-05-06T11:01:08.956270",
       "severity": "Critical",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.046658",
+        "timestamp": "2026-05-06T11:01:08.956277",
         "stale_status": 400,
         "current_status": 200,
         "stale_response": {
@@ -107,10 +107,10 @@
       "test_name": "Zone status not stored",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.475715",
+      "timestamp": "2026-05-06T11:01:09.299222",
       "severity": "Critical",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.475725",
+        "timestamp": "2026-05-06T11:01:09.299233",
         "status_code": 200,
         "observed_zone_status": "RESTRICTED",
         "source": "dashboard/locations"
@@ -122,10 +122,10 @@
       "test_name": "Refresh token expiry check",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.501190",
+      "timestamp": "2026-05-06T11:01:09.312852",
       "severity": "Critical",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.501201",
+        "timestamp": "2026-05-06T11:01:09.312860",
         "status_code": 401,
         "response_message": "Invalid refresh token"
       },
@@ -136,13 +136,13 @@
       "test_name": "Trigger type enum validation",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.520958",
+      "timestamp": "2026-05-06T11:01:09.332415",
       "severity": "High",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.520968",
+        "timestamp": "2026-05-06T11:01:09.332428",
         "status_code": 400,
         "response": {
-          "detail": "Invalid trigger_type: INVALID_TYPE. Must be one of {'MANUAL', 'GEOFENCE_BREACH', 'AUTO_FALL'}"
+          "detail": "Invalid trigger_type: INVALID_TYPE. Must be one of {'MANUAL', 'AUTO_FALL', 'GEOFENCE_BREACH'}"
         }
       },
       "notes": "Invalid trigger_type properly rejected"
@@ -152,10 +152,10 @@
       "test_name": "Trip date range validation",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.528511",
+      "timestamp": "2026-05-06T11:01:09.357999",
       "severity": "High",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.528523",
+        "timestamp": "2026-05-06T11:01:09.358011",
         "status_code": 422,
         "response": {
           "detail": [
@@ -181,10 +181,10 @@
       "test_name": "Email format validation",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.538298",
+      "timestamp": "2026-05-06T11:01:09.390241",
       "severity": "High",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.538312",
+        "timestamp": "2026-05-06T11:01:09.390255",
         "status_code": 400,
         "response": {
           "detail": "Invalid email format"
@@ -197,10 +197,10 @@
       "test_name": "Blood group validation",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.570337",
+      "timestamp": "2026-05-06T11:01:09.399791",
       "severity": "High",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.570354",
+        "timestamp": "2026-05-06T11:01:09.399803",
         "status_code": 422,
         "response": {
           "detail": [
@@ -210,7 +210,7 @@
                 "body",
                 "blood_group"
               ],
-              "msg": "Value error, blood_group must be one of {'AB+', 'B+', 'O-', 'AB-', 'O+', 'A-', 'B-', 'A+'}",
+              "msg": "Value error, blood_group must be one of {'O+', 'A+', 'B+', 'AB+', 'B-', 'AB-', 'A-', 'O-'}",
               "input": "X+",
               "ctx": {
                 "error": {}
@@ -226,10 +226,10 @@
       "test_name": "No stack trace leak on validation failure",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.597483",
+      "timestamp": "2026-05-06T11:01:09.422729",
       "severity": "High",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.597496",
+        "timestamp": "2026-05-06T11:01:09.422736",
         "stack_trace_leak": false
       },
       "notes": "No stack trace leaked in error response"
@@ -239,10 +239,10 @@
       "test_name": "Endpoint determinism (5 repetitions)",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.741671",
+      "timestamp": "2026-05-06T11:01:09.578500",
       "severity": "Normal",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.741683",
+        "timestamp": "2026-05-06T11:01:09.578513",
         "repeated_status_codes": [
           200,
           200,
@@ -259,10 +259,10 @@
       "test_name": "Valid tourist registration regression",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:37.778904",
+      "timestamp": "2026-05-06T11:01:09.616506",
       "severity": "Normal",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:37.778912",
+        "timestamp": "2026-05-06T11:01:09.616514",
         "status_code": 200,
         "has_tourist": true,
         "has_token": true
@@ -274,18 +274,18 @@
       "test_name": "Location ping performance (P50 <= 400ms, P95 <= 900ms)",
       "environment": "Local QA",
       "status": "Pass",
-      "timestamp": "2026-05-06T01:16:38.334046",
+      "timestamp": "2026-05-06T11:01:10.137080",
       "severity": "Normal",
       "evidence": {
-        "timestamp": "2026-05-06T01:16:38.334067",
-        "p50_ms": 31.41,
-        "p95_ms": 56.4,
+        "timestamp": "2026-05-06T11:01:10.137100",
+        "p50_ms": 30.05,
+        "p95_ms": 32.99,
         "error_rate_pct": 0.0,
         "target_p50_ms": 400,
         "target_p95_ms": 900,
         "target_error_rate_pct": 1
       },
-      "notes": "P50: 31ms (target: 400ms), P95: 56ms (target: 900ms), Error: 0%"
+      "notes": "P50: 30ms (target: 400ms), P95: 33ms (target: 900ms), Error: 0%"
     }
   ],
   "issues_identified": [],

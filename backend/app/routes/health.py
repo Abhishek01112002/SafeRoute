@@ -72,7 +72,7 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
         content={
             "status": "ready" if all_ok else "degraded",
             "checks": checks,
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
     )
 

@@ -5,7 +5,7 @@
 ### 📊 Status
 - ✅ GitHub changes pulled (26 files, 364 insertions)
 - ✅ Code analysis completed (line-by-line FAANG standards)
-- ✅ Test framework ready (`comprehensive_api_test.py`)
+- ✅ Test framework ready (`comprehensive_test_suite.py`)
 - ⏳ Setup in progress (virtual environment + dependencies)
 
 ---
@@ -15,7 +15,7 @@
 ### 1. Wait for Setup to Complete
 ```
 The setup script is currently installing dependencies...
-Location: d:\Shivalik_Hackathon_Project\saferoute\backend\setup_and_test.py
+Location: D:\UKTravelTourism\Saferoute\backend\tests\integration\test_setup.py
 
 Installation includes:
 ✓ FastAPI, Uvicorn, SQLAlchemy
@@ -28,14 +28,14 @@ Once setup completes, run:
 
 **PowerShell:**
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 .\venv\Scripts\Activate.ps1
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Command Prompt:**
 ```cmd
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 venv\Scripts\activate.bat
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -48,9 +48,9 @@ INFO:     Application startup complete
 
 ### 3. Run Comprehensive Test Suite (New Terminal)
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 .\venv\Scripts\Activate.ps1
-python comprehensive_api_test.py
+python comprehensive_test_suite.py
 ```
 
 ### 4. View Results
@@ -68,13 +68,13 @@ python comprehensive_api_test.py
    - Database migration review
    - FAANG engineering standards checklist
 
-### 2. **comprehensive_api_test.py** (Test Framework)
-   - 8 test categories
+### 2. **comprehensive_test_suite.py** (Test Framework)
+- 8 test categories
    - 25+ individual test cases
    - Real-time analysis output
    - JSON report generation
 
-### 3. **setup_and_test.py** (Automation)
+### 3. **tests/integration/test_setup.py** (Automation)
    - One-command environment setup
    - Dependency installation
    - .env file generation
@@ -217,7 +217,7 @@ python comprehensive_api_test.py
              │
              ↓
 ┌─────────────────────────────────────────┐
-│  Run comprehensive_api_test.py          │
+│  Run comprehensive_test_suite.py        │
 │  (Automated test suite)                 │
 └────────────┬────────────────────────────┘
              │
@@ -354,8 +354,8 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
 ### Within This Repository
 1. **COMPREHENSIVE_API_ANALYSIS.md** - Deep dive code analysis
-2. **comprehensive_api_test.py** - Automated testing framework
-3. **setup_and_test.py** - Infrastructure setup
+2. **comprehensive_test_suite.py** - Automated testing framework
+3. **tests/integration/test_setup.py** - Infrastructure setup
 
 ### Code to Review
 - `backend/app/routes/` - API endpoint implementations
@@ -376,7 +376,7 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
 1. ⏳ **Wait for setup** to complete
 2. 🚀 **Start backend server** (`uvicorn app.main:app --reload`)
-3. 🧪 **Run test suite** (`python comprehensive_api_test.py`)
+3. 🧪 **Run test suite** (`python comprehensive_test_suite.py`)
 4. 📊 **Review results** (console + JSON report)
 5. 🔧 **Fix any failures** (code changes as needed)
 6. 📈 **Load test** with concurrent users
@@ -388,8 +388,8 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ## 📞 Support
 
 ### Files Created
-- `comprehensive_api_test.py` - Main test suite
-- `setup_and_test.py` - Automated setup
+- `comprehensive_test_suite.py` - Main test suite
+- `tests/integration/test_setup.py` - Automated setup
 - `COMPREHENSIVE_API_ANALYSIS.md` - Detailed analysis
 - `api_test_report.json` - Test results (generated)
 - `.env` - Environment config (generated)

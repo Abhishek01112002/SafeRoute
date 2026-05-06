@@ -17,8 +17,8 @@ class SetupManager:
     """Manages environment setup and test execution."""
 
     def __init__(self):
-        self.backend_path = Path("d:/Shivalik_Hackathon_Project/saferoute/backend").resolve()
-        self.project_root = self.backend_path.parent.parent
+        self.backend_path = Path(__file__).resolve().parents[2]
+        self.project_root = self.backend_path.parent
         self.venv_path = self.backend_path / "venv"
         self.env_file = self.backend_path / ".env"
         self.python_exe = self._get_python_exe()
@@ -123,7 +123,7 @@ HOST=0.0.0.0
 RELOAD=True
 
 # JWT Configuration
-JWT_SECRET=dev-secret-key-change-in-production
+JWT_SECRET=replace-with-64-hex-chars-from-python-secrets-token-hex-32
 JWT_ACCESS_EXPIRY_MINUTES=30
 JWT_REFRESH_EXPIRY_DAYS=7
 
@@ -289,12 +289,12 @@ backend_path = '{backend_path}'
 if platform.system() == "Windows":
     subprocess.run([
         "python",
-        "comprehensive_api_test.py"
+        "comprehensive_test_suite.py"
     ], cwd=backend_path)
 else:
     subprocess.run([
         "python3",
-        "comprehensive_api_test.py"
+        "comprehensive_test_suite.py"
     ], cwd=backend_path)
 """.format(backend_path=str(self.backend_path))
 
@@ -326,7 +326,7 @@ else:
         print()
 
         print("3️⃣  RUN COMPREHENSIVE TESTS (in another terminal):")
-        print(f"   python comprehensive_api_test.py")
+        print(f"   python comprehensive_test_suite.py")
         print()
 
         print("4️⃣  VIEW TEST RESULTS:")
@@ -340,7 +340,7 @@ else:
 
         print("📚 REFERENCE DOCUMENTS:")
         print(f"   ✓ COMPREHENSIVE_API_ANALYSIS.md - Line-by-line code analysis")
-        print(f"   ✓ comprehensive_api_test.py - Automated test suite")
+        print(f"   ✓ comprehensive_test_suite.py - Automated test suite")
         print()
 
         print("🔒 SECURITY REMINDERS:")

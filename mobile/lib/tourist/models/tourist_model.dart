@@ -18,7 +18,8 @@ class DestinationVisit {
     required this.visitDateTo,
   });
 
-  factory DestinationVisit.fromJson(Map<String, dynamic> json) => DestinationVisit(
+  factory DestinationVisit.fromJson(Map<String, dynamic> json) =>
+      DestinationVisit(
         destinationId: json["destination_id"],
         name: json["name"],
         visitDateFrom: DateTime.parse(json["visit_date_from"]),
@@ -88,55 +89,158 @@ class Tourist {
     this.registrationFields,
   });
 
+  static String _readString(
+    Map<String, dynamic> json,
+    String key, {
+    String fallback = "",
+  }) {
+    final value = json[key];
+    if (value == null) {
+      return fallback;
+    }
+    return value.toString();
+  }
+
+  static bool _readBool(
+    Map<String, dynamic> json,
+    String key, {
+    bool fallback = false,
+  }) {
+    final value = json[key];
+    if (value == null) {
+      return fallback;
+    }
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (['true', '1', 'yes', 'y'].contains(normalized)) {
+        return true;
+      }
+      if (['false', '0', 'no', 'n'].contains(normalized)) {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  static DateTime _readDateTime(
+    Map<String, dynamic> json,
+    String key, {
+    DateTime? fallback,
+  }) {
+    final value = json[key];
+    if (value == null) {
+      return fallback ?? DateTime.now();
+    }
+    return DateTime.tryParse(value.toString()) ?? fallback ?? DateTime.now();
+  }
+
+  static List<DestinationVisit> _readDestinations(dynamic value) {
+    dynamic normalized = value;
+    if (normalized is String && normalized.trim().isNotEmpty) {
+      try {
+        normalized = jsonDecode(normalized);
+      } catch (_) {
+        normalized = const [];
+      }
+    }
+    if (normalized is! List) {
+      return const [];
+    }
+    return normalized
+        .whereType<Map>()
+        .map((x) => DestinationVisit.fromJson(Map<String, dynamic>.from(x)))
+        .toList();
+  }
+
+  static List<dynamic> _readDynamicList(dynamic value) {
+    dynamic normalized = value;
+    if (normalized is String && normalized.trim().isNotEmpty) {
+      try {
+        normalized = jsonDecode(normalized);
+      } catch (_) {
+        normalized = const [];
+      }
+    }
+    return normalized is List ? List<dynamic>.from(normalized) : const [];
+  }
+
+  static Map<String, dynamic> _readDynamicMap(dynamic value) {
+    dynamic normalized = value;
+    if (normalized is String && normalized.trim().isNotEmpty) {
+      try {
+        normalized = jsonDecode(normalized);
+      } catch (_) {
+        normalized = const {};
+      }
+    }
+    return normalized is Map ? Map<String, dynamic>.from(normalized) : const {};
+  }
+
+  static Map<String, String>? _readRegistrationFields(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    dynamic normalized = value;
+    if (normalized is String && normalized.trim().isNotEmpty) {
+      try {
+        normalized = jsonDecode(normalized);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (normalized is! Map) {
+      return null;
+    }
+    return normalized.map(
+      (key, fieldValue) => MapEntry(key.toString(), fieldValue.toString()),
+    );
+  }
+
   // ignore: prefer_constructors_over_static_methods
   static Tourist fromJson(Map<String, dynamic> json) {
     // Safely parse document type — default to AADHAAR if unknown value received
-    final rawDocType = json["document_type"] as String? ?? "AADHAAR";
+    final rawDocType = _readString(json, "document_type", fallback: "AADHAAR");
     final docType = DocumentType.values.firstWhere(
       (e) => e.name.toUpperCase() == rawDocType.toUpperCase(),
       orElse: () => DocumentType.aadhaar,
     );
 
     return Tourist(
-      touristId: json["tourist_id"] as String,
-      fullName: json["full_name"] as String? ?? "",
+      touristId: _readString(json, "tourist_id"),
+      fullName: _readString(json, "full_name"),
       documentType: docType,
-      documentNumber: json["document_number"] as String? ?? "",
+      documentNumber: _readString(json, "document_number"),
       // FIX BUG 1+2: photo_base64 is absent in multipart responses (uses
       // photo_object_key instead). Null-coerce to empty string to prevent
       // a crash that silently triggered the offline fallback path.
-      photoBase64: json["photo_base64"] as String? ?? "",
-      emergencyContactName: json["emergency_contact_name"] as String? ?? "",
-      emergencyContactPhone: json["emergency_contact_phone"] as String? ?? "",
-      tripStartDate: DateTime.parse(json["trip_start_date"] as String),
-      tripEndDate: DateTime.parse(json["trip_end_date"] as String),
-      destinationState: json["destination_state"] as String? ?? "Uttarakhand",
-      qrData: json["qr_data"] as String? ?? "",
-      createdAt: DateTime.tryParse(json["created_at"] as String? ?? "") ?? DateTime.now(),
-      bloodGroup: json["blood_group"] as String? ?? "Unknown",
-      selectedDestinations: json["selected_destinations"] != null
-          ? List<DestinationVisit>.from(
-              (json["selected_destinations"] as List).map(
-                (x) => DestinationVisit.fromJson(x as Map<String, dynamic>),
-              ),
-            )
-          : [],
-      connectivityLevel: json["connectivity_level"] as String?,
-      offlineModeRequired: json["offline_mode_required"] as bool? ?? false,
-      geoFenceZones: json["geo_fence_zones"] != null
-          ? List<dynamic>.from(json["geo_fence_zones"] as List)
-          : [],
-      destinationEmergencyContacts:
-          (json["emergency_contacts"] as Map<String, dynamic>?) ?? {},
-      riskLevel: json["risk_level"] as String? ?? "LOW",
+      photoBase64: _readString(json, "photo_base64"),
+      emergencyContactName: _readString(json, "emergency_contact_name"),
+      emergencyContactPhone: _readString(json, "emergency_contact_phone"),
+      tripStartDate: _readDateTime(json, "trip_start_date"),
+      tripEndDate: _readDateTime(json, "trip_end_date"),
+      destinationState:
+          _readString(json, "destination_state", fallback: "Uttarakhand"),
+      qrData: _readString(json, "qr_data"),
+      createdAt: _readDateTime(json, "created_at"),
+      bloodGroup: _readString(json, "blood_group", fallback: "Unknown"),
+      selectedDestinations: _readDestinations(json["selected_destinations"]),
+      connectivityLevel: json["connectivity_level"]?.toString(),
+      offlineModeRequired: _readBool(json, "offline_mode_required"),
+      geoFenceZones: _readDynamicList(json["geo_fence_zones"]),
+      destinationEmergencyContacts: _readDynamicMap(json["emergency_contacts"]),
+      riskLevel: _readString(json, "risk_level", fallback: "LOW"),
       // FIX BUG 2: tuid is returned by backend — ensure it is captured.
-      tuid: json["tuid"] as String?,
-      photoObjectKey: json["photo_object_key"] as String?,
-      documentObjectKey: json["document_object_key"] as String?,
-      isSynced: json["is_synced"] as bool? ?? true,
-      registrationFields: json["registration_fields"] != null
-          ? Map<String, String>.from(json["registration_fields"] as Map)
-          : null,
+      tuid: json["tuid"]?.toString(),
+      photoObjectKey: json["photo_object_key"]?.toString(),
+      documentObjectKey: json["document_object_key"]?.toString(),
+      isSynced: _readBool(json, "is_synced", fallback: true),
+      registrationFields: _readRegistrationFields(json["registration_fields"]),
     );
   }
 
@@ -154,7 +258,8 @@ class Tourist {
         "qr_data": qrData,
         "created_at": createdAt.toIso8601String(),
         "blood_group": bloodGroup,
-        "selected_destinations": List<dynamic>.from(selectedDestinations.map((x) => x.toJson())),
+        "selected_destinations":
+            List<dynamic>.from(selectedDestinations.map((x) => x.toJson())),
         "connectivity_level": connectivityLevel,
         "offline_mode_required": offlineModeRequired,
         "geo_fence_zones": geoFenceZones,
@@ -183,7 +288,8 @@ class Tourist {
       'createdAt': createdAt.millisecondsSinceEpoch,
       'bloodGroup': bloodGroup,
       // Complex fields serialized for SQLite
-      'selectedDestinations': jsonEncode(selectedDestinations.map((x) => x.toJson()).toList()),
+      'selectedDestinations':
+          jsonEncode(selectedDestinations.map((x) => x.toJson()).toList()),
       'connectivityLevel': connectivityLevel,
       'offlineModeRequired': offlineModeRequired ? 1 : 0,
       'geoFenceZones': jsonEncode(geoFenceZones),
@@ -193,7 +299,8 @@ class Tourist {
       'photoObjectKey': photoObjectKey,
       'documentObjectKey': documentObjectKey,
       'isSynced': isSynced ? 1 : 0,
-      'registrationFields': registrationFields != null ? jsonEncode(registrationFields) : null,
+      'registrationFields':
+          registrationFields != null ? jsonEncode(registrationFields) : null,
     };
   }
 
@@ -201,7 +308,9 @@ class Tourist {
     return Tourist(
       touristId: map['touristId'],
       fullName: map['fullName'],
-      documentType: DocumentType.values.firstWhere((e) => e.name.toUpperCase() == (map['documentType'] as String).toUpperCase()),
+      documentType: DocumentType.values.firstWhere((e) =>
+          e.name.toUpperCase() ==
+          (map['documentType'] as String).toUpperCase()),
       documentNumber: map['documentNumber'],
       photoBase64: map['photoBase64'],
       emergencyContactName: map['emergencyContactName'],
@@ -213,12 +322,16 @@ class Tourist {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
       bloodGroup: map['bloodGroup'] ?? "Unknown",
       selectedDestinations: map['selectedDestinations'] != null
-          ? List<DestinationVisit>.from(jsonDecode(map['selectedDestinations']).map((x) => DestinationVisit.fromJson(x)))
+          ? List<DestinationVisit>.from(jsonDecode(map['selectedDestinations'])
+              .map((x) => DestinationVisit.fromJson(x)))
           : [],
       connectivityLevel: map['connectivityLevel'],
       offlineModeRequired: map['offlineModeRequired'] == 1,
-      geoFenceZones: map['geoFenceZones'] != null ? jsonDecode(map['geoFenceZones']) : [],
-      destinationEmergencyContacts: map['destinationEmergencyContacts'] != null ? jsonDecode(map['destinationEmergencyContacts']) : {},
+      geoFenceZones:
+          map['geoFenceZones'] != null ? jsonDecode(map['geoFenceZones']) : [],
+      destinationEmergencyContacts: map['destinationEmergencyContacts'] != null
+          ? jsonDecode(map['destinationEmergencyContacts'])
+          : {},
       riskLevel: map['riskLevel'] ?? "LOW",
       tuid: map['tuid'],
       photoObjectKey: map['photoObjectKey'],

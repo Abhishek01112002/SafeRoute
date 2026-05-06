@@ -76,7 +76,7 @@ jobs:
       - name: Run Pytest
         env:
           REDIS_URL: ""                  # Disable Redis for CI
-          JWT_SECRET_KEY: "ci-test-secret-key-not-for-production"
+          JWT_SECRET: "ci-test-secret-key-not-for-production-32bytes"
           DATABASE_URL: "sqlite+aiosqlite:///./ci_test.db"
           ENVIRONMENT: "test"
         run: pytest tests/ -v --tb=short --no-header

@@ -468,7 +468,7 @@ LATENCY CHECKS:
 
 ### Step 1: Setup Python Environment
 ```bash
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 
 # Install dependencies
 pip install -r requirements.txt
@@ -486,13 +486,13 @@ echo "ENVIRONMENT=development" > .env
 echo "DATABASE_URL=sqlite:///./saferoute.db" >> .env
 echo "ENABLE_PG=False" >> .env
 echo "READ_FROM_PG=False" >> .env
-echo "JWT_SECRET=dev-secret-key" >> .env
+echo "JWT_SECRET=replace-with-64-hex-chars-from-python-secrets-token-hex-32" >> .env
 echo "PORT=8000" >> .env
 ```
 
 ### Step 3: Start Backend Server (Terminal 1)
 ```bash
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 
 # Option A: Development with hot reload
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -507,10 +507,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ### Step 4: Run Comprehensive Tests (Terminal 2)
 ```bash
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 
 # Run FAANG-grade test suite
-python comprehensive_api_test.py
+python comprehensive_test_suite.py
 
 # Output will include:
 # - Health checks
@@ -688,6 +688,6 @@ GET  /dashboard/heatmap                → Location heatmap
 ---
 
 **Generated**: 2026-05-04
-**Test Framework**: comprehensive_api_test.py
+**Test Framework**: comprehensive_test_suite.py
 **Backend Version**: 3.1.0
 **Status**: Ready for testing ✅

@@ -1,7 +1,7 @@
 # app/models/database.py
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Boolean, Float, DateTime, ForeignKey, Text, BigInteger, func, Index
+from sqlalchemy import String, Boolean, Float, DateTime, ForeignKey, Text, BigInteger, func, Index, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -89,6 +89,7 @@ class SOSEvent(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     trigger_type: Mapped[str] = mapped_column(String(30), default="MANUAL")
     dispatch_status: Mapped[str] = mapped_column(String(30), default="not_configured")
+    group_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("tourist_groups.group_id"), index=True)
     correlation_id: Mapped[Optional[str]] = mapped_column(String(50))
     # Accept client timestamp when available (no server_default)
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
@@ -113,6 +114,78 @@ class LocationPing(Base):
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
 
     tourist: Mapped["Tourist"] = relationship(back_populates="pings")
+
+class TouristGroup(Base):
+    __tablename__ = "tourist_groups"
+
+    group_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    invite_code: Mapped[str] = mapped_column(String(6), unique=True, nullable=False, index=True)
+    invite_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    trip_id: Mapped[Optional[str]] = mapped_column(String(36), index=True)
+    destination_id: Mapped[Optional[str]] = mapped_column(String(50), index=True)
+    created_by_tourist_id: Mapped[str] = mapped_column(
+        ForeignKey("tourists.tourist_id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    members: Mapped[List["TouristGroupMember"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    snapshots: Mapped[List["TouristGroupLocationSnapshot"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    events: Mapped[List["TouristGroupEvent"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+
+class TouristGroupMember(Base):
+    __tablename__ = "tourist_group_members"
+    __table_args__ = (
+        UniqueConstraint("group_id", "tourist_id", name="uq_group_member"),
+        Index("ix_group_member_active", "tourist_id", "left_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("tourist_groups.group_id", ondelete="CASCADE"), index=True)
+    tourist_id: Mapped[str] = mapped_column(ForeignKey("tourists.tourist_id", ondelete="CASCADE"), index=True)
+    tuid: Mapped[Optional[str]] = mapped_column(String(24), index=True)
+    display_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), default="MEMBER")
+    sharing_status: Mapped[str] = mapped_column(String(20), default="SHARING", index=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    left_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+
+    group: Mapped["TouristGroup"] = relationship(back_populates="members")
+    tourist: Mapped["Tourist"] = relationship()
+
+class TouristGroupLocationSnapshot(Base):
+    __tablename__ = "tourist_group_location_snapshots"
+
+    group_id: Mapped[str] = mapped_column(ForeignKey("tourist_groups.group_id", ondelete="CASCADE"), primary_key=True)
+    tourist_id: Mapped[str] = mapped_column(ForeignKey("tourists.tourist_id", ondelete="CASCADE"), primary_key=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float)
+    longitude: Mapped[Optional[float]] = mapped_column(Float)
+    accuracy_meters: Mapped[Optional[float]] = mapped_column(Float)
+    battery_level: Mapped[Optional[float]] = mapped_column(Float)
+    zone_status: Mapped[Optional[str]] = mapped_column(String(20))
+    source: Mapped[str] = mapped_column(String(20), default="websocket")
+    trust_level: Mapped[str] = mapped_column(String(20), default="confirmed")
+    client_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    server_updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+    group: Mapped["TouristGroup"] = relationship(back_populates="snapshots")
+
+class TouristGroupEvent(Base):
+    __tablename__ = "tourist_group_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("tourist_groups.group_id", ondelete="CASCADE"), index=True)
+    tourist_id: Mapped[Optional[str]] = mapped_column(String(30), index=True)
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    source: Mapped[str] = mapped_column(String(20), default="server")
+    trust_level: Mapped[str] = mapped_column(String(20), default="confirmed")
+    payload_json: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+    group: Mapped["TouristGroup"] = relationship(back_populates="events")
 
 class AuthorityScanLog(Base):
     """Audit trail for every authority QR scan. Required for legal compliance."""

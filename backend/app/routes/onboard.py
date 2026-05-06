@@ -142,8 +142,8 @@ async def get_zone_bundle(token: str, db: AsyncSession = Depends(get_db)):
     bbox = _compute_bbox(destination, zones)
 
     expires_at = (
-        datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    ).isoformat() + "Z"
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    ).isoformat()
 
     return {
         "token_valid": True,
@@ -175,8 +175,8 @@ async def preview_bundle(
     zones = await crud.get_zones(db, destination_id)
     bbox = _compute_bbox(destination, zones)
     expires_at = (
-        datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    ).isoformat() + "Z"
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    ).isoformat()
 
     return {
         "qr_token": generate_destination_token(destination_id),

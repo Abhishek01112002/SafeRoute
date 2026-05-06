@@ -106,6 +106,15 @@
   gap: 0.35rem;
 }
 
+.incident-meta-grid .group-context {
+  color: var(--text-muted);
+}
+
+.incident-meta-grid .group-context.active {
+  color: var(--info);
+  font-weight: 900;
+}
+
 .resolved-table {
   display: flex;
   flex-direction: column;

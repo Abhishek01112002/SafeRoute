@@ -8,7 +8,7 @@ Command Center — Authority-only metric and tracking endpoints.
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.db import crud, sqlite_legacy
+from app.db import crud
 from app.dependencies import get_current_authority
 
 router = APIRouter()

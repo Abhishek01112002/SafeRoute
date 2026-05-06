@@ -279,7 +279,7 @@ Improvements:
 
 ## 🧪 Part 3: Comprehensive Test Suite
 
-### Test Framework: `comprehensive_api_test.py`
+### Test Framework: `comprehensive_test_suite.py`
 
 #### 8 Test Categories (25+ Test Cases)
 
@@ -400,13 +400,13 @@ TEST 1: HEALTH & DIAGNOSTICS ENDPOINTS
 
 ### Files Generated
 
-1. **comprehensive_api_test.py** (600+ lines)
+1. **comprehensive_test_suite.py** (600+ lines)
    - Enterprise-grade test framework
    - FAANG engineering standards
    - Real-time analysis commentary
    - JSON report generation
 
-2. **setup_and_test.py** (400+ lines)
+2. **tests/integration/test_setup.py** (400+ lines)
    - One-command environment setup
    - Virtual environment creation
    - Dependency installation
@@ -593,16 +593,16 @@ pool_pre_ping: True (validates connections)
 
 ### Step 1: Start Backend
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 .\venv\Scripts\Activate.ps1
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Step 2: Run Tests (New Terminal)
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 .\venv\Scripts\Activate.ps1
-python comprehensive_api_test.py
+python comprehensive_test_suite.py
 ```
 
 ### Step 3: View Results
@@ -668,13 +668,13 @@ python comprehensive_api_test.py
    - Troubleshooting troubleshooting
    - Expected test results
 
-3. **comprehensive_api_test.py**
+3. **comprehensive_test_suite.py**
    - 600+ lines of test code
    - 8 test categories
    - FAANG-grade analysis
    - JSON report generation
 
-4. **setup_and_test.py**
+4. **tests/integration/test_setup.py**
    - Automated environment setup
    - Dependency installation
    - Configuration generation

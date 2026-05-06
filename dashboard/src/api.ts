@@ -58,6 +58,7 @@ export interface SOSEvent {
   id: number;
   tourist_id: string;
   tuid?: string | null;
+  group_id?: string | null;
   latitude: number;
   longitude: number;
   trigger_type: string;

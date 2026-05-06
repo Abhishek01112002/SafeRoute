@@ -11,10 +11,12 @@ class AuthorityRegistrationScreen extends StatefulWidget {
   const AuthorityRegistrationScreen({super.key});
 
   @override
-  State<AuthorityRegistrationScreen> createState() => _AuthorityRegistrationScreenState();
+  State<AuthorityRegistrationScreen> createState() =>
+      _AuthorityRegistrationScreenState();
 }
 
-class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScreen> {
+class _AuthorityRegistrationScreenState
+    extends State<AuthorityRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
@@ -27,7 +29,12 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
   String _email = '';
   String _password = '';
 
-  final List<String> _departments = ['Police', 'Forest Dept', 'Tourism Dept', 'Home Affairs'];
+  final List<String> _departments = [
+    'Police',
+    'Forest Dept',
+    'Tourism Dept',
+    'Home Affairs'
+  ];
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -81,7 +88,8 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text("Registration Pending"),
-        content: const Text("Your authority account is under review. You will be notified within 24 hours once approved by the administrator."),
+        content: const Text(
+            "Your authority account is under review. You will be notified within 24 hours once approved by the administrator."),
         actions: [
           TextButton(
             onPressed: () {
@@ -108,42 +116,59 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("🛡️ Official Credentials", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text("🛡️ Official Credentials",
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person)),
+                    decoration: const InputDecoration(
+                        labelText: "Full Name", prefixIcon: Icon(Icons.person)),
                     validator: (v) => v!.isEmpty ? "Required" : null,
                     onSaved: (v) => _fullName = v!,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Designation (e.g. Inspector)", prefixIcon: Icon(Icons.work)),
+                    decoration: const InputDecoration(
+                        labelText: "Designation (e.g. Inspector)",
+                        prefixIcon: Icon(Icons.work)),
                     validator: (v) => v!.isEmpty ? "Required" : null,
                     onSaved: (v) => _designation = v!,
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _department,
-                    decoration: const InputDecoration(labelText: "Department", prefixIcon: Icon(Icons.account_balance)),
-                    items: _departments.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                    initialValue: _department,
+                    decoration: const InputDecoration(
+                        labelText: "Department",
+                        prefixIcon: Icon(Icons.account_balance)),
+                    items: _departments
+                        .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                        .toList(),
                     onChanged: (v) => setState(() => _department = v!),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Badge / Employee ID", prefixIcon: Icon(Icons.badge)),
+                    decoration: const InputDecoration(
+                        labelText: "Badge / Employee ID",
+                        prefixIcon: Icon(Icons.badge)),
                     validator: (v) => v!.isEmpty ? "Required" : null,
                     onSaved: (v) => _badgeId = v!,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Jurisdiction Zone", prefixIcon: Icon(Icons.map)),
+                    decoration: const InputDecoration(
+                        labelText: "Jurisdiction Zone",
+                        prefixIcon: Icon(Icons.map)),
                     onSaved: (v) => _jurisdiction = v!,
                   ),
                   const SizedBox(height: 32),
-                  const Text("🔐 Login Details", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text("🔐 Login Details",
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Official Email", prefixIcon: Icon(Icons.email)),
+                    decoration: const InputDecoration(
+                        labelText: "Official Email",
+                        prefixIcon: Icon(Icons.email)),
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
                       final value = (v ?? '').trim();
@@ -154,26 +179,39 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Official Phone", prefixIcon: Icon(Icons.phone)),
+                    decoration: const InputDecoration(
+                        labelText: "Official Phone",
+                        prefixIcon: Icon(Icons.phone)),
                     keyboardType: TextInputType.phone,
                     validator: (v) {
                       final value = (v ?? '').trim();
                       if (value.isEmpty) return "Required";
                       final digitsOnly = RegExp(r'^\d{10}$');
-                      return digitsOnly.hasMatch(value) ? null : "Enter 10-digit phone";
+                      return digitsOnly.hasMatch(value)
+                          ? null
+                          : "Enter 10-digit phone";
                     },
                     onSaved: (v) => _phone = v!,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)),
+                    decoration: const InputDecoration(
+                        labelText: "Password", prefixIcon: Icon(Icons.lock)),
                     obscureText: true,
                     validator: (v) {
                       final value = (v ?? '');
-                      if (value.length < 8) return "Min 8 characters";
-                      if (!RegExp(r'[A-Z]').hasMatch(value)) return "Add one uppercase letter";
-                      if (!RegExp(r'[a-z]').hasMatch(value)) return "Add one lowercase letter";
-                      if (!RegExp(r'\d').hasMatch(value)) return "Add one number";
+                      if (value.length < 8) {
+                        return "Min 8 characters";
+                      }
+                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                        return "Add one uppercase letter";
+                      }
+                      if (!RegExp(r'[a-z]').hasMatch(value)) {
+                        return "Add one lowercase letter";
+                      }
+                      if (!RegExp(r'\d').hasMatch(value)) {
+                        return "Add one number";
+                      }
                       if (!RegExp(r'[!@#$%^&*()\-_=+]').hasMatch(value)) {
                         return "Add one special character";
                       }
@@ -190,9 +228,12 @@ class _AuthorityRegistrationScreenState extends State<AuthorityRegistrationScree
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blueGrey.shade800,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text("Submit for Verification", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: const Text("Submit for Verification",
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 40),

@@ -247,7 +247,7 @@ Search codebase and update test with correct endpoint path.
 
 Run this command in terminal:
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 Select-String -Path "routers\*.py" -Pattern "authority|register" | Select Path, LineNumber, Line | Format-Table
 ```
 
@@ -395,13 +395,13 @@ After implementing fixes, run these commands:
 
 ### Step 1: Run verification
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 python -c "from comprehensive_test_suite import SafeRouteTestSuite; s = SafeRouteTestSuite(); print(f'Token: {s.auth_token}'); print(f'Doc: {s._generate_unique_doc()}')"
 ```
 
 ### Step 2: Run comprehensive test suite
 ```powershell
-cd d:\Shivalik_Hackathon_Project\saferoute\backend
+cd D:\UKTravelTourism\Saferoute\backend
 python comprehensive_test_suite.py
 ```
 

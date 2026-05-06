@@ -3,9 +3,7 @@ Comprehensive API Connectivity & Data Flow Test Suite
 Tests all endpoints, database connectivity, and data flow integrity
 """
 import pytest
-import json
 import datetime
-from fastapi.testclient import TestClient
 from app.services.jwt_service import create_jwt_token
 from app.db import sqlite_legacy
 
@@ -13,6 +11,7 @@ from app.db import sqlite_legacy
 TEST_TOURIST_ID = "TID-CONNECTIVITY-TEST-001"
 TEST_TOURIST_TUID = "TUID-CONN-TEST-001"
 TEST_AUTHORITY_ID = "AUTH-CONNECTIVITY-TEST-001"
+VALID_AUTH_PASSWORD = "ValidTestPassword123@"
 
 class TestDatabaseConnectivity:
     """Test database connections and operations"""
@@ -118,7 +117,7 @@ class TestAuthEndpoints:
                 "jurisdiction_zone": "North",
                 "phone": "+91-9000000001",
                 "email": email,
-                "password": "SecurePass123!@",  # Valid: contains required special char
+                "password": VALID_AUTH_PASSWORD,
             }
         )
         assert response.status_code == 200, f"Status {response.status_code}: {response.text}"
@@ -132,7 +131,7 @@ class TestAuthEndpoints:
         # First register
         email = f"login_test_{int(datetime.datetime.now().timestamp() * 1000)}@test.com"
         badge_id = f"BADGE-LOGIN-{int(datetime.datetime.now().timestamp())}"
-        password = "SecurePass123!@"  # Valid password
+        password = VALID_AUTH_PASSWORD
         register_response = client.post(
             "/auth/register/authority",
             json={
@@ -349,7 +348,7 @@ class TestDataValidation:
                 "badge_id": "BADGE-INVALID-001",
                 "phone": "+91-9000000003",
                 "email": "invalid-email-format",  # Invalid email
-                "password": "SecurePass123!@",  # Valid password
+                "password": VALID_AUTH_PASSWORD,
             }
         )
         # Schema validation returns 422, not 400

@@ -22,6 +22,7 @@ class RoomService {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   static const Duration _reconnectBaseDelay = Duration(seconds: 2);
+  static const double _dangerSeparationKm = 1.0;
 
   bool get isConnected => _channel != null;
 
@@ -119,35 +120,65 @@ class RoomService {
     try {
       final json = jsonDecode(data as String);
 
-      if (json['type'] == 'location_update' || json['type'] == 'member_left') {
-        if (json['type'] == 'member_left' &&
-            json['user_id'] != null &&
-            json['user_id'] != _currentUserId) {
-          NotificationService.showNotification(
-            'Group signal lost',
-            'A group member is no longer reachable.',
-          );
-        }
+      final type = json['type']?.toString();
 
+      if (type == 'member_left' &&
+          json['user_id'] != null &&
+          json['user_id'] != _currentUserId) {
+        NotificationService.showNotification(
+          'Group signal lost',
+          'A group member is no longer reachable.',
+        );
+      }
+
+      if (type == 'rate_limited') {
+        debugPrint('[WS] Location update rate-limited: ${json['reason']}');
+        return;
+      }
+
+      if (type == 'error') {
+        debugPrint('[WS] Server error: ${json['detail']}');
+        return;
+      }
+
+      if (json['members'] is List) {
         final members = (json['members'] as List)
-            .map((m) => RoomMember.fromJson(m))
+            .whereType<Map>()
+            .map((m) => RoomMember.fromJson(Map<String, dynamic>.from(m)))
             .toList();
 
-        _membersController.add(members);
-        _checkDistances(members);
+        if (members.isNotEmpty || type == 'sharing_paused') {
+          _membersController.add(members);
+          _checkDistances(members);
+        }
       }
     } catch (e) {
       debugPrint('[WS] Error handling message: $e');
     }
   }
 
-  void sendLocation({required double lat, required double lng}) {
+  void sendLocation({
+    required double lat,
+    required double lng,
+    double? accuracyMeters,
+    double? batteryLevel,
+    String? zoneStatus,
+    String source = 'websocket',
+    bool trusted = true,
+  }) {
     if (_channel == null) return;
     try {
       _channel!.sink.add(jsonEncode({
+        'user_id': _currentUserId,
         'name': _currentName,
         'lat': lat,
         'lng': lng,
+        'timestamp': DateTime.now().millisecondsSinceEpoch / 1000,
+        if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
+        if (batteryLevel != null) 'battery_level': batteryLevel,
+        if (zoneStatus != null) 'zone_status': zoneStatus,
+        'source': source,
+        'trusted': trusted,
       }));
     } catch (e) {
       debugPrint('[WS] Error sending location: $e');
@@ -155,15 +186,14 @@ class RoomService {
   }
 
   void _checkDistances(List<RoomMember> members) {
-    final me = members.where((m) => m.userId == _currentUserId).firstOrNull;
+    final matches = members.where((m) => m.userId == _currentUserId);
+    final me = matches.isEmpty ? null : matches.first;
     if (me == null) return;
-
-    const double alertThresholdKm = 10.0;
 
     for (final other in members) {
       if (other.userId == _currentUserId) continue;
       final dist = me.distanceTo(other);
-      if (dist > alertThresholdKm) {
+      if (dist != null && dist > _dangerSeparationKm) {
         NotificationService.showDistanceAlert(other.name, dist);
       }
     }

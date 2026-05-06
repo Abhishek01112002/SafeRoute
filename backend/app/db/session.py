@@ -68,6 +68,7 @@ async def init_models() -> None:
         # Idempotent column additions for missing fields across environments
         ddl_statements = [
             "ALTER TABLE authorities ADD COLUMN email_verified BOOLEAN DEFAULT true",
+            "ALTER TABLE sos_events ADD COLUMN group_id VARCHAR(36)",
         ]
         
         if engine.dialect.name == "sqlite":

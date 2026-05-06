@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.schemas import AuthorityRegister
 from app.services.jwt_service import create_jwt_token, verify_jwt_payload
 from app.dependencies import security
-from app.db import sqlite_legacy, crud
+from app.db import crud
 from app.db.session import get_db
 from app.core import pwd_context, limiter
 from app.config import settings

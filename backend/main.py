@@ -6,7 +6,6 @@ Render starts the service with `uvicorn main:app`, so this module must expose
 the FastAPI application at import time.
 """
 import os
-from app.main import app
 
 import uvicorn
 

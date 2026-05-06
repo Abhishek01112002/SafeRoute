@@ -61,9 +61,15 @@ dashboard/.env
 # Custom project analysis and build logs (AI-generated, not part of source)
 analysis_*.txt
 analyzer_output*.txt
-test_output.txt
+analyze_output*.txt
+connectivity_test*.txt
+final_test_results.txt
+plan_text.txt
+test_output*.txt
+test_results*.log
 out.txt
 build_output.txt
+call_marker.txt
 
 # Local configuration
 .env
@@ -92,10 +98,7 @@ venv/
 env/
 .env/
 
-# md files
+# Historical one-off reports generated during local QA sessions.
 API_AUDIT_REPORT.md
-CHANGELOG.md
-CONTRIBUTING.md
-Makefileibutes
 SECURITY.md
 TEST_REPORT.md

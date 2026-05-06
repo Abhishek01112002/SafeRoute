@@ -2,10 +2,9 @@
 import uuid
 import datetime
 import json
-import hashlib
 import os
 import re
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile, Form
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +23,7 @@ log = get_logger("tourist")
 
 # Brute-force protection storage (Redis in production, dict in dev)
 _login_attempts: dict = {}  # {tourist_id: [timestamp1, timestamp2, ...]}
-MAX_LOGIN_ATTEMPTS = 5
+MAX_LOGIN_ATTEMPTS = 15
 LOGIN_WINDOW_SECONDS = 300  # 5 minutes
 LOCKOUT_SECONDS = 900  # 15 minutes
 
@@ -371,7 +370,7 @@ def _get_remaining_lockout_seconds(tourist_id: str) -> int:
         }
     }
 )
-@limiter.limit("10/minute")  # Rate limit per IP
+@limiter.limit("30/minute")  # Allow the 15-attempt lockout policy to trigger first.
 async def login_tourist(
     request: Request,
     login_req: TouristLoginRequest,
@@ -379,7 +378,7 @@ async def login_tourist(
 ):
     """Login / retrieve tourist data by ID with brute-force protection.
 
-    Lockout: 5 failed attempts → 15-minute lockout
+    Lockout: 15 failed attempts -> 15-minute lockout
     """
     tourist_id = (login_req.tourist_id or "").strip()
     if not tourist_id:
@@ -452,9 +451,9 @@ async def refresh_qr_code(
 
     await crud.update_tourist_qr(db, tourist_id, new_qr_jwt)
 
-    expiry = datetime.datetime.utcnow() + datetime.timedelta(days=settings.QR_JWT_EXPIRY_DAYS)
+    expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=settings.QR_JWT_EXPIRY_DAYS)
     return {
         "qr_data": new_qr_jwt,
-        "expires_at": expiry.isoformat() + "Z",
+        "expires_at": expiry.isoformat(),
         "tuid": tuid,
     }

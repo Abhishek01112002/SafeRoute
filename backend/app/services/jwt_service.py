@@ -1,11 +1,13 @@
 # app/services/jwt_service.py
 import datetime
 import jwt
-import os
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from app.config import settings
 from app.logging_config import logger
+
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 @dataclass(frozen=True)
 class AuthPrincipal:
@@ -33,9 +35,9 @@ def create_jwt_token(
 ) -> str:
     """Generate a role-scoped JWT token (Access or Refresh)."""
     if expires_delta:
-        expire = datetime.datetime.utcnow() + expires_delta
+        expire = _utcnow() + expires_delta
     else:
-        expire = datetime.datetime.utcnow() + datetime.timedelta(
+        expire = _utcnow() + datetime.timedelta(
             minutes=settings.JWT_ACCESS_EXPIRY_MINUTES if not is_refresh else 0,
             days=settings.JWT_REFRESH_EXPIRY_DAYS if is_refresh else 0
         )
@@ -44,7 +46,7 @@ def create_jwt_token(
         "sub": subject_id,
         "role": role,
         "exp": expire,
-        "iat": datetime.datetime.utcnow(),
+        "iat": _utcnow(),
         "type": "refresh" if is_refresh else "access"
     }
 

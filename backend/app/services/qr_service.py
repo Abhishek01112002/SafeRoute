@@ -71,7 +71,7 @@ class QRService:
                 "Run generate_keys.py and set PRIVATE_KEY_PATH in .env"
             )
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         expiry = now + datetime.timedelta(days=settings.QR_JWT_EXPIRY_DAYS)
 
         payload = {

@@ -853,6 +853,7 @@ async def create_sos_event(
     correlation_id: Optional[str] = None,
     tuid: Optional[str] = None,
     timestamp: Optional[datetime] = None,
+    group_id: Optional[str] = None,
 ) -> SOSEvent:
     if db.get_bind().dialect.name == "sqlite":
         columns = await db.execute(text("PRAGMA table_info(sos_events)"))
@@ -894,6 +895,7 @@ async def create_sos_event(
         trigger_type=trigger_type,
         correlation_id=correlation_id,
         timestamp=timestamp,
+        group_id=group_id,
     )
     db.add(new_event)
     await db.flush()
@@ -920,6 +922,24 @@ async def check_existing_sos(
             SOSEvent.latitude.between(lat - 0.001, lat + 0.001),
             SOSEvent.longitude.between(lon - 0.001, lon + 0.001),
             SOSEvent.timestamp.between(window_start, window_end)
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def check_recent_group_sos(
+    db: AsyncSession,
+    tourist_id: str,
+    group_id: str,
+    timestamp: datetime,
+    window_seconds: int = 30,
+) -> Optional[SOSEvent]:
+    window_start = timestamp - timedelta(seconds=window_seconds)
+    result = await db.execute(
+        select(SOSEvent).where(
+            SOSEvent.tourist_id == tourist_id,
+            SOSEvent.group_id == group_id,
+            SOSEvent.timestamp >= window_start,
         )
     )
     return result.scalar_one_or_none()
@@ -959,6 +979,7 @@ async def get_sos_events_for_tourist(db: AsyncSession, tourist_id: str, limit: i
             "latitude": e.latitude,
             "longitude": e.longitude,
             "trigger_type": e.trigger_type,
+            "group_id": e.group_id,
             "dispatch_status": e.dispatch_status,
             "timestamp": e.timestamp.isoformat(),
         }
@@ -983,6 +1004,7 @@ async def get_sos_events_paginated(db: AsyncSession, limit: int = 50, offset: in
             "latitude": e.latitude,
             "longitude": e.longitude,
             "trigger_type": e.trigger_type,
+            "group_id": e.group_id,
             "dispatch_status": e.dispatch_status,
             "status": "RESOLVED" if e.is_synced else "ACTIVE", # Logic mapping for dashboard
             "timestamp": e.timestamp.isoformat(),

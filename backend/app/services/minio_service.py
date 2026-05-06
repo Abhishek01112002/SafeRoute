@@ -23,7 +23,6 @@ class MinIOService:
         try:
             import boto3
             from botocore.config import Config
-            from botocore.exceptions import ConnectTimeoutError, EndpointConnectionError
 
             self._client = boto3.client(
                 "s3",

@@ -24,7 +24,7 @@ class TouristProvider with ChangeNotifier {
   // Security Hardening - Aligned with Backend (15 min lockout)
   int _failedLoginAttempts = 0;
   DateTime? _lockUntil;
-  final int _maxFailedAttempts = 5;
+  final int _maxFailedAttempts = 15;
   final Duration _lockDuration =
       const Duration(minutes: 15); // Sync with backend
 
