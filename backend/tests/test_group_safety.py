@@ -107,6 +107,30 @@ def test_rooms_wrapper_uses_persistent_group_state(client):
     assert active.json()["active_group"]["group_id"] == room["group_id"]
 
 
+def test_joining_second_group_reports_active_group_conflict(client):
+    owner_one = "TID-GROUP-OWNER-006"
+    owner_two = "TID-GROUP-OWNER-007"
+    member = "TID-GROUP-MEMBER-006"
+    _run_async(_seed_tourist(owner_one, "First Owner"))
+    _run_async(_seed_tourist(owner_two, "Second Owner"))
+    _run_async(_seed_tourist(member, "Busy Member"))
+
+    first = client.post("/v3/groups", json={"name": "First Team"}, headers=_auth(owner_one))
+    second = client.post("/v3/groups", json={"name": "Second Team"}, headers=_auth(owner_two))
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+
+    joined = client.post(f"/v3/groups/{first.json()['invite_code']}/join", headers=_auth(member))
+    assert joined.status_code == 200, joined.text
+
+    conflict = client.post(f"/v3/groups/{second.json()['invite_code']}/join", headers=_auth(member))
+    assert conflict.status_code == 409, conflict.text
+    detail = conflict.json()["detail"]
+    assert detail["error"] == "Tourist already has an active group"
+    assert detail["active_group_id"] == first.json()["group_id"]
+    assert detail["active_invite_code"] == first.json()["invite_code"]
+
+
 def test_room_websocket_expands_payload_and_upserts_latest_snapshot(client):
     owner = "TID-GROUP-OWNER-003"
     _run_async(_seed_tourist(owner, "Socket Owner"))
@@ -182,11 +206,11 @@ def test_group_sos_context_and_duplicate_throttle(client):
         "group_id": group_id,
     }
     first = client.post("/sos/trigger", json=payload, headers=_auth(owner))
-    assert first.status_code == 200, first.text
+    assert first.status_code == 202, first.text
     assert first.json()["group_id"] == group_id
 
     second = client.post("/sos/trigger", json=payload, headers=_auth(owner))
-    assert second.status_code == 200, second.text
+    assert second.status_code == 202, second.text
     assert second.json()["status"] == "duplicate_group_sos_ignored"
 
 

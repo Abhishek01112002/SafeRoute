@@ -273,6 +273,34 @@ class MeshSOSSync(BaseModel):
     packet_id: Optional[str] = None
 
 
+class SOSTriggerRequest(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    trigger_type: str = "MANUAL"
+    timestamp: Optional[datetime] = None
+    group_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+
+
+class SOSRelayTriggerRequest(BaseModel):
+    origin_tuid_suffix: str
+    idempotency_hash: str
+    latitude: float
+    longitude: float
+    unix_minute: int
+    trigger_type: str = "MANUAL"
+    key_version: int
+    origin_signature: str
+    packet_id: Optional[str] = None
+    relay_path: List[str] = []
+    group_id: Optional[str] = None
+
+
+class AuthorityDeviceRegister(BaseModel):
+    fcm_token: str
+    platform: Optional[str] = None
+
+
 class GroupCreate(BaseModel):
     name: Optional[str] = None
     trip_id: Optional[str] = None

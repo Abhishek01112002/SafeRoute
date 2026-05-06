@@ -12,6 +12,7 @@ from app.models.schemas import TouristRegister, TouristLoginRequest, Destination
 from app.services.jwt_service import create_jwt_token
 from app.services.tourist_config import derive_tourist_config
 from app.services.identity_service import generate_tuid, hash_document_number
+from app.services.mesh_key_service import ensure_active_mesh_key, rotate_mesh_key as rotate_tourist_mesh_key
 from app.db import crud
 from app.db.session import get_db
 from app.core import limiter
@@ -149,12 +150,14 @@ async def register_tourist(
     # --- Issue auth tokens ---
     access_token = create_jwt_token(tourist_id)
     refresh_token = create_jwt_token(tourist_id, is_refresh=True)
+    mesh_key = await ensure_active_mesh_key(db, tourist_id, tuid)
 
     return {
         "tourist": tourist_data,
         "token": access_token,
         "refresh_token": refresh_token,
         "expires_in": settings.JWT_ACCESS_EXPIRY_MINUTES * 60,
+        **mesh_key,
     }
 
 
@@ -315,6 +318,7 @@ async def register_tourist_multipart(
             document_number_hash=doc_hash,
             qr_jwt=qr_jwt,
         )
+        mesh_key = await ensure_active_mesh_key(db, tourist_id, tuid)
         # Commit so the row is visible to subsequent reads
         await db.commit()
 
@@ -333,6 +337,7 @@ async def register_tourist_multipart(
             "token": access_token,
             "refresh_token": refresh_token,
             "expires_in": settings.JWT_ACCESS_EXPIRY_MINUTES * 60,
+            **mesh_key,
         }
     except HTTPException:
         raise
@@ -416,13 +421,30 @@ async def login_tourist(
 
     access_token = create_jwt_token(tourist_id)
     refresh_token = create_jwt_token(tourist_id, is_refresh=True)
+    tuid = tourist_data.get("tuid") or tourist_id
+    mesh_key = await ensure_active_mesh_key(db, tourist_id, tuid)
 
     return {
         "tourist": tourist_data,
         "token": access_token,
         "refresh_token": refresh_token,
         "expires_in": settings.JWT_ACCESS_EXPIRY_MINUTES * 60,
+        **mesh_key,
     }
+
+
+@router.post("/mesh-key/rotate")
+async def rotate_mesh_key(
+    tourist_id: str = Depends(get_current_tourist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate the tourist's BLE mesh key while keeping old packets valid briefly."""
+    tourist_data = await crud.get_tourist(db, tourist_id)
+    if not tourist_data:
+        raise HTTPException(status_code=404, detail="Tourist not found")
+
+    tuid = tourist_data.get("tuid") or tourist_id
+    return await rotate_tourist_mesh_key(db, tourist_id, tuid)
 
 
 @router.post("/refresh-qr")

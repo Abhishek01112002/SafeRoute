@@ -118,7 +118,7 @@ def test_sos_respond_accepts_dashboard_response_payload(
     _run_async(_seed_db_tourist())
 
     trigger = client.post("/sos/trigger", json=valid_sos_payload(), headers=tourist_auth_header)
-    assert trigger.status_code == 200, trigger.text
+    assert trigger.status_code == 202, trigger.text
 
     events = client.get("/sos/events?limit=1&offset=0", headers=authority_auth_header)
     assert events.status_code == 200, events.text
@@ -131,4 +131,4 @@ def test_sos_respond_accepts_dashboard_response_payload(
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["status"] == "responded"
+    assert response.json()["status"] == "resolved"

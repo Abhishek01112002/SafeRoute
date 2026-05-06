@@ -69,12 +69,22 @@ async def init_models() -> None:
         ddl_statements = [
             "ALTER TABLE authorities ADD COLUMN email_verified BOOLEAN DEFAULT true",
             "ALTER TABLE sos_events ADD COLUMN group_id VARCHAR(36)",
+            "ALTER TABLE sos_events ADD COLUMN idempotency_key VARCHAR(80)",
+            "ALTER TABLE sos_events ADD COLUMN source VARCHAR(20) DEFAULT 'DIRECT'",
+            "ALTER TABLE sos_events ADD COLUMN incident_status VARCHAR(30) DEFAULT 'ACTIVE'",
+            "ALTER TABLE sos_events ADD COLUMN delivery_state VARCHAR(30) DEFAULT 'PENDING'",
+            "ALTER TABLE sos_events ADD COLUMN delivery_summary TEXT",
+            "ALTER TABLE sos_events ADD COLUMN relayed_by_tourist_id VARCHAR(30)",
+            "ALTER TABLE sos_events ADD COLUMN acknowledged_at DATETIME",
+            "ALTER TABLE sos_events ADD COLUMN acknowledged_by VARCHAR(30)",
         ]
         
         if engine.dialect.name == "sqlite":
             ddl_statements.extend([
                 "ALTER TABLE sos_events ADD COLUMN authority_response TEXT",
                 "ALTER TABLE sos_events ADD COLUMN resolved_at DATETIME",
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_tourist_idempotency ON sos_events (tourist_id, idempotency_key)",
+                "CREATE INDEX IF NOT EXISTS ix_sos_incident_status ON sos_events (incident_status)",
             ])
             
         for ddl in ddl_statements:

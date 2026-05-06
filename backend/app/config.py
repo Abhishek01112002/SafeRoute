@@ -86,6 +86,15 @@ class Settings:
     # SOS
     # ---------------------------------------------------------------------------
     SOS_DISPATCH_WEBHOOK_URL: str = ""
+    SOS_WORKER_ENABLED: bool = True
+    SOS_RETRY_INTERVAL_SECONDS: int = 30
+    SOS_DELIVERY_TTL_SECONDS: int = 7200
+    SOS_ESCALATE_AFTER_SECONDS: int = 1800
+    SOS_EXPIRE_RESPONSE_AFTER_SECONDS: int = 14400
+    SOS_PROVIDER_FAILURE_THRESHOLD: int = 3
+    SOS_PROVIDER_CIRCUIT_COOLDOWN_SECONDS: int = 60
+    MESH_SECRET_MASTER_KEY: str = "unsafe-mesh-master-key-dev-change-me"
+    MESH_KEY_GRACE_DAYS: int = 7
 
     def __post_init__(self):
         """Override defaults from environment variables."""
@@ -111,6 +120,15 @@ class Settings:
         self.PHOTO_STORAGE_BACKEND = os.getenv("PHOTO_STORAGE_BACKEND", self.PHOTO_STORAGE_BACKEND)
         self.PHOTO_UPLOAD_DIR = os.getenv("PHOTO_UPLOAD_DIR", self.PHOTO_UPLOAD_DIR)
         self.SOS_DISPATCH_WEBHOOK_URL = os.getenv("SOS_DISPATCH_WEBHOOK_URL", "")
+        self.SOS_WORKER_ENABLED = os.getenv("SOS_WORKER_ENABLED", "true").lower() == "true"
+        self.SOS_RETRY_INTERVAL_SECONDS = int(os.getenv("SOS_RETRY_INTERVAL_SECONDS", str(self.SOS_RETRY_INTERVAL_SECONDS)))
+        self.SOS_DELIVERY_TTL_SECONDS = int(os.getenv("SOS_DELIVERY_TTL_SECONDS", str(self.SOS_DELIVERY_TTL_SECONDS)))
+        self.SOS_ESCALATE_AFTER_SECONDS = int(os.getenv("SOS_ESCALATE_AFTER_SECONDS", str(self.SOS_ESCALATE_AFTER_SECONDS)))
+        self.SOS_EXPIRE_RESPONSE_AFTER_SECONDS = int(os.getenv("SOS_EXPIRE_RESPONSE_AFTER_SECONDS", str(self.SOS_EXPIRE_RESPONSE_AFTER_SECONDS)))
+        self.SOS_PROVIDER_FAILURE_THRESHOLD = int(os.getenv("SOS_PROVIDER_FAILURE_THRESHOLD", str(self.SOS_PROVIDER_FAILURE_THRESHOLD)))
+        self.SOS_PROVIDER_CIRCUIT_COOLDOWN_SECONDS = int(os.getenv("SOS_PROVIDER_CIRCUIT_COOLDOWN_SECONDS", str(self.SOS_PROVIDER_CIRCUIT_COOLDOWN_SECONDS)))
+        self.MESH_SECRET_MASTER_KEY = os.getenv("MESH_SECRET_MASTER_KEY", self.MESH_SECRET_MASTER_KEY)
+        self.MESH_KEY_GRACE_DAYS = int(os.getenv("MESH_KEY_GRACE_DAYS", str(self.MESH_KEY_GRACE_DAYS)))
 
         # Redis
         self.REDIS_URL = os.getenv("REDIS_URL", "")
@@ -164,6 +182,12 @@ class Settings:
         if is_production and (not self.TUID_SALT or self.TUID_SALT == "SR_IDENTITY_V1_UTTARAKHAND_2025"):
             # Note: This is a warning but recommended to change
             print("WARNING: TUID_SALT is at its default value.")
+
+        if is_production and (
+            not self.MESH_SECRET_MASTER_KEY
+            or self.MESH_SECRET_MASTER_KEY == "unsafe-mesh-master-key-dev-change-me"
+        ):
+            missing.append("MESH_SECRET_MASTER_KEY (required for BLE SOS signatures)")
 
         if missing:
             import sys

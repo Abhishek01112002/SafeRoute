@@ -502,6 +502,26 @@ class RoomProvider extends ChangeNotifier {
   }
 
   String _friendlyError(Object error) {
+    if (error is ApiException) {
+      final text = error.message;
+      final lower = text.toLowerCase();
+      if (error.statusCode == 409) {
+        if (lower.contains('already has an active group')) {
+          return 'This tourist is already in another active group. Leave that group first, then join this code.';
+        }
+        return text;
+      }
+      if (error.statusCode == 429) {
+        return 'Too many join attempts. Please wait a few minutes.';
+      }
+      if (error.statusCode == 404) {
+        return 'Invite code was not found or has expired.';
+      }
+      if (error.statusCode == 0) {
+        return text;
+      }
+    }
+
     final text = error.toString();
     if (text.contains('409')) {
       return 'This tourist already has an active group.';

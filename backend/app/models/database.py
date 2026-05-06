@@ -1,7 +1,7 @@
 # app/models/database.py
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Boolean, Float, DateTime, ForeignKey, Text, BigInteger, func, Index, UniqueConstraint
+from sqlalchemy import String, Boolean, Float, DateTime, ForeignKey, Text, BigInteger, Integer, func, Index, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -81,23 +81,121 @@ class Authority(Base):
 
 class SOSEvent(Base):
     __tablename__ = "sos_events"
+    __table_args__ = (
+        UniqueConstraint("tourist_id", "idempotency_key", name="uq_sos_tourist_idempotency"),
+        Index("ix_sos_incident_status", "incident_status"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tourist_id: Mapped[str] = mapped_column(ForeignKey("tourists.tourist_id", ondelete="CASCADE"), index=True)
     tuid: Mapped[Optional[str]] = mapped_column(String(24), index=True)  # v3 cross-system
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(80), index=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     trigger_type: Mapped[str] = mapped_column(String(30), default="MANUAL")
-    dispatch_status: Mapped[str] = mapped_column(String(30), default="not_configured")
+    source: Mapped[str] = mapped_column(String(20), default="DIRECT")
+    incident_status: Mapped[str] = mapped_column(String(30), default="ACTIVE")
+    delivery_state: Mapped[str] = mapped_column(String(30), default="PENDING")
+    dispatch_status: Mapped[str] = mapped_column(String(30), default="queued")
+    delivery_summary: Mapped[Optional[str]] = mapped_column(Text)
     group_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("tourist_groups.group_id"), index=True)
+    relayed_by_tourist_id: Mapped[Optional[str]] = mapped_column(String(30), index=True)
     correlation_id: Mapped[Optional[str]] = mapped_column(String(50))
     # Accept client timestamp when available (no server_default)
     timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     is_synced: Mapped[bool] = mapped_column(Boolean, default=False)
+    acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    acknowledged_by: Mapped[Optional[str]] = mapped_column(String(30), index=True)
     authority_response: Mapped[Optional[str]] = mapped_column(Text)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     tourist: Mapped["Tourist"] = relationship(back_populates="sos_events")
+
+class SOSDispatchQueue(Base):
+    __tablename__ = "sos_dispatch_queue"
+    __table_args__ = (
+        Index("ix_sos_queue_due", "state", "next_attempt_at"),
+        Index("ix_sos_queue_event", "sos_event_id"),
+    )
+
+    queue_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    sos_event_id: Mapped[int] = mapped_column(ForeignKey("sos_events.id", ondelete="CASCADE"), nullable=False)
+    tourist_id: Mapped[str] = mapped_column(String(30), index=True, nullable=False)
+    tuid: Mapped[Optional[str]] = mapped_column(String(24), index=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(80), index=True)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    trigger_type: Mapped[str] = mapped_column(String(30), default="MANUAL")
+    state: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    ttl_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    escalated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_error: Mapped[Optional[str]] = mapped_column(Text)
+    claimed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    sos_event: Mapped["SOSEvent"] = relationship()
+
+class SOSDeliveryAudit(Base):
+    __tablename__ = "sos_delivery_audit"
+    __table_args__ = (
+        Index("ix_sos_audit_event", "sos_event_id", "timestamp"),
+    )
+
+    audit_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    sos_event_id: Mapped[int] = mapped_column(ForeignKey("sos_events.id", ondelete="CASCADE"), nullable=False)
+    queue_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("sos_dispatch_queue.queue_id"))
+    channel: Mapped[str] = mapped_column(String(30), nullable=False)
+    target: Mapped[Optional[str]] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    provider_status: Mapped[Optional[str]] = mapped_column(String(80))
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=0)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+class SOSProviderCircuit(Base):
+    __tablename__ = "sos_provider_circuit"
+
+    provider: Mapped[str] = mapped_column(String(40), primary_key=True)
+    state: Mapped[str] = mapped_column(String(20), default="CLOSED")
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    opened_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_failure_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_success_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class TouristMeshKey(Base):
+    __tablename__ = "tourist_mesh_keys"
+    __table_args__ = (
+        UniqueConstraint("tourist_id", "key_version", name="uq_mesh_key_tourist_version"),
+        Index("ix_mesh_key_tuid_suffix", "tuid_suffix"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tourist_id: Mapped[str] = mapped_column(ForeignKey("tourists.tourist_id", ondelete="CASCADE"), index=True)
+    tuid: Mapped[str] = mapped_column(String(24), index=True)
+    tuid_suffix: Mapped[str] = mapped_column(String(4), index=True)
+    key_version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    grace_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+class AuthorityDevice(Base):
+    __tablename__ = "authority_devices"
+    __table_args__ = (
+        UniqueConstraint("authority_id", "fcm_token", name="uq_authority_device_token"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    authority_id: Mapped[str] = mapped_column(ForeignKey("authorities.authority_id", ondelete="CASCADE"), index=True)
+    fcm_token: Mapped[str] = mapped_column(Text, nullable=False)
+    platform: Mapped[Optional[str]] = mapped_column(String(30))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 class LocationPing(Base):
     __tablename__ = "location_pings"

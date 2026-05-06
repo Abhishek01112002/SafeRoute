@@ -7,6 +7,7 @@ import 'package:dio/io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:saferoute/tourist/models/tourist_model.dart';
+import 'package:saferoute/tourist/models/mesh/mesh_packet.dart';
 import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/core/models/zone_model.dart';
 import 'package:saferoute/tourist/models/trail_graph_model.dart';
@@ -57,13 +58,48 @@ class SosAlertResult {
   final bool dispatched;
   final String status;
   final String dispatchStatus;
+  final int? sosId;
+  final String? queueId;
+  final String? deliveryState;
+  final String? statusUrl;
+  final String? message;
+  final String? idempotencyKey;
 
   const SosAlertResult({
     required this.accepted,
     required this.dispatched,
     required this.status,
     required this.dispatchStatus,
+    this.sosId,
+    this.queueId,
+    this.deliveryState,
+    this.statusUrl,
+    this.message,
+    this.idempotencyKey,
   });
+}
+
+class SosStatusResult {
+  final int sosId;
+  final String incidentStatus;
+  final String deliveryState;
+  final String message;
+
+  const SosStatusResult({
+    required this.sosId,
+    required this.incidentStatus,
+    required this.deliveryState,
+    required this.message,
+  });
+
+  bool get rescueNetworkNotified =>
+      deliveryState == 'DELIVERED' ||
+      deliveryState == 'ESCALATED' ||
+      incidentStatus == 'ACKNOWLEDGED' ||
+      incidentStatus == 'RESOLVED';
+
+  bool get authorityAcknowledged =>
+      incidentStatus == 'ACKNOWLEDGED' || incidentStatus == 'RESOLVED';
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +443,20 @@ class ApiService {
           "$errorText.$idText$tuidText",
           statusCode: 409,
         );
+      } else if (status == 404) {
+        final detailMap =
+            data is Map && data['detail'] is Map ? data['detail'] as Map : null;
+        final errorText = detailMap?['error']?.toString() ??
+            detail ??
+            "Requested record was not found";
+        final remainingAttempts = detailMap?['remaining_attempts'];
+        final attemptsText = remainingAttempts == null
+            ? ""
+            : " Attempts remaining: $remainingAttempts.";
+        return ApiException(
+          "$errorText.$attemptsText",
+          statusCode: 404,
+        );
       } else if (status == 400 || status == 401) {
         return ApiException(
           detail ?? (status == 401 ? "Unauthorized" : "Bad request"),
@@ -423,6 +473,28 @@ class ApiService {
   // -------------------------------------------------------------------------
   // REGISTRATION
   // --------------------------------------------------
+  Future<void> _saveIdentitySidecars(
+    Map<String, dynamic> responseData,
+    Map<String, dynamic> touristData,
+  ) async {
+    final tuid = touristData['tuid']?.toString();
+    if (tuid != null && tuid.isNotEmpty) {
+      await _secureStorage.saveTuid(tuid);
+    }
+
+    final meshSecret = responseData['mesh_secret']?.toString();
+    final rawVersion = responseData['mesh_key_version'];
+    final keyVersion = rawVersion is int
+        ? rawVersion
+        : int.tryParse(rawVersion?.toString() ?? '');
+    if (meshSecret != null && meshSecret.isNotEmpty && keyVersion != null) {
+      await _secureStorage.saveMeshKey(
+        meshSecret: meshSecret,
+        keyVersion: keyVersion,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> registerTouristWithToken(
       Map<String, dynamic> formData) async {
     try {
@@ -446,6 +518,7 @@ class ApiService {
           await _secureStorage.saveRefreshToken(refreshToken);
         }
         await _secureStorage.saveTouristId(touristId);
+        await _saveIdentitySidecars(response.data, touristData);
         debugPrint('✅ JWT tokens saved for tourist: $touristId');
       }
 
@@ -534,6 +607,7 @@ class ApiService {
           await _secureStorage.saveRefreshToken(refreshToken);
         }
         await _secureStorage.saveTouristId(touristId);
+        await _saveIdentitySidecars(response.data, touristData);
       }
 
       return {
@@ -588,6 +662,7 @@ class ApiService {
           await _secureStorage.saveRefreshToken(refreshToken);
         }
         await _secureStorage.saveTouristId(touristId);
+        await _saveIdentitySidecars(response.data, touristData);
       }
 
       return {
@@ -654,8 +729,11 @@ class ApiService {
     String triggerType, {
     String? touristId,
     String? groupId,
+    String? idempotencyKey,
+    DateTime? timestamp,
   }) async {
     final sosCorrelationId = 'SOS-${const Uuid().v4().substring(0, 8)}';
+    final effectiveIdempotencyKey = idempotencyKey ?? const Uuid().v4();
     final userType =
         touristId?.startsWith('GUEST-') == true ? 'guest' : 'authenticated';
     final guestSessionId =
@@ -700,7 +778,8 @@ class ApiService {
       'latitude': lat,
       'longitude': lng,
       'trigger_type': triggerType,
-      'timestamp': DateTime.now().toIso8601String(),
+      'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
+      'idempotency_key': effectiveIdempotencyKey,
       'user_type': userType,
       'guest_session_id': guestSessionId,
       if (groupId != null && groupId.isNotEmpty) 'group_id': groupId,
@@ -719,7 +798,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
-      return _parseSosResponse(response);
+      return _parseSosResponse(response, effectiveIdempotencyKey);
     } catch (firstError) {
       debugPrint(
           '⚠️ SOS attempt 1 failed [CID: $sosCorrelationId]: $firstError');
@@ -735,7 +814,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 15));
 
-      return _parseSosResponse(response);
+      return _parseSosResponse(response, effectiveIdempotencyKey);
     } catch (secondError) {
       debugPrint(
           '⚠️ SOS attempt 2 failed [CID: $sosCorrelationId]: $secondError');
@@ -751,35 +830,90 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 30));
 
-      return _parseSosResponse(response);
+      return _parseSosResponse(response, effectiveIdempotencyKey);
     } catch (finalError) {
       debugPrint(
           '❌ SOS ALL ATTEMPTS FAILED [CID: $sosCorrelationId]: $finalError');
-      return const SosAlertResult(
+      return SosAlertResult(
         accepted: false,
         dispatched: false,
         status: 'all_attempts_failed',
         dispatchStatus: 'failed',
+        idempotencyKey: effectiveIdempotencyKey,
       );
     }
   }
 
-  SosAlertResult _parseSosResponse(Response response) {
+  SosAlertResult _parseSosResponse(Response response, String idempotencyKey) {
     final data = response.data is Map<String, dynamic>
         ? response.data as Map<String, dynamic>
         : <String, dynamic>{};
     final status = data['status']?.toString() ?? 'unknown';
-    final dispatch = data['dispatch'] is Map
-        ? data['dispatch'] as Map
-        : const <String, dynamic>{};
-    final dispatchStatus = dispatch['status']?.toString() ?? 'unknown';
-    final accepted = response.statusCode == 200 || response.statusCode == 201;
+    final deliveryState = data['delivery_state']?.toString();
+    final dispatchStatus = deliveryState ??
+        (data['dispatch'] is Map
+            ? (data['dispatch'] as Map)['status']?.toString()
+            : null) ??
+        'unknown';
+    final accepted = response.statusCode == 200 ||
+        response.statusCode == 201 ||
+        response.statusCode == 202;
+    final dispatched = {
+      'DELIVERED',
+      'ESCALATED',
+      'ACKNOWLEDGED',
+      'RESOLVED',
+    }.contains(dispatchStatus.toUpperCase());
     return SosAlertResult(
       accepted: accepted,
-      dispatched: dispatchStatus == 'delivered',
+      dispatched: dispatched,
       status: status,
       dispatchStatus: dispatchStatus,
+      sosId: data['sos_id'] is int
+          ? data['sos_id'] as int
+          : int.tryParse(data['sos_id']?.toString() ?? ''),
+      queueId: data['queue_id']?.toString(),
+      deliveryState: deliveryState,
+      statusUrl: data['status_url']?.toString(),
+      message: data['message']?.toString(),
+      idempotencyKey: idempotencyKey,
     );
+  }
+
+  Future<SosStatusResult> getSosStatus(int sosId) async {
+    try {
+      final response = await _sosDio.get('/sos/$sosId/status');
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      return SosStatusResult(
+        sosId: data['sos_id'] is int
+            ? data['sos_id'] as int
+            : int.tryParse(data['sos_id']?.toString() ?? '') ?? sosId,
+        incidentStatus: data['incident_status']?.toString() ?? 'ACTIVE',
+        deliveryState: data['delivery_state']?.toString() ?? 'PENDING',
+        message: data['message']?.toString() ?? 'SOS queued securely.',
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<bool> submitRelaySos(MeshPacket packet) async {
+    if (packet.type != MeshPacketType.sosAlert) return false;
+    try {
+      final response = await _sosDio.post(
+        '/sos/trigger/relay',
+        data: packet.toRelayPayload(),
+      );
+      return response.statusCode == 202;
+    } on DioException catch (e) {
+      debugPrint('Relay SOS submit failed: ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('Relay SOS submit failed: $e');
+      return false;
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/providers/mesh_provider.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/widgets/sync_status_chip.dart';
+import 'package:uuid/uuid.dart';
 
 class MeshStatusScreen extends StatefulWidget {
   const MeshStatusScreen({super.key});
@@ -150,6 +151,8 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                     ? () => mesh.sendSosRelay(
                           position.latitude,
                           position.longitude,
+                          idempotencyKey: const Uuid().v4(),
+                          originTuid: tourist?.tuid,
                         )
                     : null,
                 color: AppColors.zoneRed,

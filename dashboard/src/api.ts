@@ -63,8 +63,50 @@ export interface SOSEvent {
   longitude: number;
   trigger_type: string;
   dispatch_status?: string | null;
+  delivery_state?: string | null;
+  incident_status?: string | null;
+  source?: string | null;
+  attempt_count?: number;
+  last_successful_channel?: string | null;
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
+  resolved_at?: string | null;
+  relayed_by_tourist_id?: string | null;
   status: 'ACTIVE' | 'RESOLVED' | string;
   timestamp: string;
+}
+
+export interface SosDeliveryAuditRow {
+  audit_id: string;
+  queue_id?: string | null;
+  channel: string;
+  target?: string | null;
+  status: string;
+  provider_status?: string | null;
+  error_message?: string | null;
+  attempt_number: number;
+  timestamp?: string | null;
+}
+
+export interface SosDeliveryAudit {
+  event: {
+    sos_id: number;
+    incident_status: string;
+    delivery_state: string;
+    dispatch_status?: string | null;
+    attempt_count: number;
+    message: string;
+  };
+  queue: {
+    queue_id?: string | null;
+    state?: string | null;
+    attempt_count: number;
+    last_error?: string | null;
+    delivered_at?: string | null;
+    escalated_at?: string | null;
+    next_attempt_at?: string | null;
+  };
+  audit: SosDeliveryAuditRow[];
 }
 
 export interface Zone {
@@ -165,6 +207,16 @@ export const respondToSos = async (eventId: number) => {
   const response = await api.post(`/sos/events/${eventId}/respond`, {
     response: 'Response initiated from command centre',
   });
+  return response.data;
+};
+
+export const acknowledgeSos = async (eventId: number) => {
+  const response = await api.post(`/sos/events/${eventId}/acknowledge`);
+  return response.data;
+};
+
+export const fetchSosDelivery = async (eventId: number) => {
+  const response = await api.get<SosDeliveryAudit>(`/sos/events/${eventId}/delivery`);
   return response.data;
 };
 

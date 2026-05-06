@@ -74,6 +74,14 @@ async def lifespan(app: FastAPI):
         sync_from_db()
 
         app.state.cleanup_task = asyncio.create_task(_periodic_cleanup())
+        app.state.sos_worker_stop = asyncio.Event()
+        app.state.sos_worker_task = None
+        if settings.SOS_WORKER_ENABLED:
+            from app.services.sos_delivery import dispatch_worker_loop
+
+            app.state.sos_worker_task = asyncio.create_task(
+                dispatch_worker_loop(app.state.sos_worker_stop)
+            )
         log.info("app.startup.complete")
     except Exception as exc:
         log.error("app.startup.failed", error=str(exc))
@@ -88,6 +96,18 @@ async def lifespan(app: FastAPI):
             cleanup_task.cancel()
             try:
                 await cleanup_task
+            except asyncio.CancelledError:
+                pass
+
+        sos_worker_stop = getattr(app.state, "sos_worker_stop", None)
+        sos_worker_task = getattr(app.state, "sos_worker_task", None)
+        if sos_worker_stop:
+            sos_worker_stop.set()
+        if sos_worker_task:
+            try:
+                await asyncio.wait_for(sos_worker_task, timeout=10)
+            except asyncio.TimeoutError:
+                sos_worker_task.cancel()
             except asyncio.CancelledError:
                 pass
 

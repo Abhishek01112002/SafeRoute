@@ -788,11 +788,14 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
               Navigator.pop(dialogContext);
               final room = context.read<RoomProvider>();
               room.setSharingLocation(true);
-              unawaited(room.joinRoom(
+              await room.joinRoom(
                 roomId: inviteCode,
                 userId: tourist.touristId,
                 name: tourist.fullName,
-              ));
+              );
+              if (context.mounted && room.isInRoom) {
+                await _startMeshRelayForTourist(context, tourist);
+              }
             },
             child: const Text('JOIN'),
           ),
@@ -825,17 +828,33 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
               Navigator.pop(dialogContext);
               final room = context.read<RoomProvider>();
               room.setSharingLocation(true);
-              unawaited(room.createAndJoinRoom(
+              await room.createAndJoinRoom(
                 userId: tourist.touristId,
                 name: tourist.fullName,
                 groupName: controller.text,
-              ));
+              );
+              if (context.mounted && room.isInRoom) {
+                await _startMeshRelayForTourist(context, tourist);
+              }
             },
             child: const Text('CREATE'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _startMeshRelayForTourist(
+    BuildContext context,
+    Tourist tourist,
+  ) async {
+    final mesh = context.read<MeshProvider>();
+    if (mesh.isMeshActive) return;
+    await mesh.init(_meshIdForTourist(tourist));
+    await mesh.startMesh();
+    if (context.mounted) {
+      _snack(context, mesh.statusMessage);
+    }
   }
 
   Future<bool?> _showLocationSharingConsent(BuildContext context) {

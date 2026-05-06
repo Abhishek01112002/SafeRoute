@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:saferoute/core/service_locator.dart';
 import 'package:saferoute/services/analytics_service.dart';
+import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/mesh_service.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/tourist/models/mesh/mesh_node.dart';
@@ -35,6 +36,9 @@ class MeshProvider extends ChangeNotifier {
 
   StreamSubscription? _nodesSub;
   StreamSubscription? _packetSub;
+  Timer? _sosBroadcastTimer;
+  MeshPacket? _activeSosPacket;
+  DateTime? _activeSosUntil;
 
   List<MeshNode> get nearbyNodes => _nearbyNodes;
   List<MeshPacket> get recentActivity => _recentActivity;
@@ -134,6 +138,7 @@ class MeshProvider extends ChangeNotifier {
   }
 
   Future<void> stopMesh() async {
+    _stopSosBroadcastLoop();
     await _meshService.stop();
     unawaited(_nodesSub?.cancel());
     unawaited(_packetSub?.cancel());
@@ -147,7 +152,12 @@ class MeshProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> sendSosRelay(double lat, double lng) async {
+  Future<void> sendSosRelay(
+    double lat,
+    double lng, {
+    required String idempotencyKey,
+    String? originTuid,
+  }) async {
     if (!canBroadcast) {
       _setRuntimeState(
         _meshState,
@@ -163,31 +173,60 @@ class MeshProvider extends ChangeNotifier {
       );
     }
 
-    final packet = MeshPacket(
-      sourceId: _meshService.myUserId ?? 'unknown',
-      type: MeshPacketType.sosAlert,
+    final storage = locator<SecureStorageService>();
+    final meshSecret = await storage.getMeshSecret();
+    final keyVersion = await storage.getMeshKeyVersion();
+    final tuid = originTuid ?? await storage.getTuid();
+    if (meshSecret == null || keyVersion == null || tuid == null) {
+      _setRuntimeState(
+        _meshState,
+        'Mesh key is not ready. Reconnect once before using offline SOS relay.',
+        error: 'Missing mesh key',
+      );
+      return;
+    }
+
+    final signedPacket = MeshPacket.signedSos(
+      originTuid: tuid,
+      meshSecret: meshSecret,
+      keyVersion: keyVersion,
+      idempotencyKey: idempotencyKey,
       lat: lat,
       lng: lng,
-      priority: 1,
     );
 
-    final jwtSecret = await locator<SecureStorageService>().getToken() ??
-        await locator<SecureStorageService>().getTouristId() ??
-        'SAFEROUTE_OFFLINE_SECRET';
-
-    final signedPacket = MeshPacket(
-      packetId: packet.packetId,
-      sourceId: packet.sourceId,
-      type: packet.type,
-      lat: packet.lat,
-      lng: packet.lng,
-      hopCount: packet.hopCount,
-      priority: packet.priority,
-      signature: packet.generateSignature(jwtSecret),
-    );
-
-    await _meshService.sendPacket(signedPacket);
+    await _broadcastSosPacket(signedPacket);
+    _startSosBroadcastLoop(signedPacket);
     _recordActivity(signedPacket);
+  }
+
+  Future<void> _broadcastSosPacket(MeshPacket packet) async {
+    await _meshService.sendPacket(packet);
+  }
+
+  void _startSosBroadcastLoop(MeshPacket packet) {
+    _activeSosPacket = packet;
+    _activeSosUntil = DateTime.now().add(const Duration(minutes: 30));
+    _sosBroadcastTimer?.cancel();
+    _sosBroadcastTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      final activePacket = _activeSosPacket;
+      final until = _activeSosUntil;
+      if (activePacket == null ||
+          until == null ||
+          DateTime.now().isAfter(until) ||
+          !canBroadcast) {
+        _stopSosBroadcastLoop();
+        return;
+      }
+      unawaited(_broadcastSosPacket(activePacket));
+    });
+  }
+
+  void _stopSosBroadcastLoop() {
+    _sosBroadcastTimer?.cancel();
+    _sosBroadcastTimer = null;
+    _activeSosPacket = null;
+    _activeSosUntil = null;
   }
 
   Future<void> broadcastLocation(double lat, double lng) async {
@@ -209,6 +248,7 @@ class MeshProvider extends ChangeNotifier {
 
     if (packet.type == MeshPacketType.sosAlert) {
       debugPrint('MESH ALERT: SOS received from ${packet.sourceId}');
+      unawaited(locator<ApiService>().submitRelaySos(packet));
       locator<AnalyticsService>().logEvent(
         AnalyticsEvent.meshPacketRelayed,
         properties: {'type': 'SOS', 'source': packet.sourceId},
@@ -239,6 +279,7 @@ class MeshProvider extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _stopSosBroadcastLoop();
     unawaited(_meshService.stop());
     unawaited(_nodesSub?.cancel());
     unawaited(_packetSub?.cancel());

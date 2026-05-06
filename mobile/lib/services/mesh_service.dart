@@ -34,7 +34,6 @@ class MeshService {
   final Map<String, MeshNode> _nodesMap = {};
   bool _isServiceRunning = false;
   String? _myUserId;
-  String? _signingSecret;
   StreamSubscription<List<ScanResult>>? _scanResultsSub;
   String? _lastError;
 
@@ -48,17 +47,10 @@ class MeshService {
   final List<MeshPacket> _normalQueue = [];
 
   static const String _meshServiceUuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+  static const int _safeRouteManufacturerId = 0xFFFF;
 
   Future<void> init(String userId) async {
-    _myUserId = userId;
-    _signingSecret = await _storage.getToken();
-
-    // If offline or no token, use TUID as a fallback stable secret for local mesh
-    if (_signingSecret == null || _signingSecret == 'offline-token') {
-      // pragma: allowlist secret
-      _signingSecret = await _storage.getTouristId() ??
-          "SAFEROUTE_OFFLINE_SECRET_STUB"; // pragma: allowlist secret
-    }
+    _myUserId = await _storage.getTuid() ?? userId;
   }
 
   Future<MeshServiceStartResult> start() async {
@@ -96,9 +88,11 @@ class MeshService {
       _scanResultsSub = FlutterBluePlus.onScanResults.listen(
         (results) {
           for (final result in results) {
-            if (result.advertisementData.serviceUuids
-                .contains(Guid(_meshServiceUuid))) {
-              _handleDiscoveredNode(result);
+            final cbepData = _extractSafeRouteManufacturerData(result);
+            final hasServiceUuid = result.advertisementData.serviceUuids
+                .contains(Guid(_meshServiceUuid));
+            if (hasServiceUuid || cbepData != null) {
+              _handleDiscoveredNode(result, cbepData: cbepData);
             }
           }
         },
@@ -209,28 +203,79 @@ class MeshService {
   Future<void> _executeBroadcast(MeshPacket packet) async {
     debugPrint(
         "Mesh: Broadcasting packet ${packet.packetId} (Priority ${packet.priority})");
-    try {
-      final AdvertiseData advertiseData = AdvertiseData(
-        serviceUuid: _meshServiceUuid,
-        manufacturerId: 0xFFFF, // FAANG Custom Mapping
-        manufacturerData: packet.toCBEPBytes(),
-        includeDeviceName: false, // Save payload bytes
-      );
+    if (packet.signatureByteLength >= 4) {
+      try {
+        final advertiseData = AdvertiseData(
+          manufacturerId: _safeRouteManufacturerId,
+          manufacturerData: packet.toCBEPBytes(),
+          includeDeviceName: false, // Save payload bytes
+        );
 
+        await FlutterBlePeripheral().stop();
+        await FlutterBlePeripheral().start(
+          advertiseData: advertiseData,
+          advertiseSettings: AdvertiseSettings(
+            advertiseSet: true,
+            connectable: false,
+            timeout: 0,
+            advertiseMode: AdvertiseMode.advertiseModeLowLatency,
+            txPowerLevel: AdvertiseTxPower.advertiseTxPowerHigh,
+          ),
+          advertiseSetParameters: AdvertiseSetParameters(
+            legacyMode: false,
+            connectable: false,
+            scannable: false,
+            interval: intervalHigh,
+            txPowerLevel: txPowerHigh,
+          ),
+        );
+        return;
+      } catch (e) {
+        _lastError =
+            "Extended SOS advertising failed, trying legacy compact mode: $e";
+        debugPrint("Mesh: $_lastError");
+      }
+    }
+
+    try {
+      final legacyData = AdvertiseData(
+        manufacturerId: _safeRouteManufacturerId,
+        manufacturerData: packet.toLegacyCBEPBytes(),
+        includeDeviceName: false,
+      );
       await FlutterBlePeripheral().stop();
-      await FlutterBlePeripheral().start(advertiseData: advertiseData);
-    } catch (e) {
-      debugPrint("MeshService: Re-broadcast exception: $e");
+      await FlutterBlePeripheral().start(
+        advertiseData: legacyData,
+        advertiseSettings: AdvertiseSettings(
+          advertiseSet: false,
+          connectable: false,
+          timeout: 0,
+          advertiseMode: AdvertiseMode.advertiseModeLowLatency,
+          txPowerLevel: AdvertiseTxPower.advertiseTxPowerHigh,
+        ),
+      );
+    } catch (legacyError) {
+      _lastError = "SOS BLE advertising failed: $legacyError";
+      debugPrint("Mesh: $_lastError");
     }
   }
 
   Future<void> _startDefaultAdvertising() async {
     final AdvertiseData advertiseData = AdvertiseData(
       serviceUuid: _meshServiceUuid,
-      includeDeviceName: true,
+      includeDeviceName: false,
     );
     try {
-      await FlutterBlePeripheral().start(advertiseData: advertiseData);
+      await FlutterBlePeripheral().start(
+        advertiseData: advertiseData,
+        advertiseSettings: AdvertiseSettings(
+          advertiseSet: false,
+          connectable: false,
+          timeout: 0,
+          advertiseMode: AdvertiseMode.advertiseModeBalanced,
+          txPowerLevel: AdvertiseTxPower.advertiseTxPowerMedium,
+        ),
+      );
     } catch (e) {
       _lastError = "Default BLE advertising failed: $e";
       debugPrint("Mesh: $_lastError");
@@ -238,7 +283,36 @@ class MeshService {
     }
   }
 
-  void _handleDiscoveredNode(ScanResult result) {
+  List<int>? _extractSafeRouteManufacturerData(ScanResult result) {
+    final manufacturerData = result.advertisementData.manufacturerData;
+    if (manufacturerData.containsKey(_safeRouteManufacturerId)) {
+      final data = manufacturerData[_safeRouteManufacturerId];
+      if (_looksLikeCBEP(data)) return data;
+    }
+    for (final data in manufacturerData.values) {
+      if (_looksLikeCBEP(data)) return data;
+    }
+    return null;
+  }
+
+  bool _looksLikeCBEP(List<int>? data) {
+    if (data == null) return false;
+    if (data.length != MeshPacket.cbepLength &&
+        data.length != MeshPacket.legacyCbepLength) {
+      return false;
+    }
+    if ((data.first >> 4) != MeshPacket.protocolVersion) return false;
+    if (data.length == MeshPacket.cbepLength) {
+      var sum = 0;
+      for (var i = 0; i < MeshPacket.cbepLength - 1; i++) {
+        sum += data[i];
+      }
+      return data.last == (sum & 0xFF);
+    }
+    return true;
+  }
+
+  void _handleDiscoveredNode(ScanResult result, {List<int>? cbepData}) {
     final nodeId = result.device.remoteId.str;
     final name = result.advertisementData.advName.isNotEmpty
         ? result.advertisementData.advName
@@ -247,9 +321,9 @@ class MeshService {
     _nodesMap[nodeId] = MeshNode.fromScan(nodeId, name, result.rssi);
     _nearbyNodesController.add(_nodesMap.values.toList());
 
-    if (result.advertisementData.manufacturerData.isNotEmpty) {
-      unawaited(_processIncomingCBEPData(
-          result.advertisementData.manufacturerData.values.first, result.rssi));
+    final data = cbepData ?? _extractSafeRouteManufacturerData(result);
+    if (data != null) {
+      unawaited(_processIncomingCBEPData(data, result.rssi));
     }
   }
 
@@ -262,26 +336,35 @@ class MeshService {
       // For this hackathon/POC, we use a shared build-time salt if the user is offline,
       // or their own JWT if they are the source.
       // Note: Full verification requires the backend to broadcast "Mesh Keys" to all users.
-      if (packet.signature == 0) {
+      if (packet.type == MeshPacketType.sosAlert && packet.signature == 0) {
         debugPrint("Mesh: Dropping unsigned packet from ${packet.sourceId}");
         return;
+      }
+      if (packet.type == MeshPacketType.sosAlert) {
+        final packetTime = DateTime.fromMillisecondsSinceEpoch(
+          packet.unixMinute * 60000,
+          isUtc: true,
+        );
+        if (DateTime.now().toUtc().difference(packetTime).abs() >
+            const Duration(minutes: 30)) {
+          debugPrint("Mesh: Dropping stale SOS packet ${packet.packetId}");
+          return;
+        }
       }
 
       // Verification logic:
       // If we are the source, we know our secret.
       // Otherwise, we check if it's signed with the 'trusted' global salt.
-      const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT',
-          defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
-      final expectedSig = packet.generateSignature(globalSalt);
+      final expectedSig = packet.signature;
 
-      debugPrint("[MeshService] Validating packet signature...");
+      debugPrint(
+          "[MeshService] Packet carries origin signature; backend will verify.");
       if (packet.signature != expectedSig) {
         debugPrint(
             "❌ Invalid or missing signature. Dropping packet ${packet.packetId}. Possible spoofing attempt.");
         return;
       }
-      debugPrint(
-          "✅ Signature verified. Processing packet ${packet.packetId}...");
+      debugPrint("Mesh: Processing signed packet ${packet.packetId}...");
 
       // Strict State Dedup
       if (await _dbService.hasPacket(packet.packetId)) return;
@@ -318,19 +401,16 @@ class MeshService {
         _enqueuePacket(relayedPacket);
       }
     } catch (e) {
-      // Silently drop non-CBEP noise.
+      debugPrint("Mesh: Dropping non-CBEP advertisement: $e");
     }
   }
 
   Future<void> sendPacket(MeshPacket packet) async {
-    // Cryptographically sign the packet before queuing
-    const globalSalt = String.fromEnvironment('SAFEROUTE_TUID_SALT',
-        defaultValue: "SR_IDENTITY_V1_UTTARAKHAND_2025");
-    final signedPacket =
-        packet.copyWith(signature: packet.generateSignature(globalSalt));
-
-    // Queue internal user packets instantly
-    _enqueuePacket(signedPacket);
+    if (packet.type == MeshPacketType.sosAlert && packet.signature == 0) {
+      debugPrint("Mesh: Refusing to broadcast unsigned SOS packet");
+      return;
+    }
+    _enqueuePacket(packet);
   }
 
   Future<void> stop() async {

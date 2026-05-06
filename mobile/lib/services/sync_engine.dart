@@ -11,6 +11,7 @@ import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
 import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/core/service_locator.dart';
+import 'package:uuid/uuid.dart';
 
 /// Sync operation priority levels
 enum SyncPriority { critical, high, normal, low }
@@ -261,11 +262,26 @@ class SyncEngine {
           op.payload['longitude'],
           op.payload['triggerType'],
           touristId: op.payload['touristId'],
+          idempotencyKey: op.payload['idempotencyKey'],
+          timestamp: op.payload['timestamp'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(op.payload['timestamp'])
+              : null,
         );
+        if (result.accepted && op.payload['localId'] != null) {
+          await _db.markSosAccepted(
+            op.payload['localId'],
+            serverSosId: result.sosId,
+            deliveryState: result.deliveryState,
+          );
+        }
         return result.accepted;
 
       case SyncOperationType.locationPing:
-        return await _api.sendLocationPing(LocationPing.fromMap(op.payload));
+        final success = await _api.sendLocationPing(LocationPing.fromMap(op.payload));
+        if (success && op.payload['id'] != null) {
+          await _db.markPingSynced(op.payload['id']);
+        }
+        return success;
 
       case SyncOperationType.touristIdentity:
         await _api.registerTouristMultipart(
@@ -453,15 +469,20 @@ class SyncEngine {
   Future<void> _enqueueSosEvents(String touristId) async {
     final events = await _db.getUnsyncedSosEvents();
     for (final event in events) {
+      final idempotencyKey =
+          event['idempotencyKey']?.toString() ?? const Uuid().v4();
       await enqueue(SyncOperation(
         id: 'sos_${event['id']}',
         type: SyncOperationType.sosEvent,
         priority: SyncPriority.critical,
         payload: {
+          'localId': event['id'],
           'latitude': event['latitude'],
           'longitude': event['longitude'],
           'triggerType': event['triggerType'],
           'touristId': touristId,
+          'idempotencyKey': idempotencyKey,
+          'timestamp': event['timestamp'],
         },
       ));
     }

@@ -24,7 +24,7 @@ void main() {
       expect(deserialized.type, packet.type);
       expect(deserialized.lat, 28.6);
       expect(deserialized.lng, 77.2);
-      expect(deserialized.hopCount, 3); // Default hop count
+      expect(deserialized.hopCount, 5); // Default hop count
     });
 
     test('MeshPacket copyWith hopCount logic', () {
@@ -41,6 +41,50 @@ void main() {
       expect(relayedPacket.packetId,
           packet.packetId); // MUST be same ID so caching prevents loops
       expect(relayedPacket.hopCount, 2);
+    });
+
+    test('CBEP v3 full packet preserves relay fields', () {
+      final packet = MeshPacket.signedSos(
+        originTuid: 'TID-2026-UK-AB8E8',
+        meshSecret: 'test-secret',
+        keyVersion: 7,
+        idempotencyKey: 'field-test-001',
+        lat: 30.733312,
+        lng: 79.066671,
+      );
+
+      final decoded = MeshPacket.fromCBEPBytes(packet.toCBEPBytes());
+
+      expect(decoded.type, MeshPacketType.sosAlert);
+      expect(decoded.keyVersion, 7);
+      expect(decoded.tuidSuffix, 'B8E8');
+      expect(decoded.idempotencyHashHex, packet.idempotencyHashHex);
+      expect(decoded.signatureByteLength, 4);
+      expect(decoded.toRelayPayload()['origin_signature'], hasLength(8));
+    });
+
+    test('legacy CBEP fallback fits old Android BLE advertising', () {
+      final packet = MeshPacket.signedSos(
+        originTuid: 'TID-2026-UK-FEAE5',
+        meshSecret: 'test-secret',
+        keyVersion: 3,
+        idempotencyKey: 'field-test-legacy-001',
+        lat: 30.733312,
+        lng: 79.066671,
+      );
+
+      final bytes = packet.toLegacyCBEPBytes();
+      final decoded = MeshPacket.fromCBEPBytes(bytes);
+
+      expect(bytes, hasLength(MeshPacket.legacyCbepLength));
+      expect(decoded.type, MeshPacketType.sosAlert);
+      expect(decoded.keyVersion, 3);
+      expect(decoded.tuidSuffix, 'EAE5');
+      expect(decoded.idempotencyHashHex, packet.idempotencyHashHex);
+      expect(decoded.signatureByteLength, 3);
+      expect(decoded.toRelayPayload()['origin_signature'], hasLength(6));
+      expect(decoded.lat, closeTo(30.7333, 0.0001));
+      expect(decoded.lng, closeTo(79.0667, 0.0001));
     });
   });
 

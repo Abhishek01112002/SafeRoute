@@ -1,5 +1,9 @@
 # app/routes/authority.py
+import datetime
+import uuid
+
 from fastapi import APIRouter, HTTPException, Depends, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db import crud
@@ -8,9 +12,46 @@ from app.services.redis_service import cache_get_json, cache_set
 from app.services.minio_service import minio_service
 from app.services.identity_service import is_legacy_tourist_id, verify_tuid_format
 from app.core import limiter
+from app.models.database import AuthorityDevice
+from app.models.schemas import AuthorityDeviceRegister
 from typing import Optional
 
 router = APIRouter()
+
+
+@router.post("/devices")
+async def register_authority_device(
+    payload: AuthorityDeviceRegister,
+    authority_id: str = Depends(get_current_authority),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register or refresh an authority FCM token for SOS push dispatch."""
+    token = payload.fcm_token.strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="fcm_token is required")
+
+    existing = (
+        await db.execute(
+            select(AuthorityDevice).where(
+                AuthorityDevice.authority_id == authority_id,
+                AuthorityDevice.fcm_token == token,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.platform = payload.platform or existing.platform
+        existing.last_seen_at = datetime.datetime.now()
+        return {"status": "updated", "device_id": existing.id}
+
+    device = AuthorityDevice(
+        id=str(uuid.uuid4()),
+        authority_id=authority_id,
+        fcm_token=token,
+        platform=payload.platform,
+    )
+    db.add(device)
+    await db.flush()
+    return {"status": "registered", "device_id": device.id}
 
 @router.get("/scan/{scanned_id}")
 @limiter.limit("30/minute")

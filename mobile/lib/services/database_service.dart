@@ -25,7 +25,7 @@ class DatabaseService {
     final String path = join(await getDatabasesPath(), 'saferoute_v2.db');
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,7 +83,10 @@ class DatabaseService {
         longitude REAL,
         timestamp INTEGER,
         triggerType TEXT,
-        isSynced INTEGER
+        isSynced INTEGER,
+        idempotencyKey TEXT,
+        serverSosId INTEGER,
+        deliveryState TEXT
       )
     ''');
 
@@ -153,6 +156,8 @@ class DatabaseService {
         'CREATE INDEX IF NOT EXISTS idx_ping_tourist ON location_pings(touristId, timestamp)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_sos_sync ON sos_events(isSynced)');
+    await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_idempotency ON sos_events(idempotencyKey)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_mesh_timestamp ON mesh_packets(timestamp)');
   }
@@ -228,6 +233,24 @@ class DatabaseService {
     }
     if (oldVersion < 10) {
       await _migrateGeofenceToZones(db);
+    }
+    if (oldVersion < 11) {
+      await _migrateSosIdempotency(db);
+    }
+  }
+
+  Future<void> _migrateSosIdempotency(Database db) async {
+    for (final ddl in [
+      'ALTER TABLE sos_events ADD COLUMN idempotencyKey TEXT',
+      'ALTER TABLE sos_events ADD COLUMN serverSosId INTEGER',
+      'ALTER TABLE sos_events ADD COLUMN deliveryState TEXT',
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_idempotency ON sos_events(idempotencyKey)',
+    ]) {
+      try {
+        await db.execute(ddl);
+      } catch (_) {
+        // Column/index already exists on upgraded beta builds.
+      }
     }
   }
 
@@ -454,22 +477,27 @@ class DatabaseService {
   }
 
   // SOS Events Table Methods
-  Future<void> saveSosEvent({
+  Future<int> saveSosEvent({
     required String touristId,
     required double latitude,
     required double longitude,
     required String triggerType,
+    String? idempotencyKey,
+    DateTime? timestamp,
     bool isSynced = false,
   }) async {
     final db = await database;
-    await db.insert('sos_events', {
+    final eventTimestamp = timestamp ?? DateTime.now();
+    return await db.insert('sos_events', {
       'touristId': touristId,
       'latitude': latitude,
       'longitude': longitude,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'timestamp': eventTimestamp.millisecondsSinceEpoch,
       'triggerType': triggerType,
       'isSynced': isSynced ? 1 : 0,
-    });
+      'idempotencyKey': idempotencyKey,
+      'deliveryState': isSynced ? 'QUEUED' : 'LOCAL_PENDING',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<List<Map<String, dynamic>>> getUnsyncedSosEvents() async {
@@ -482,6 +510,24 @@ class DatabaseService {
     await db.update(
       'sos_events',
       {'isSynced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markSosAccepted(
+    int id, {
+    int? serverSosId,
+    String? deliveryState,
+  }) async {
+    final db = await database;
+    await db.update(
+      'sos_events',
+      {
+        'isSynced': 1,
+        if (serverSosId != null) 'serverSosId': serverSosId,
+        if (deliveryState != null) 'deliveryState': deliveryState,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );

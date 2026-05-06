@@ -10,9 +10,12 @@ import {
 } from 'lucide-react';
 import {
   POLL_INTERVAL_MS,
+  acknowledgeSos,
+  fetchSosDelivery,
   fetchSosEvents,
   getErrorMessage,
   respondToSos,
+  type SosDeliveryAudit,
   type SOSEvent,
 } from '../api';
 import './SOS.css';
@@ -33,6 +36,7 @@ const SOS = () => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
+  const [deliveryAudit, setDeliveryAudit] = useState<Record<number, SosDeliveryAudit>>({});
 
   const refreshEvents = useCallback(async (newOffset = 0) => {
     setRefreshing(true);
@@ -68,24 +72,65 @@ const SOS = () => {
     try {
       await respondToSos(id);
       setEvents((current) =>
-        current.map((event) => (event.id === id ? { ...event, status: 'RESOLVED' } : event)),
+        current.map((event) =>
+          event.id === id
+            ? { ...event, status: 'RESOLVED', incident_status: 'RESOLVED', dispatch_status: 'resolved' }
+            : event,
+        ),
       );
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     }
   };
 
+  const handleAcknowledge = async (id: number) => {
+    try {
+      await acknowledgeSos(id);
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === id
+            ? { ...event, status: 'ACKNOWLEDGED', incident_status: 'ACKNOWLEDGED' }
+            : event,
+        ),
+      );
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
+  };
+
+  const handleToggleAudit = async (id: number) => {
+    if (deliveryAudit[id]) {
+      setDeliveryAudit((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    try {
+      const audit = await fetchSosDelivery(id);
+      setDeliveryAudit((current) => ({ ...current, [id]: audit }));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
+  };
+
+  const isActiveIncident = (event: SOSEvent) =>
+    !['RESOLVED', 'EXPIRED_NO_DELIVERY', 'EXPIRED_NO_RESPONSE'].includes(
+      (event.incident_status || event.status || 'ACTIVE').toUpperCase(),
+    );
+
   const activeEvents = useMemo(
     () =>
       events
-        .filter((event) => event.status === 'ACTIVE')
+        .filter(isActiveIncident)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
     [events],
   );
   const resolvedEvents = useMemo(
     () =>
       events
-        .filter((event) => event.status !== 'ACTIVE')
+        .filter((event) => !isActiveIncident(event))
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     [events],
   );
@@ -139,11 +184,39 @@ const SOS = () => {
                         <UsersRound size={14} /> Group: {event.group_id || 'solo'}
                       </span>
                       <span>Trigger: {event.trigger_type}</span>
-                      <span>Dispatch: {event.dispatch_status || 'unknown'}</span>
+                      <span>Incident: {event.incident_status || event.status}</span>
+                      <span>Delivery: {event.delivery_state || 'PENDING'}</span>
+                      <span>Attempts: {event.attempt_count ?? 0}</span>
+                      <span>Last channel: {event.last_successful_channel || 'none yet'}</span>
                     </div>
-                    <button className="btn-danger" onClick={() => handleRespond(event.id)}>
-                      Initiate response
-                    </button>
+                    <div className="incident-actions">
+                      {event.incident_status !== 'ACKNOWLEDGED' && (
+                        <button className="btn-secondary" onClick={() => handleAcknowledge(event.id)}>
+                          Acknowledge
+                        </button>
+                      )}
+                      <button className="btn-secondary" onClick={() => handleToggleAudit(event.id)}>
+                        {deliveryAudit[event.id] ? 'Hide audit' : 'Audit'}
+                      </button>
+                      <button className="btn-danger" onClick={() => handleRespond(event.id)}>
+                        Resolve
+                      </button>
+                    </div>
+                    {deliveryAudit[event.id] && (
+                      <div className="audit-drawer">
+                        <strong>{deliveryAudit[event.id].event.message}</strong>
+                        {deliveryAudit[event.id].audit.length === 0 ? (
+                          <span>No delivery attempts recorded yet.</span>
+                        ) : (
+                          deliveryAudit[event.id].audit.slice(0, 8).map((row) => (
+                            <span key={row.audit_id}>
+                              {row.channel} - {row.status}
+                              {row.provider_status ? ` (${row.provider_status})` : ''}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -169,7 +242,7 @@ const SOS = () => {
                       <span>{event.trigger_type} - {new Date(event.timestamp).toLocaleString()}</span>
                       {event.group_id && <span>Group: {event.group_id}</span>}
                     </div>
-                    <span>{event.dispatch_status || 'unknown'}</span>
+                    <span>{event.incident_status || event.status}</span>
                   </div>
                 ))}
               </div>

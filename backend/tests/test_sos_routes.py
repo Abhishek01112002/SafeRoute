@@ -86,7 +86,7 @@ class TestSosTriggerValidation:
             payload = valid_sos_payload()
             payload["trigger_type"] = trigger_type
             resp = client.post("/sos/trigger", json=payload, headers=tourist_auth_header)
-            assert resp.status_code == 200, (
+            assert resp.status_code == 202, (
                 f"trigger_type={trigger_type} should be valid, got {resp.status_code}: {resp.text}"
             )
 
@@ -114,15 +114,20 @@ class TestSosTriggerValidation:
 class TestSosTriggerHappyPath:
     """Successful SOS trigger."""
 
-    def test_sos_trigger_valid_returns_200(self, client, tourist_auth_header):
+    def test_sos_trigger_valid_returns_202(self, client, tourist_auth_header):
         resp = client.post(
             "/sos/trigger",
             json=valid_sos_payload(),
             headers=tourist_auth_header,
         )
-        assert resp.status_code == 200, (
-            f"Expected 200 for valid SOS trigger, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 202, (
+            f"Expected 202 for valid SOS trigger, got {resp.status_code}: {resp.text}"
         )
+        body = resp.json()
+        assert body["status"] == "queued"
+        assert body["delivery_state"] == "PENDING"
+        assert "queue_id" in body
+        assert "status_url" in body
 
     def test_sos_trigger_response_has_status_field(self, client, tourist_auth_header):
         resp = client.post(
@@ -130,9 +135,20 @@ class TestSosTriggerHappyPath:
             json=valid_sos_payload(),
             headers=tourist_auth_header,
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         body = resp.json()
         assert "status" in body, f"Response missing 'status' field: {body}"
+
+    def test_sos_trigger_idempotency_returns_existing_incident(self, client, tourist_auth_header):
+        payload = valid_sos_payload()
+        payload["idempotency_key"] = "test-idempotency-key-1"
+        first = client.post("/sos/trigger", json=payload, headers=tourist_auth_header)
+        second = client.post("/sos/trigger", json=payload, headers=tourist_auth_header)
+
+        assert first.status_code == 202
+        assert second.status_code == 202
+        assert second.json()["sos_id"] == first.json()["sos_id"]
+        assert second.json()["queue_id"] == first.json()["queue_id"]
 
     def test_sos_trigger_response_has_tourist_id(self, client, tourist_auth_header):
         resp = client.post(
@@ -140,7 +156,7 @@ class TestSosTriggerHappyPath:
             json=valid_sos_payload(),
             headers=tourist_auth_header,
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         body = resp.json()
         assert "tourist_id" in body, f"Response missing 'tourist_id': {body}"
         assert body["tourist_id"] == TEST_TOURIST_ID
@@ -151,7 +167,7 @@ class TestSosTriggerHappyPath:
             json=valid_sos_payload(),
             headers=tourist_auth_header,
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         body = resp.json()
         assert "timestamp" in body, f"Response missing 'timestamp': {body}"
 
@@ -161,4 +177,4 @@ class TestSosTriggerHappyPath:
         payload["latitude"] = 30.3165
         payload["longitude"] = 78.0322
         resp = client.post("/sos/trigger", json=payload, headers=tourist_auth_header)
-        assert resp.status_code == 200
+        assert resp.status_code == 202

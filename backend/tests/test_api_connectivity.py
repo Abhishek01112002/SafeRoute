@@ -245,8 +245,8 @@ class TestSOSEndpoints:
                 "timestamp": datetime.datetime.now().isoformat(),
             }
         )
-        # Should accept the trigger (200 or 201) or return 500 if foreign key still fails
-        assert response.status_code in [200, 201, 500], f"Status: {response.status_code}: {response.text}"
+        # Queue-first SOS accepts durably with 202.
+        assert response.status_code in [202, 500], f"Status: {response.status_code}: {response.text}"
     
     def test_get_sos_events(self, client):
         """Test getting SOS events"""

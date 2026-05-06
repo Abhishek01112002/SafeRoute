@@ -8,6 +8,9 @@ class SecureStorageService {
   static const String _tokenKey = 'saferoute_jwt_token';
   static const String _refreshTokenKey = 'saferoute_refresh_token';
   static const String _touristIdKey = 'saferoute_tourist_id';
+  static const String _tuidKey = 'saferoute_tuid';
+  static const String _meshSecretKey = 'saferoute_mesh_secret';
+  static const String _meshKeyVersionKey = 'saferoute_mesh_key_version';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -130,6 +133,59 @@ class SecureStorageService {
     }
   }
 
+  Future<void> saveTuid(String tuid) async {
+    try {
+      await _storage.write(key: _tuidKey, value: tuid);
+      debugPrint('âœ… TUID saved');
+    } catch (e) {
+      debugPrint('âŒ Error saving TUID: $e');
+    }
+  }
+
+  Future<String?> getTuid() async {
+    try {
+      return await _storage.read(key: _tuidKey);
+    } catch (e) {
+      debugPrint('âŒ Error retrieving TUID: $e');
+      return null;
+    }
+  }
+
+  Future<void> saveMeshKey({
+    required String meshSecret,
+    required int keyVersion,
+  }) async {
+    try {
+      await _storage.write(key: _meshSecretKey, value: meshSecret);
+      await _storage.write(
+        key: _meshKeyVersionKey,
+        value: keyVersion.toString(),
+      );
+      debugPrint('âœ… Mesh key saved');
+    } catch (e) {
+      debugPrint('âŒ Error saving mesh key: $e');
+    }
+  }
+
+  Future<String?> getMeshSecret() async {
+    try {
+      return await _storage.read(key: _meshSecretKey);
+    } catch (e) {
+      debugPrint('âŒ Error retrieving mesh secret: $e');
+      return null;
+    }
+  }
+
+  Future<int?> getMeshKeyVersion() async {
+    try {
+      final raw = await _storage.read(key: _meshKeyVersionKey);
+      return raw == null ? null : int.tryParse(raw);
+    } catch (e) {
+      debugPrint('âŒ Error retrieving mesh key version: $e');
+      return null;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // CLEAR / RECOVERY
   // -------------------------------------------------------------------------
@@ -140,6 +196,9 @@ class SecureStorageService {
       await _storage.delete(key: _tokenKey);
       await _storage.delete(key: _refreshTokenKey);
       await _storage.delete(key: _touristIdKey);
+      await _storage.delete(key: _tuidKey);
+      await _storage.delete(key: _meshSecretKey);
+      await _storage.delete(key: _meshKeyVersionKey);
       debugPrint('✅ Auth data cleared');
     } catch (e) {
       debugPrint('❌ Error clearing auth data: $e');

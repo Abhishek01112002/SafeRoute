@@ -60,6 +60,15 @@ async def _get_tourist(db: AsyncSession, tourist_id: str) -> Tourist:
     return tourist
 
 
+def _active_group_conflict_detail(group: TouristGroup) -> dict:
+    return {
+        "error": "Tourist already has an active group",
+        "active_group_id": group.group_id,
+        "active_invite_code": group.invite_code,
+        "active_group_name": group.name,
+    }
+
+
 async def _generate_invite_code(db: AsyncSession) -> str:
     for _ in range(100):
         code = "".join(random.choice(_invite_alphabet) for _ in range(INVITE_CODE_LENGTH))
@@ -146,7 +155,7 @@ async def create_group(
 ) -> dict:
     existing = await get_active_group_for_tourist(db, tourist_id)
     if existing:
-        raise HTTPException(status_code=409, detail="Tourist already has an active group")
+        raise HTTPException(status_code=409, detail=_active_group_conflict_detail(existing))
 
     tourist = await _get_tourist(db, tourist_id)
     now = _now()
@@ -214,7 +223,7 @@ async def join_group(
 
     existing_active = await get_active_group_for_tourist(db, tourist_id)
     if existing_active and existing_active.group_id != group.group_id:
-        raise HTTPException(status_code=409, detail="Tourist already has an active group")
+        raise HTTPException(status_code=409, detail=_active_group_conflict_detail(existing_active))
 
     active_member = await get_active_member(db, group.group_id, tourist_id)
     if active_member:

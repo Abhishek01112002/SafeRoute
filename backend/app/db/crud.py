@@ -2,11 +2,22 @@
 import json
 from types import SimpleNamespace
 from typing import List, Optional
-from sqlalchemy import select, delete, func, text, and_
+from sqlalchemy import select, delete, func, text, and_, or_
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.models.database import Tourist, TouristDestination, Authority, SOSEvent, LocationPing, AuthorityScanLog, Destination, Zone
+from app.models.database import (
+    Tourist,
+    TouristDestination,
+    Authority,
+    SOSEvent,
+    SOSDispatchQueue,
+    SOSDeliveryAudit,
+    LocationPing,
+    AuthorityScanLog,
+    Destination,
+    Zone,
+)
 from app.models import schemas
 from app.db import sqlite_legacy
 from app.config import settings
@@ -547,10 +558,15 @@ async def get_dashboard_metrics(db: AsyncSession) -> dict:
     ) or 0
     tourist_count = await db.scalar(select(func.count()).select_from(Tourist)) or 0
     active_sos = await db.scalar(
-        select(func.count()).select_from(SOSEvent).where(SOSEvent.is_synced == False)
+        select(func.count()).select_from(SOSEvent).where(
+            or_(
+                SOSEvent.incident_status.is_(None),
+                SOSEvent.incident_status.notin_(["RESOLVED", "EXPIRED_NO_DELIVERY", "EXPIRED_NO_RESPONSE"]),
+            )
+        )
     ) or 0
     resolved_sos = await db.scalar(
-        select(func.count()).select_from(SOSEvent).where(SOSEvent.is_synced == True)
+        select(func.count()).select_from(SOSEvent).where(SOSEvent.incident_status == "RESOLVED")
     ) or 0
 
     return {
@@ -682,14 +698,14 @@ async def get_dashboard_analytics(db: AsyncSession) -> dict:
 
     sos_status_rows = (
         await db.execute(
-            select(SOSEvent.is_synced, func.count())
+            select(SOSEvent.incident_status, func.count())
             .select_from(SOSEvent)
-            .group_by(SOSEvent.is_synced)
+            .group_by(SOSEvent.incident_status)
         )
     ).all()
-    sos_by_status = {"ACTIVE": 0, "RESOLVED": 0}
-    for is_synced, count in sos_status_rows:
-        sos_by_status["RESOLVED" if is_synced else "ACTIVE"] = count
+    sos_by_status = {"ACTIVE": 0, "ACKNOWLEDGED": 0, "ESCALATED": 0, "RESOLVED": 0}
+    for status, count in sos_status_rows:
+        sos_by_status[str(status or "ACTIVE")] = count
 
     sos_trigger_rows = (
         await db.execute(
@@ -743,7 +759,7 @@ async def get_dashboard_analytics(db: AsyncSession) -> dict:
                 "tourist_id": event.tourist_id,
                 "tuid": event.tuid,
                 "label": f"{event.trigger_type} SOS",
-                "status": "RESOLVED" if event.is_synced else "ACTIVE",
+                "status": event.incident_status or ("RESOLVED" if event.is_synced else "ACTIVE"),
                 "timestamp": _isoformat(event.timestamp),
             }
         )
@@ -962,6 +978,71 @@ async def create_location_ping(db: AsyncSession, ping_in: schemas.LocationPing) 
     db.add(new_ping)
 
 
+def _sos_incident_status(event: SOSEvent) -> str:
+    return event.incident_status or ("RESOLVED" if event.is_synced else "ACTIVE")
+
+
+async def _sos_queue_maps(db: AsyncSession, event_ids: list[int]) -> tuple[dict[int, SOSDispatchQueue], dict[int, str]]:
+    if not event_ids:
+        return {}, {}
+
+    queues = (
+        await db.execute(
+            select(SOSDispatchQueue)
+            .where(SOSDispatchQueue.sos_event_id.in_(event_ids))
+            .order_by(SOSDispatchQueue.created_at.desc())
+        )
+    ).scalars().all()
+    queue_by_event: dict[int, SOSDispatchQueue] = {}
+    for queue in queues:
+        queue_by_event.setdefault(queue.sos_event_id, queue)
+
+    success_rows = (
+        await db.execute(
+            select(SOSDeliveryAudit)
+            .where(
+                SOSDeliveryAudit.sos_event_id.in_(event_ids),
+                SOSDeliveryAudit.status == "SUCCESS",
+                SOSDeliveryAudit.channel.notin_(["QUEUE"]),
+            )
+            .order_by(SOSDeliveryAudit.timestamp.desc())
+        )
+    ).scalars().all()
+    last_success_by_event: dict[int, str] = {}
+    for row in success_rows:
+        last_success_by_event.setdefault(row.sos_event_id, row.channel)
+
+    return queue_by_event, last_success_by_event
+
+
+def _sos_event_dict(
+    event: SOSEvent,
+    queue: Optional[SOSDispatchQueue] = None,
+    last_successful_channel: Optional[str] = None,
+) -> dict:
+    return {
+        "id": event.id,
+        "tourist_id": event.tourist_id,
+        "tuid": event.tuid,
+        "latitude": event.latitude,
+        "longitude": event.longitude,
+        "trigger_type": event.trigger_type,
+        "source": event.source,
+        "group_id": event.group_id,
+        "dispatch_status": event.dispatch_status,
+        "delivery_state": queue.state if queue else event.delivery_state,
+        "incident_status": _sos_incident_status(event),
+        "status": _sos_incident_status(event),
+        "attempt_count": queue.attempt_count if queue else 0,
+        "last_successful_channel": last_successful_channel,
+        "acknowledged_at": _isoformat(event.acknowledged_at),
+        "acknowledged_by": event.acknowledged_by,
+        "resolved_at": _isoformat(event.resolved_at),
+        "relayed_by_tourist_id": event.relayed_by_tourist_id,
+        "timestamp": _isoformat(event.timestamp),
+    }
+
+
 async def get_sos_events_for_tourist(db: AsyncSession, tourist_id: str, limit: int = 50, offset: int = 0) -> List[dict]:
     result = await db.execute(
         select(SOSEvent)
@@ -971,18 +1052,9 @@ async def get_sos_events_for_tourist(db: AsyncSession, tourist_id: str, limit: i
         .offset(offset)
     )
     events = result.scalars().all()
+    queue_by_event, last_success_by_event = await _sos_queue_maps(db, [e.id for e in events])
     return [
-        {
-            "id": e.id,
-            "tourist_id": e.tourist_id,
-            "tuid": e.tuid,
-            "latitude": e.latitude,
-            "longitude": e.longitude,
-            "trigger_type": e.trigger_type,
-            "group_id": e.group_id,
-            "dispatch_status": e.dispatch_status,
-            "timestamp": e.timestamp.isoformat(),
-        }
+        _sos_event_dict(e, queue_by_event.get(e.id), last_success_by_event.get(e.id))
         for e in events
     ]
 
@@ -996,19 +1068,9 @@ async def get_sos_events_paginated(db: AsyncSession, limit: int = 50, offset: in
         .offset(offset)
     )
     events = result.scalars().all()
+    queue_by_event, last_success_by_event = await _sos_queue_maps(db, [e.id for e in events])
     return [
-        {
-            "id": e.id,
-            "tourist_id": e.tourist_id,
-            "tuid": e.tuid,
-            "latitude": e.latitude,
-            "longitude": e.longitude,
-            "trigger_type": e.trigger_type,
-            "group_id": e.group_id,
-            "dispatch_status": e.dispatch_status,
-            "status": "RESOLVED" if e.is_synced else "ACTIVE", # Logic mapping for dashboard
-            "timestamp": e.timestamp.isoformat(),
-        }
+        _sos_event_dict(e, queue_by_event.get(e.id), last_success_by_event.get(e.id))
         for e in events
     ]
 

@@ -18,6 +18,7 @@ import 'package:saferoute/core/service_locator.dart';
 import 'package:saferoute/core/utils/result.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:uuid/uuid.dart';
 
 enum SosDeliveryChannel { api, localFallback, meshRelay }
 
@@ -50,6 +51,17 @@ class SosRepository {
     required bool isOnline,
     String triggerType = 'MANUAL',
   }) async {
+    final idempotencyKey = const Uuid().v4();
+    final timestamp = DateTime.now();
+    final localId = await _db.saveSosEvent(
+      touristId: touristId,
+      latitude: lat,
+      longitude: lng,
+      triggerType: triggerType,
+      idempotencyKey: idempotencyKey,
+      timestamp: timestamp,
+    );
+
     if (isOnline) {
       try {
         final sosResult = await _api.triggerSosAlert(
@@ -57,7 +69,16 @@ class SosRepository {
           lng,
           triggerType,
           touristId: touristId,
+          idempotencyKey: idempotencyKey,
+          timestamp: timestamp,
         );
+        if (sosResult.accepted && localId > 0) {
+          await _db.markSosAccepted(
+            localId,
+            serverSosId: sosResult.sosId,
+            deliveryState: sosResult.deliveryState,
+          );
+        }
 
         debugPrint('[SosRepository] API delivery: ${sosResult.status}');
 
@@ -65,8 +86,8 @@ class SosRepository {
           delivered: sosResult.accepted,
           channel: SosDeliveryChannel.api,
           statusMessage: sosResult.dispatched
-              ? 'RESCUE TEAM HAS BEEN NOTIFIED'
-              : 'ALERT STORED. TRY CALLING 112.',
+              ? 'Rescue network notified.'
+              : 'SOS queued securely.',
         ));
       } catch (e) {
         // API failed — fall through to local save
@@ -76,13 +97,6 @@ class SosRepository {
 
     // Offline or API failure — save locally for later sync
     try {
-      await _db.saveSosEvent(
-        touristId: touristId,
-        latitude: lat,
-        longitude: lng,
-        triggerType: triggerType,
-      );
-
       return const Success(SosDeliveryResult(
         delivered: false,
         channel: SosDeliveryChannel.localFallback,

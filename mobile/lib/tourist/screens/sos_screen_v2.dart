@@ -16,6 +16,7 @@ import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:saferoute/core/service_locator.dart';
+import 'package:uuid/uuid.dart';
 
 class SOSScreenV2 extends StatefulWidget {
   const SOSScreenV2({super.key});
@@ -29,6 +30,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   late final AnimationController _holdController;
   late final AnimationController _pulseController;
   Timer? _hapticTicker;
+  Timer? _statusPollTimer;
+  int _statusPollAttempt = 0;
 
   bool _isActivated = false;
   bool _isTriggering = false;
@@ -36,7 +39,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   double _holdProgress = 0;
   final int _requiredHoldMs = 3000;
 
-  String _sosDeliveryMessage = 'HELP IS BEING DISPATCHED';
+  String _sosHeadline = 'SOS QUEUED SECURELY';
+  String _sosDeliveryMessage = 'SafeRoute is reaching authorities.';
 
   @override
   void initState() {
@@ -69,6 +73,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   @override
   void dispose() {
     _stopHapticTicker();
+    _statusPollTimer?.cancel();
     _holdController.dispose();
     _pulseController.dispose();
     super.dispose();
@@ -174,9 +179,9 @@ class _SOSScreenV2State extends State<SOSScreenV2>
           children: [
             const _ActivatedVisual(),
             const SizedBox(height: 24),
-            const Text(
-              'HELP IS COMING',
-              style: TextStyle(
+            Text(
+              _sosHeadline,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
                 fontSize: 28,
@@ -212,6 +217,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
               borderColor: Colors.white30,
               borderOpacity: 0.3,
               onTap: () {
+                _statusPollTimer?.cancel();
                 setState(() => _isActivated = false);
                 _resetHoldVisuals();
               },
@@ -330,7 +336,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     final effectiveUserId =
         isGuest ? touristProv.guestSessionId! : tourist!.touristId;
 
-    locator<AnalyticsService>().logEvent(AnalyticsEvent.sosTriggered, properties: {
+    locator<AnalyticsService>()
+        .logEvent(AnalyticsEvent.sosTriggered, properties: {
       'user_state': touristProv.userState.name,
       'is_online': touristProv.isOnline,
     });
@@ -338,7 +345,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     setState(() {
       _isTriggering = true;
       _isActivated = true;
-      _sosDeliveryMessage = 'CONTACTING EMERGENCY NETWORK';
+      _sosHeadline = 'SOS QUEUED SECURELY';
+      _sosDeliveryMessage = 'Saving your SOS before contacting the network.';
     });
     unawaited(HapticFeedback.heavyImpact());
 
@@ -369,6 +377,16 @@ class _SOSScreenV2State extends State<SOSScreenV2>
 
     final api = locator<ApiService>();
     final db = locator<DatabaseService>();
+    final idempotencyKey = const Uuid().v4();
+    final sosTimestamp = DateTime.now();
+    final localSosId = await db.saveSosEvent(
+      touristId: effectiveUserId,
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      triggerType: 'MANUAL',
+      idempotencyKey: idempotencyKey,
+      timestamp: sosTimestamp,
+    );
 
     try {
       if (touristProv.isOnline) {
@@ -377,53 +395,76 @@ class _SOSScreenV2State extends State<SOSScreenV2>
           pos.longitude,
           'MANUAL',
           touristId: effectiveUserId,
+          idempotencyKey: idempotencyKey,
+          timestamp: sosTimestamp,
         );
+        if (result.accepted && localSosId > 0) {
+          await db.markSosAccepted(
+            localSosId,
+            serverSosId: result.sosId,
+            deliveryState: result.deliveryState,
+          );
+        }
         if (mounted) {
           setState(() {
-            _sosDeliveryMessage = result.dispatched
-                ? 'RESCUE TEAM HAS BEEN NOTIFIED'
-                : 'ALERT STORED. TRY CALLING 112.';
+            _sosHeadline = result.dispatched
+                ? 'RESCUE NETWORK NOTIFIED'
+                : 'SOS QUEUED SECURELY';
+            _sosDeliveryMessage = result.message ??
+                'SOS queued securely. SafeRoute is reaching authorities.';
           });
         }
+        if (result.sosId != null) {
+          _startStatusPolling(result.sosId!);
+        }
       } else {
-        await db.saveSosEvent(
-          touristId: effectiveUserId,
-          latitude: pos.latitude,
-          longitude: pos.longitude,
-          triggerType: 'MANUAL',
-        );
         if (mounted) {
           setState(() {
+            _sosHeadline = 'SOS SAVED OFFLINE';
             _sosDeliveryMessage =
-                'OFFLINE MODE: ALERT SAVED. MESH RELAY ATTEMPTING DELIVERY.';
+                'Saved on this device. BLE relay will keep broadcasting until sync confirms it.';
           });
         }
       }
     } catch (_) {
-      await db.saveSosEvent(
-        touristId: effectiveUserId,
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        triggerType: 'MANUAL',
-      );
       if (mounted) {
         setState(() {
-          _sosDeliveryMessage = 'NETWORK FAILED. ALERT SAVED ON DEVICE.';
+          _sosHeadline = 'SOS SAVED OFFLINE';
+          _sosDeliveryMessage =
+              'Network failed. The same SOS is saved for retry and BLE relay.';
         });
       }
     }
 
     try {
-      if (meshProv.isMeshActive) {
-        await meshProv.sendSosRelay(pos.latitude, pos.longitude);
+      if (!meshProv.isMeshActive) {
+        await meshProv.startMesh();
+      }
+      if (meshProv.canBroadcast) {
+        await meshProv.sendSosRelay(
+          pos.latitude,
+          pos.longitude,
+          idempotencyKey: idempotencyKey,
+          originTuid: tourist?.tuid,
+        );
         if (mounted) {
           setState(() {
             _sosDeliveryMessage = '$_sosDeliveryMessage MESH RELAY ACTIVE.';
           });
         }
+      } else if (mounted) {
+        setState(() {
+          _sosDeliveryMessage =
+              '$_sosDeliveryMessage BLE relay is not active: ${meshProv.statusMessage}';
+        });
       }
-    } catch (_) {
-      // Preserve existing behavior: mesh relay errors do not block SOS state.
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _sosDeliveryMessage =
+              '$_sosDeliveryMessage BLE relay could not start: $e';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -431,6 +472,43 @@ class _SOSScreenV2State extends State<SOSScreenV2>
         });
       }
     }
+  }
+
+  void _startStatusPolling(int sosId) {
+    _statusPollTimer?.cancel();
+    _statusPollAttempt = 0;
+    const delays = [2, 5, 10, 30, 60];
+    final api = locator<ApiService>();
+
+    void scheduleNext() {
+      final delaySeconds = delays[_statusPollAttempt < delays.length
+          ? _statusPollAttempt
+          : delays.length - 1];
+      _statusPollAttempt++;
+      _statusPollTimer = Timer(Duration(seconds: delaySeconds), () async {
+        try {
+          final status = await api.getSosStatus(sosId);
+          if (!mounted) return;
+          setState(() {
+            if (status.authorityAcknowledged) {
+              _sosHeadline = 'AUTHORITY ACKNOWLEDGED';
+            } else if (status.rescueNetworkNotified) {
+              _sosHeadline = 'RESCUE NETWORK NOTIFIED';
+            } else {
+              _sosHeadline = 'SOS QUEUED SECURELY';
+            }
+            _sosDeliveryMessage = status.message;
+          });
+          if (!status.authorityAcknowledged) {
+            scheduleNext();
+          }
+        } catch (_) {
+          if (mounted) scheduleNext();
+        }
+      });
+    }
+
+    scheduleNext();
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
