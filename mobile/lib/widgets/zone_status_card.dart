@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/utils/app_theme.dart';
-import 'package:saferoute/widgets/premium_widgets.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 
 class ZoneStatusCard extends StatelessWidget {
   final ZoneType status;
@@ -11,12 +11,13 @@ class ZoneStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _toneFor(status);
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
 
-    return EliteSurface(
+    return AppSurface(
       padding: EdgeInsets.zero,
-      color: Colors.white.withValues(alpha: 0.10),
+      color: theme.colorScheme.surface,
       borderColor: tone.primary.withValues(alpha: 0.50),
-      borderOpacity: 0.50,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOutCubic,
@@ -26,9 +27,9 @@ class ZoneStatusCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              tone.primary.withValues(alpha: 0.22),
-              Colors.white.withValues(alpha: 0.04),
-              Colors.black.withValues(alpha: 0.08),
+              tone.primary.withValues(alpha: 0.14),
+              theme.colorScheme.surface,
+              tone.primary.withValues(alpha: 0.05),
             ],
           ),
         ),
@@ -59,11 +60,11 @@ class ZoneStatusCard extends StatelessWidget {
                         tone.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: tone.primary,
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
-                          letterSpacing: 0.4,
+                          letterSpacing: 0,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -71,11 +72,11 @@ class ZoneStatusCard extends StatelessWidget {
                         tone.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: onSurface.withValues(alpha: 0.62),
                           fontWeight: FontWeight.w800,
-                          fontSize: 10,
-                          letterSpacing: 1.1,
+                          fontSize: 12,
+                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -88,9 +89,9 @@ class ZoneStatusCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               tone.description,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
+              style: TextStyle(
+                color: onSurface,
+                fontSize: 14,
                 height: 1.35,
                 fontWeight: FontWeight.w600,
               ),
@@ -109,8 +110,8 @@ class ZoneStatusCard extends StatelessWidget {
     switch (status) {
       case ZoneType.safe:
         return const _ZoneTone(
-          title: 'SECURE PERIMETER',
-          subtitle: 'AUTHORITY ZONE STATUS',
+          title: 'Secure perimeter',
+          subtitle: 'Authority zone status',
           description:
               'No active caution or restricted zone contains your current GPS point. Continue with normal awareness.',
           guidance: 'Stay on the planned trail',
@@ -119,8 +120,8 @@ class ZoneStatusCard extends StatelessWidget {
         );
       case ZoneType.caution:
         return const _ZoneTone(
-          title: 'CAUTION ZONE',
-          subtitle: 'AUTHORITY ZONE STATUS',
+          title: 'Caution zone',
+          subtitle: 'Authority zone status',
           description:
               'You are inside a moderate-risk area. Slow down, keep the group together, and follow navigation guidance.',
           guidance: 'Move toward a secure segment',
@@ -129,8 +130,8 @@ class ZoneStatusCard extends StatelessWidget {
         );
       case ZoneType.restricted:
         return const _ZoneTone(
-          title: 'RESTRICTED ZONE',
-          subtitle: 'AUTHORITY ZONE STATUS',
+          title: 'Restricted zone',
+          subtitle: 'Authority zone status',
           description:
               'You are inside a high-risk area. Retrace to the last safe point and use SOS if movement is not possible.',
           guidance: 'Retrace immediately',
@@ -139,8 +140,8 @@ class ZoneStatusCard extends StatelessWidget {
         );
       case ZoneType.syncing:
         return const _ZoneTone(
-          title: 'SYNCING ZONES',
-          subtitle: 'LOCAL CACHE + LIVE DATA',
+          title: 'Syncing zones',
+          subtitle: 'Local cache + live data',
           description:
               'Zone data is loading before the app confirms your perimeter. Treat the route as caution until synced.',
           guidance: 'Hold position while status updates',
@@ -163,7 +164,7 @@ class _ZoneStageRail extends StatelessWidget {
         Expanded(
           child: _ZoneStage(
             zone: ZoneType.safe,
-            label: 'SAFE',
+            label: 'Safe',
             currentStatus: status,
           ),
         ),
@@ -171,7 +172,7 @@ class _ZoneStageRail extends StatelessWidget {
         Expanded(
           child: _ZoneStage(
             zone: ZoneType.caution,
-            label: 'CAUTION',
+            label: 'Caution',
             currentStatus: status,
           ),
         ),
@@ -179,7 +180,7 @@ class _ZoneStageRail extends StatelessWidget {
         Expanded(
           child: _ZoneStage(
             zone: ZoneType.restricted,
-            label: 'RESTRICTED',
+            label: 'Restricted',
             currentStatus: status,
           ),
         ),
@@ -203,6 +204,8 @@ class _ZoneStage extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = currentStatus == zone;
     final color = _colorFor(zone);
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,7 +217,7 @@ class _ZoneStage extends StatelessWidget {
           decoration: BoxDecoration(
             color: active
                 ? color
-                : Colors.white.withValues(
+                : onSurface.withValues(
                     alpha: currentStatus == ZoneType.syncing ? 0.20 : 0.12,
                   ),
             borderRadius: BorderRadius.circular(999),
@@ -234,10 +237,10 @@ class _ZoneStage extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: active ? color : Colors.white54,
-            fontSize: 9,
+            color: active ? color : onSurface.withValues(alpha: 0.58),
+            fontSize: 12,
             fontWeight: FontWeight.w900,
-            letterSpacing: 0.6,
+            letterSpacing: 0,
           ),
         ),
       ],
@@ -265,13 +268,14 @@ class _ZoneGuidance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.18),
+        color: tone.primary.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: tone.primary.withValues(alpha: 0.24)),
       ),
       child: Row(
         children: [
@@ -282,9 +286,9 @@ class _ZoneGuidance extends StatelessWidget {
               tone.guidance,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -330,10 +334,10 @@ class _LiveBadge extends StatelessWidget {
             ),
           const SizedBox(width: 6),
           Text(
-            syncing ? 'SYNC' : 'LIVE',
+            syncing ? 'Sync' : 'Live',
             style: TextStyle(
               color: color,
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
             ),
           ),

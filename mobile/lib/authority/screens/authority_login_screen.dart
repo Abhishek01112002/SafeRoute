@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/authority/screens/authority_dashboard_screen.dart';
+import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/utils/validators.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/loading_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:saferoute/core/service_locator.dart';
@@ -122,85 +124,108 @@ class _AuthorityLoginScreenState extends State<AuthorityLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(title: const Text("Authority Login")),
-          body: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.security, size: 80, color: Colors.blueGrey),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: "Official Email", border: OutlineInputBorder()),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return "Required";
-                      return Validators.validateEmail(value);
-                    },
-                    onSaved: (v) => _email = v!,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: "Password",
-                      border: OutlineInputBorder(),
-                      helperText: "Min 12 chars, uppercase, lowercase, number & symbol",
-                      helperMaxLines: 2,
+          appBar: AppBar(title: const Text("Authority login")),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.l),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 28),
+                    Icon(Icons.security_rounded,
+                        size: 64, color: theme.colorScheme.primary),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Access Authority Hub',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    obscureText: true,
-                    validator: (v) {
-                      final value = v ?? '';
-                      if (value.isEmpty) return "Password required";
-                      if (value.length < 12) return "Min 12 characters";
-                      if (!RegExp(r'^(?=.*[a-z])').hasMatch(value)) return "Need lowercase letter";
-                      if (!RegExp(r'^(?=.*[A-Z])').hasMatch(value)) return "Need uppercase letter";
-                      if (!RegExp(r'^(?=.*\d)').hasMatch(value)) return "Need number";
-                      if (!RegExp(r'^(?=.*[@$!%*?&])').hasMatch(value)) return "Need special char (@\$!%*?&)";
-                      return null;
-                    },
-                    onSaved: (v) => _password = v!,
-                  ),
-                  if (_isLocked)
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Use your official credentials to review zones and SOS events.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.66),
                       ),
-                      child: Row(
+                    ),
+                    const SizedBox(height: 28),
+                    AppSurface(
+                      child: Column(
                         children: [
-                          const Icon(Icons.lock, color: Colors.red),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "Account locked. Try again after ${_lockUntil?.difference(DateTime.now()).inMinutes ?? 15} minutes.",
-                              style: const TextStyle(color: Colors.red),
+                          TextFormField(
+                            decoration: const InputDecoration(
+                              labelText: "Official email",
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (v) {
+                              final value = (v ?? '').trim();
+                              if (value.isEmpty) return "Required";
+                              return Validators.validateEmail(value);
+                            },
+                            onSaved: (v) => _email = v!,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            decoration: const InputDecoration(
+                              labelText: "Password",
+                              prefixIcon: Icon(Icons.lock_outline_rounded),
+                              helperText:
+                                  "Min 12 chars, uppercase, lowercase, number and symbol",
+                              helperMaxLines: 2,
+                            ),
+                            obscureText: true,
+                            validator: (v) {
+                              final value = v ?? '';
+                              if (value.isEmpty) return "Password required";
+                              if (value.length < 12) return "Min 12 characters";
+                              if (!RegExp(r'^(?=.*[a-z])').hasMatch(value)) {
+                                return "Need lowercase letter";
+                              }
+                              if (!RegExp(r'^(?=.*[A-Z])').hasMatch(value)) {
+                                return "Need uppercase letter";
+                              }
+                              if (!RegExp(r'^(?=.*\d)').hasMatch(value)) {
+                                return "Need number";
+                              }
+                              if (!RegExp(r'^(?=.*[@$!%*?&])')
+                                  .hasMatch(value)) {
+                                return "Need special char (@\$!%*?&)";
+                              }
+                              return null;
+                            },
+                            onSaved: (v) => _password = v!,
+                          ),
+                          if (_isLocked) ...[
+                            const SizedBox(height: 14),
+                            AppErrorState(
+                              message:
+                                  "Account locked. Try again after ${_lockUntil?.difference(DateTime.now()).inMinutes ?? 15} minutes.",
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: AppSpacing.fieldActionTarget,
+                            child: ElevatedButton.icon(
+                              onPressed: _isLoading ? null : _login,
+                              icon: const Icon(Icons.login_rounded),
+                              label: const Text("Login to Authority Hub"),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueGrey[800],
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text("LOGIN TO COMMAND CENTER"),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

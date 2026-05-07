@@ -14,11 +14,11 @@ class AppColors {
   // New Strategy Token
   static const Color midnight = Color(0xFF0F172A); // Deep Navy Slate
 
-  // Neutral Palette (Night & Silk)
+  // Neutral Palette (field utility)
   static const Color backgroundLight = Color(0xFFF8FAFC); // Very Light Silk
   static const Color surfaceLight = Colors.white;
-  static const Color backgroundDark = Color(0xFF020617); // Midnight Navy
-  static const Color surfaceDark = Color(0xFF0F172A); // Deep Slate
+  static const Color backgroundDark = Color(0xFF0B1120); // Night field surface
+  static const Color surfaceDark = Color(0xFF1C1C1E); // Dark card surface
 
   // Text Colors (High Contrast)
   static const Color textPrimaryLight = Color(0xFF020617); // Almost Black
@@ -34,10 +34,10 @@ class AppColors {
   static const Color glowColor = Color(0x4D8B5CF6);
 
   // Functional Zone Colors (Consistent - NEVER override by theme)
-  static const Color danger = Color(0xFFF43F5E);  // Red
+  static const Color danger = Color(0xFFF43F5E); // Red
   static const Color warning = Color(0xFFF59E0B); // Yellow
   static const Color success = Color(0xFF10B981); // Green
-  static const Color info = Color(0xFF3B82F6);    // Blue
+  static const Color info = Color(0xFF3B82F6); // Blue
 
   // Legacy zone names (kept for compatibility)
   static const Color zoneRed = danger;
@@ -52,6 +52,89 @@ class AppColors {
 }
 
 /// 📏 Elite Spacing & Glass Tokens (8dp grid)
+@immutable
+class SafeRouteColors extends ThemeExtension<SafeRouteColors> {
+  final Color safe;
+  final Color caution;
+  final Color restricted;
+  final Color offline;
+  final Color mesh;
+  final Color sync;
+  final Color mapOverlay;
+  final Color mapOverlayText;
+
+  const SafeRouteColors({
+    required this.safe,
+    required this.caution,
+    required this.restricted,
+    required this.offline,
+    required this.mesh,
+    required this.sync,
+    required this.mapOverlay,
+    required this.mapOverlayText,
+  });
+
+  static const light = SafeRouteColors(
+    safe: AppColors.success,
+    caution: AppColors.warning,
+    restricted: AppColors.danger,
+    offline: Color(0xFFB91C1C),
+    mesh: AppColors.info,
+    sync: AppColors.accent,
+    mapOverlay: Color(0xF7FFFFFF),
+    mapOverlayText: AppColors.textPrimaryLight,
+  );
+
+  static const dark = SafeRouteColors(
+    safe: AppColors.success,
+    caution: AppColors.warning,
+    restricted: AppColors.danger,
+    offline: Color(0xFFFF6B6B),
+    mesh: Color(0xFF60A5FA),
+    sync: AppColors.accent,
+    mapOverlay: Color(0xF21C1C1E),
+    mapOverlayText: AppColors.textPrimaryDark,
+  );
+
+  @override
+  SafeRouteColors copyWith({
+    Color? safe,
+    Color? caution,
+    Color? restricted,
+    Color? offline,
+    Color? mesh,
+    Color? sync,
+    Color? mapOverlay,
+    Color? mapOverlayText,
+  }) {
+    return SafeRouteColors(
+      safe: safe ?? this.safe,
+      caution: caution ?? this.caution,
+      restricted: restricted ?? this.restricted,
+      offline: offline ?? this.offline,
+      mesh: mesh ?? this.mesh,
+      sync: sync ?? this.sync,
+      mapOverlay: mapOverlay ?? this.mapOverlay,
+      mapOverlayText: mapOverlayText ?? this.mapOverlayText,
+    );
+  }
+
+  @override
+  SafeRouteColors lerp(ThemeExtension<SafeRouteColors>? other, double t) {
+    if (other is! SafeRouteColors) return this;
+    return SafeRouteColors(
+      safe: Color.lerp(safe, other.safe, t)!,
+      caution: Color.lerp(caution, other.caution, t)!,
+      restricted: Color.lerp(restricted, other.restricted, t)!,
+      offline: Color.lerp(offline, other.offline, t)!,
+      mesh: Color.lerp(mesh, other.mesh, t)!,
+      sync: Color.lerp(sync, other.sync, t)!,
+      mapOverlay: Color.lerp(mapOverlay, other.mapOverlay, t)!,
+      mapOverlayText: Color.lerp(mapOverlayText, other.mapOverlayText, t)!,
+    );
+  }
+}
+
 class AppSpacing {
   static const double xs = 4.0;
   static const double s = 8.0;
@@ -63,12 +146,13 @@ class AppSpacing {
   // Consistent border radius
   static const double radiusS = 8.0;
   static const double radiusM = 12.0;
-  static const double radiusL = 16.0;
-  static const double radiusXL = 24.0;
+  static const double radiusL = 14.0;
+  static const double radiusXL = 16.0;
   static const double radiusFull = 32.0;
 
   // Min touch target (accessibility)
   static const double minTouchTarget = 48.0;
+  static const double fieldActionTarget = 56.0;
 }
 
 /// 🎞️ Elite Motion Design (all ≤200ms for performance)
@@ -133,14 +217,16 @@ class AppStyle {
     );
   }
 
-  static List<BoxShadow> aura(Color color, {double opacity = 0.15, double blur = 30}) => [
-    BoxShadow(
-      color: color.withValues(alpha: opacity),
-      blurRadius: blur,
-      spreadRadius: 0,
-      offset: const Offset(0, 8),
-    ),
-  ];
+  static List<BoxShadow> aura(Color color,
+          {double opacity = 0.15, double blur = 30}) =>
+      [
+        BoxShadow(
+          color: color.withValues(alpha: opacity),
+          blurRadius: blur,
+          spreadRadius: 0,
+          offset: const Offset(0, 8),
+        ),
+      ];
 }
 
 /// 👔 SafeRoute Aurora Theme (Material 3)
@@ -161,6 +247,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: colorScheme,
+      extensions: const [SafeRouteColors.light],
       scaffoldBackgroundColor: AppColors.backgroundLight,
 
       // AppBar (transparent, clean)
@@ -243,21 +330,21 @@ class AppTheme {
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.5,
+          letterSpacing: 0,
           color: AppColors.textPrimaryLight,
           height: 1.5,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.25,
+          letterSpacing: 0,
           color: AppColors.textSecondaryLight,
           height: 1.43,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.4,
+          letterSpacing: 0,
           color: AppColors.textSecondaryLight,
           height: 1.33,
         ),
@@ -275,9 +362,9 @@ class AppTheme {
           color: AppColors.textPrimaryLight,
         ),
         labelSmall: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
-          letterSpacing: 0.5,
+          letterSpacing: 0,
           color: AppColors.textSecondaryLight,
         ),
       ),
@@ -305,7 +392,7 @@ class AppTheme {
         fillColor: AppColors.backgroundLight,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.m,
-          vertical: AppSpacing.s,
+          vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusM),
@@ -356,6 +443,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
+      extensions: const [SafeRouteColors.dark],
       scaffoldBackgroundColor: AppColors.backgroundDark,
 
       // AppBar (transparent, clean)
@@ -434,21 +522,21 @@ class AppTheme {
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.5,
+          letterSpacing: 0,
           color: AppColors.textPrimaryDark,
           height: 1.5,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.25,
+          letterSpacing: 0,
           color: AppColors.textSecondaryDark,
           height: 1.43,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.4,
+          letterSpacing: 0,
           color: AppColors.textSecondaryDark,
           height: 1.33,
         ),
@@ -465,9 +553,9 @@ class AppTheme {
           color: AppColors.textPrimaryDark,
         ),
         labelSmall: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
-          letterSpacing: 0.5,
+          letterSpacing: 0,
           color: AppColors.textSecondaryDark,
         ),
       ),
@@ -493,7 +581,7 @@ class AppTheme {
         fillColor: AppColors.surfaceDark,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.m,
-          vertical: AppSpacing.s,
+          vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusM),

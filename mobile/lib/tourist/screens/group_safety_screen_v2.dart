@@ -37,7 +37,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const AuroraBackground(),
+          const Positioned.fill(child: AuroraBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -71,13 +71,13 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  room.isInRoom ? room.groupName.toUpperCase() : 'GROUP SAFETY',
+                  room.isInRoom ? room.groupName : 'Group safety',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    letterSpacing: 0,
                     color: AppColors.accent,
                   ),
                 ),
@@ -126,8 +126,8 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'NO ACTIVE TEAM',
-              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
+              'No active team',
+              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0),
             ),
             const SizedBox(height: 8),
             Text(
@@ -147,7 +147,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
               onPressed:
                   room.isLoading ? null : () => _showJoinRoomDialog(context),
               icon: Icons.qr_code_scanner_rounded,
-              child: Text(room.isLoading ? 'SYNCING' : 'JOIN BY CODE'),
+              child: Text(room.isLoading ? 'Syncing' : 'Join by code'),
             ),
             const SizedBox(height: 12),
             EliteButton(
@@ -155,7 +155,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
                   room.isLoading ? null : () => _showCreateRoomDialog(context),
               isPrimary: false,
               icon: Icons.group_add_rounded,
-              child: const Text('CREATE TEAM'),
+              child: const Text('Create team'),
             ),
           ],
         ),
@@ -303,11 +303,11 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'INVITE CODE',
+                  'Invite code',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                     color: isDark ? Colors.white54 : Colors.black54,
                   ),
                 ),
@@ -317,7 +317,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
                   style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -329,7 +329,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
                     color: room.isOfflineSnapshot
                         ? AppColors.warning
                         : (isDark ? Colors.white54 : Colors.black54),
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -510,14 +510,14 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
                 ),
               ),
               Text(
-                room.isSocketConnected ? 'LIVE' : 'RECONNECTING',
+                room.isSocketConnected ? 'Live' : 'Reconnecting',
                 style: TextStyle(
                   color: room.isSocketConnected
                       ? AppColors.success
                       : AppColors.warning,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -556,11 +556,11 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'TEAM MEMBERS',
+          'Team members',
           style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.4,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
             color: isDark ? Colors.white60 : Colors.black54,
           ),
         ),
@@ -613,7 +613,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: isDark ? Colors.white60 : Colors.black54,
                     ),
                   ),
@@ -678,7 +678,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 12,
             color: isDark ? Colors.white54 : Colors.black54,
           ),
         ),
@@ -698,7 +698,7 @@ class _GroupSafetyScreenV2State extends State<GroupSafetyScreenV2> {
         const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       ],
     );
@@ -1099,9 +1099,9 @@ class _TeamRadarPainter extends CustomPainter {
         text: label,
         style: TextStyle(
           color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.42),
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
-          letterSpacing: 1,
+          letterSpacing: 0,
         ),
       ),
       textAlign: TextAlign.center,

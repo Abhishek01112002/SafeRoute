@@ -12,6 +12,7 @@ import 'package:saferoute/services/pathfinding_service.dart';
 import 'package:saferoute/core/models/location_ping_model.dart';
 import 'package:saferoute/core/models/zone_model.dart';
 import 'package:saferoute/core/service_locator.dart';
+import 'package:saferoute/utils/app_theme.dart';
 
 class OfflineNavigationScreen extends StatefulWidget {
   const OfflineNavigationScreen({super.key});
@@ -256,16 +257,18 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final safeColors = theme.extension<SafeRouteColors>()!;
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14), // Deep tactical black/navy
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Tactical Offline Radar",
+        title: const Text("Offline navigation",
             style: TextStyle(
-                fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 18)),
+                fontWeight: FontWeight.bold, letterSpacing: 0, fontSize: 18)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        foregroundColor: Colors.white,
+        foregroundColor: safeColors.mapOverlayText,
       ),
       extendBodyBehindAppBar: true,
       body: Stack(
@@ -296,7 +299,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       point: LatLng(_currentPosition!.latitude,
                           _currentPosition!.longitude),
                       color: Colors.transparent,
-                      borderColor: const Color(0xFF00D4AA).withValues(alpha: 0.05),
+                      borderColor:
+                          const Color(0xFF00D4AA).withValues(alpha: 0.05),
                       borderStrokeWidth: 2,
                       radius: 300,
                       useRadiusInMeter: true,
@@ -305,7 +309,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       point: LatLng(_currentPosition!.latitude,
                           _currentPosition!.longitude),
                       color: Colors.transparent,
-                      borderColor: const Color(0xFF00D4AA).withValues(alpha: 0.1),
+                      borderColor:
+                          const Color(0xFF00D4AA).withValues(alpha: 0.1),
                       borderStrokeWidth: 2,
                       radius: 800,
                       useRadiusInMeter: true,
@@ -340,7 +345,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       }
 
                       // Fade effect logic
-                      final double op = ((i + 1) / trail.length).clamp(0.2, 1.0);
+                      final double op =
+                          ((i + 1) / trail.length).clamp(0.2, 1.0);
 
                       return CircleMarker(
                         point: LatLng(p.latitude, p.longitude),
@@ -477,8 +483,10 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               color: node.zoneType == ZoneType.restricted
                                   ? Colors.redAccent.withValues(alpha: 0.4)
                                   : node.zoneType == ZoneType.caution
-                                      ? Colors.orangeAccent.withValues(alpha: 0.4)
-                                      : const Color(0xFF00D4AA).withValues(alpha: 0.3),
+                                      ? Colors.orangeAccent
+                                          .withValues(alpha: 0.4)
+                                      : const Color(0xFF00D4AA)
+                                          .withValues(alpha: 0.3),
                               border: Border.all(
                                 color: node.zoneType == ZoneType.restricted
                                     ? Colors.redAccent
@@ -507,7 +515,8 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               height: 60 * _pulseAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF00D4AA).withValues(alpha: 0.4 * (1.0 - _pulseAnimation.value)),
+                                color: const Color(0xFF00D4AA).withValues(
+                                    alpha: 0.4 * (1.0 - _pulseAnimation.value)),
                               ),
                             ),
                             Container(
@@ -554,10 +563,10 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                 children: [
                   Icon(Icons.wifi_off, color: Colors.white, size: 14),
                   SizedBox(width: 6),
-                  Text("OFFLINE MODE — RADAR ACTIVE",
+                  Text("Offline mode - route cache active",
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -576,15 +585,17 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
+                    color: safeColors.mapOverlay,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    border: Border.all(
+                        color:
+                            theme.colorScheme.outline.withValues(alpha: 0.30)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_navResult != null && _navResult!.pathFound) ...[
-                        const Row(
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Column(
@@ -592,11 +603,13 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               children: [
                                 Text("Distance",
                                     style: TextStyle(
-                                        color: Colors.white54, fontSize: 12)),
+                                        color: safeColors.mapOverlayText
+                                            .withValues(alpha: 0.62),
+                                        fontSize: 12)),
                                 Text(
-                                    "\${_navResult!.totalDistanceMeters.toStringAsFixed(0)}M",
+                                    "${_navResult!.totalDistanceMeters.toStringAsFixed(0)} m",
                                     style: TextStyle(
-                                        color: Colors.white,
+                                        color: safeColors.mapOverlayText,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold)),
                               ],
@@ -606,10 +619,12 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                               children: [
                                 Text("ETA",
                                     style: TextStyle(
-                                        color: Colors.white54, fontSize: 12)),
-                                Text("\${_navResult!.estimatedMinutes} MIN",
+                                        color: safeColors.mapOverlayText
+                                            .withValues(alpha: 0.62),
+                                        fontSize: 12)),
+                                Text("${_navResult!.estimatedMinutes} min",
                                     style: TextStyle(
-                                        color: Colors.white,
+                                        color: safeColors.mapOverlayText,
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold)),
                               ],
@@ -620,15 +635,13 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                       ],
                       SizedBox(
                         width: double.infinity,
-                        height: 55,
+                        height: AppSpacing.fieldActionTarget,
                         child: ElevatedButton(
                           onPressed: _isNavigating ? null : _findSafeRoute,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00D4AA),
                             foregroundColor: Colors.black,
-                            elevation: 8,
-                            shadowColor:
-                                const Color(0xFF00D4AA).withValues(alpha: 0.5),
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
@@ -639,33 +652,33 @@ class _OfflineNavigationScreenState extends State<OfflineNavigationScreen>
                                   child: CircularProgressIndicator(
                                       color: Colors.black, strokeWidth: 2))
                               : const Text(
-                                  "ENGAGE SAFE ROUTE",
+                                  "Find safe route",
                                   style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.5),
+                                      letterSpacing: 0),
                                 ),
                         ),
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        height: 55,
+                        height: AppSpacing.fieldActionTarget,
                         child: ElevatedButton(
                           onPressed: _isNavigating ? null : _findSafeBacktrack,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            elevation: 8,
+                            backgroundColor: theme.colorScheme.surface,
+                            foregroundColor: theme.colorScheme.onSurface,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
                           child: const Text(
-                            "RETRACE TO SAFETY",
+                            "Retrace to safety",
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5),
+                                letterSpacing: 0),
                           ),
                         ),
                       ),

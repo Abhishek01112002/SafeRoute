@@ -60,6 +60,8 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
     final fusedHeading = _calculateFusedHeading(location);
     final battery = location.batteryLevel;
     final lowPower = battery < 0.20;
+    final theme = Theme.of(context);
+    final safeColors = theme.extension<SafeRouteColors>()!;
 
     return Scaffold(
       body: Stack(
@@ -67,18 +69,8 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
         children: [
           const DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF06131C), Color(0xFF000000)],
-              ),
+              color: AppColors.backgroundDark,
             ),
-          ),
-          Opacity(
-            opacity: 0.16,
-            child: lowPower
-                ? const SizedBox.expand()
-                : const AuroraBackground(),
           ),
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
@@ -92,24 +84,28 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
                   height: 48,
                   borderRadius: 24,
                   padding: EdgeInsets.zero,
-                  color: Colors.white.withValues(alpha: 0.1),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  color: safeColors.mapOverlay,
+                  borderColor:
+                      theme.colorScheme.outline.withValues(alpha: 0.30),
+                  child: Icon(Icons.arrow_back_rounded,
+                      color: safeColors.mapOverlayText),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: EliteSurface(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
                     borderRadius: 18,
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: safeColors.mapOverlay,
                     borderColor: AppColors.accent.withValues(alpha: 0.45),
                     borderOpacity: 0.45,
-                    child: const Text(
-                      'TACTICAL AR OVERLAY',
+                    child: Text(
+                      'Directional AR',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        letterSpacing: 1.5,
+                        color: safeColors.mapOverlayText,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -122,18 +118,19 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
               width: 220,
               height: 220,
               borderRadius: 120,
-              blur: lowPower ? 8 : 24,
-              color: Colors.white.withValues(alpha: 0.06),
-              borderColor: Colors.white24,
+              blur: lowPower ? 6 : 10,
+              color: safeColors.mapOverlay.withValues(alpha: 0.88),
+              borderColor: theme.colorScheme.outline.withValues(alpha: 0.30),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  if (!lowPower) const PulseMarker(color: AppColors.info, size: 26),
+                  if (!lowPower)
+                    const PulseMarker(color: AppColors.info, size: 26),
                   Transform.rotate(
                     angle: (fusedHeading * math.pi) / 180,
                     child: const Icon(
                       Icons.navigation_rounded,
-                      color: Colors.white,
+                      color: AppColors.info,
                       size: 74,
                     ),
                   ),
@@ -148,7 +145,7 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
             child: EliteSurface(
               padding: const EdgeInsets.all(14),
               borderRadius: 18,
-              color: Colors.black.withValues(alpha: 0.35),
+              color: safeColors.mapOverlay,
               borderColor: AppColors.info.withValues(alpha: 0.45),
               borderOpacity: 0.45,
               child: nav.isNavigating && leg != null
@@ -157,40 +154,43 @@ class _TacticalARScreenState extends State<TacticalARScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'HEAD ${fusedHeading.toStringAsFixed(0)}°  •  ${leg.direction}',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          'Heading ${fusedHeading.toStringAsFixed(0)} deg - ${leg.direction}',
+                          style: TextStyle(
+                            color: safeColors.mapOverlayText
+                                .withValues(alpha: 0.70),
                             fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                            letterSpacing: 0.8,
+                            fontSize: 12,
+                            letterSpacing: 0,
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           leg.maneuver,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: safeColors.mapOverlayText,
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${leg.remainingDistanceMeters.toStringAsFixed(0)} m remaining  •  ETA ${leg.eta.inMinutes} min',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          '${leg.remainingDistanceMeters.toStringAsFixed(0)} m remaining - ETA ${leg.eta.inMinutes} min',
+                          style: TextStyle(
+                            color: safeColors.mapOverlayText
+                                .withValues(alpha: 0.70),
                             fontWeight: FontWeight.w600,
-                            fontSize: 11,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     )
-                  : const Text(
+                  : Text(
                       'Start guidance on map screen to activate directional AR cues.',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color:
+                            safeColors.mapOverlayText.withValues(alpha: 0.70),
                         fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        fontSize: 14,
                         height: 1.4,
                       ),
                     ),

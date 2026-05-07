@@ -14,6 +14,7 @@ import 'package:saferoute/tourist/screens/registration_screen.dart';
 import 'package:saferoute/tourist/screens/start_trip_screen.dart';
 import 'package:saferoute/services/safety_engine.dart';
 import 'package:saferoute/utils/app_theme.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/widgets/sync_status_chip.dart';
 import 'package:saferoute/widgets/zone_status_card.dart';
@@ -81,10 +82,10 @@ class _HomeContent extends StatelessWidget {
           ],
           const SizedBox(height: 22),
           Text(
-            'QUICK ACTIONS',
+            'Quick actions',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: Colors.white70,
-              letterSpacing: 1.6,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.66),
+              letterSpacing: 0,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -121,8 +122,8 @@ class _FieldReadinessGrid extends StatelessWidget {
               icon: Icons.my_location_rounded,
               title: 'GPS',
               value: pos == null
-                  ? 'ACQUIRING'
-                  : '${pos.accuracy.toStringAsFixed(0)} M',
+                  ? 'Acquiring'
+                  : '${pos.accuracy.toStringAsFixed(0)} m',
               tone: pos == null ? AppColors.warning : AppColors.success,
             ),
             _ReadinessTile(
@@ -130,8 +131,8 @@ class _FieldReadinessGrid extends StatelessWidget {
               icon: Icons.hub_rounded,
               title: 'Mesh Nodes',
               value: mesh.isMeshActive
-                  ? '${mesh.nearbyNodes.length} NEARBY'
-                  : 'STANDBY',
+                  ? '${mesh.nearbyNodes.length} nearby'
+                  : 'Standby',
               tone: mesh.isMeshActive ? AppColors.info : AppColors.warning,
             ),
             _ReadinessTile(
@@ -139,8 +140,8 @@ class _FieldReadinessGrid extends StatelessWidget {
               icon: Icons.cloud_upload_rounded,
               title: 'Local Queue',
               value: tourist.isOnline
-                  ? 'READY'
-                  : '${location.unsyncedCount} WAITING',
+                  ? 'Ready'
+                  : '${location.unsyncedCount} waiting',
               tone: tourist.isOnline || location.unsyncedCount == 0
                   ? AppColors.success
                   : AppColors.warning,
@@ -149,7 +150,7 @@ class _FieldReadinessGrid extends StatelessWidget {
               width: tileWidth,
               icon: Icons.speed_rounded,
               title: 'Pace',
-              value: '$speedKmh KM/H',
+              value: '$speedKmh km/h',
               tone: AppColors.accent,
             ),
           ],
@@ -176,14 +177,13 @@ class _ReadinessTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SizedBox(
       width: width,
-      child: EliteSurface(
+      child: AppSurface(
         padding: const EdgeInsets.all(12),
-        borderRadius: 16,
-        color: Colors.white.withValues(alpha: 0.08),
+        color: theme.colorScheme.surface,
         borderColor: tone.withValues(alpha: 0.38),
-        borderOpacity: 0.38,
         child: Row(
           children: [
             Icon(icon, color: tone, size: 19),
@@ -196,9 +196,10 @@ class _ReadinessTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
+                    style: TextStyle(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -207,11 +208,11 @@ class _ReadinessTile extends StatelessWidget {
                     value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 0.4,
+                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -232,47 +233,25 @@ class _RiskAdaptiveAuroraBackground extends StatelessWidget {
     return Selector<SafetySystemProvider, SafetyRiskLevel>(
       selector: (_, provider) => provider.currentRisk,
       builder: (context, risk, __) {
-        final scheme = _riskScheme(risk);
+        final theme = Theme.of(context);
+        final riskColor = SafetyEngine.getRiskColor(risk);
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeInOutCubic,
+          duration: AppMotion.standard,
+          curve: AppMotion.smooth,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: scheme,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                riskColor.withValues(alpha: 0.10),
+                theme.scaffoldBackgroundColor,
+              ],
             ),
           ),
-          child: const Stack(
-            fit: StackFit.expand,
-            children: [
-              Opacity(opacity: 0.40, child: AuroraBackground()),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.topCenter,
-                    radius: 1.25,
-                    colors: [Color(0x33000000), Color(0xAA000000)],
-                    stops: [0.1, 1.0],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: const AuroraBackground(),
         );
       },
     );
-  }
-
-  List<Color> _riskScheme(SafetyRiskLevel risk) {
-    switch (risk) {
-      case SafetyRiskLevel.high:
-        return const [Color(0xFF591126), Color(0xFF1A0A14), Color(0xFF000000)];
-      case SafetyRiskLevel.medium:
-        return const [Color(0xFF5C3C08), Color(0xFF1D1604), Color(0xFF000000)];
-      case SafetyRiskLevel.low:
-        return const [Color(0xFF072437), Color(0xFF061627), Color(0xFF000000)];
-    }
   }
 }
 
@@ -282,7 +261,8 @@ class _TopIdentityBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final style = theme.textTheme;
     return Row(
       children: [
         Expanded(
@@ -292,8 +272,8 @@ class _TopIdentityBar extends StatelessWidget {
               Text(
                 'Mission Control',
                 style: style.labelLarge?.copyWith(
-                  color: Colors.white70,
-                  letterSpacing: 1.2,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                  letterSpacing: 0,
                 ),
               ),
               Text(
@@ -301,7 +281,7 @@ class _TopIdentityBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: style.headlineSmall?.copyWith(
-                  color: Colors.white,
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -325,13 +305,12 @@ class _MissionControlCard extends StatelessWidget {
     final riskColor = SafetyEngine.getRiskColor(risk);
     final riskLabel = _riskUiLabel(risk);
     final progress = _riskProgress(risk);
+    final theme = Theme.of(context);
 
-    return EliteSurface(
+    return AppSurface(
       padding: const EdgeInsets.all(18),
-      color: Colors.white.withValues(alpha: 0.10),
+      color: theme.colorScheme.surface,
       borderColor: riskColor.withValues(alpha: 0.45),
-      borderOpacity: 0.45,
-      blur: 32,
       child: Row(
         children: [
           SizedBox(
@@ -343,7 +322,8 @@ class _MissionControlCard extends StatelessWidget {
                 CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 8,
-                  backgroundColor: Colors.white12,
+                  backgroundColor:
+                      theme.colorScheme.outline.withValues(alpha: 0.24),
                   valueColor: AlwaysStoppedAnimation<Color>(riskColor),
                   strokeCap: StrokeCap.round,
                 ),
@@ -353,19 +333,20 @@ class _MissionControlCard extends StatelessWidget {
                     children: [
                       Text(
                         '${(progress * 100).round()}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w900,
                           fontSize: 22,
                         ),
                       ),
-                      const Text(
-                        'RISK',
+                      Text(
+                        'Risk',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.62),
                           fontWeight: FontWeight.w700,
-                          fontSize: 9,
-                          letterSpacing: 1.2,
+                          fontSize: 12,
+                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -381,11 +362,11 @@ class _MissionControlCard extends StatelessWidget {
               children: [
                 Text(
                   'SAFETY RISK LEVEL',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white70,
-                        letterSpacing: 1.4,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -402,10 +383,10 @@ class _MissionControlCard extends StatelessWidget {
                   SafetyEngine.getRiskAdvice(risk),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.3,
                   ),
                 ),
@@ -422,11 +403,11 @@ class _MissionControlCard extends StatelessWidget {
   String _riskUiLabel(SafetyRiskLevel risk) {
     switch (risk) {
       case SafetyRiskLevel.low:
-        return 'SAFE';
+        return 'Safe';
       case SafetyRiskLevel.medium:
-        return 'CAUTION';
+        return 'Caution';
       case SafetyRiskLevel.high:
-        return 'RESTRICTED';
+        return 'Restricted';
     }
   }
 
@@ -470,11 +451,11 @@ class _RiskLottieAccent extends StatelessWidget {
                       color: fallbackColor, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Zone: ${zone.displayLabel.toUpperCase()}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    'Zone: ${zone.displayLabel}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -516,7 +497,7 @@ class _TelemetryRow extends StatelessWidget {
                 ? Icons.cloud_done_rounded
                 : Icons.cloud_off_rounded,
             title: 'Connectivity',
-            value: touristProvider.isOnline ? 'ONLINE' : 'OFFLINE',
+            value: touristProvider.isOnline ? 'Online' : 'Offline',
             tone: touristProvider.isOnline
                 ? AppColors.success
                 : AppColors.warning,
@@ -550,12 +531,11 @@ class _TelemetryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      borderRadius: 16,
-      color: Colors.white.withValues(alpha: 0.09),
+      color: theme.colorScheme.surface,
       borderColor: tone.withValues(alpha: 0.40),
-      borderOpacity: 0.4,
       child: Row(
         children: [
           Icon(icon, color: tone, size: 18),
@@ -569,9 +549,9 @@ class _TelemetryChip extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -579,11 +559,11 @@ class _TelemetryChip extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -650,24 +630,22 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    return AppSurface(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(vertical: 18),
-      borderRadius: 18,
       color: color.withValues(alpha: 0.14),
       borderColor: color.withValues(alpha: 0.50),
-      borderOpacity: 0.5,
       child: Column(
         children: [
           Icon(icon, color: color, size: 26),
           const SizedBox(height: 6),
           Text(
-            label.toUpperCase(),
+            label,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w800,
-              fontSize: 10,
-              letterSpacing: 1,
+              fontSize: 12,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -681,22 +659,22 @@ class _GuestAccessBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       color: AppColors.warning.withValues(alpha: 0.12),
       borderColor: AppColors.warning.withValues(alpha: 0.45),
-      borderOpacity: 0.45,
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
           const Icon(Icons.info_outline_rounded,
               color: AppColors.warning, size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'Guest mode active. Register to unlock full SOS identity and route safety features.',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 11,
+                color: theme.colorScheme.onSurface,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
@@ -711,7 +689,7 @@ class _GuestAccessBanner extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const RegistrationScreen()),
               );
             },
-            child: const Text('REGISTER', style: TextStyle(fontSize: 10)),
+            child: const Text('Register', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -730,14 +708,14 @@ class _ActiveTripBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final tripProvider = context.watch<TripProvider>();
     final activeTrip = tripProvider.activeTrip;
+    final theme = Theme.of(context);
 
     if (activeTrip != null) {
       // ── Has active trip ── show current stop summary
       final stop = activeTrip.currentStop;
-      return EliteSurface(
+      return AppSurface(
         color: AppColors.success.withValues(alpha: 0.12),
         borderColor: AppColors.success.withValues(alpha: 0.45),
-        borderOpacity: 0.45,
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
@@ -749,19 +727,19 @@ class _ActiveTripBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'ACTIVE TRIP',
+                    'Active trip',
                     style: TextStyle(
                       color: AppColors.success,
-                      fontSize: 9,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     stop?.name ?? 'Trip in progress',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -769,8 +747,10 @@ class _ActiveTripBanner extends StatelessWidget {
                   if (stop?.destinationState != null)
                     Text(
                       stop!.destinationState!,
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 11),
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.62),
+                          fontSize: 12),
                     ),
                 ],
               ),
@@ -801,7 +781,7 @@ class _ActiveTripBanner extends StatelessWidget {
                   await context.read<TripProvider>().endActiveTrip();
                 }
               },
-              child: const Text('END', style: TextStyle(fontSize: 10)),
+              child: const Text('End', style: TextStyle(fontSize: 12)),
             ),
           ],
         ),
@@ -809,21 +789,21 @@ class _ActiveTripBanner extends StatelessWidget {
     }
 
     // ── No active trip ── prompt to start one
-    return EliteSurface(
+    return AppSurface(
       color: AppColors.primary.withValues(alpha: 0.12),
       borderColor: AppColors.primary.withValues(alpha: 0.45),
-      borderOpacity: 0.45,
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          const Icon(Icons.map_outlined, color: AppColors.primaryLight, size: 20),
+          const Icon(Icons.map_outlined,
+              color: AppColors.primaryLight, size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'No active trip. Start a trip to enable destination-aware safety alerts.',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 11,
+                color: theme.colorScheme.onSurface,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
@@ -838,7 +818,7 @@ class _ActiveTripBanner extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const StartTripScreen()),
               );
             },
-            child: const Text('START', style: TextStyle(fontSize: 10)),
+            child: const Text('Start', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),

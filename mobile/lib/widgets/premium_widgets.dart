@@ -40,7 +40,7 @@ class _EliteButtonState extends State<EliteButton>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: AppMotion.standard);
+    _ctrl = AnimationController(vsync: this, duration: AppMotion.fast);
     _scale = Tween<double>(begin: 1.0, end: 0.98).animate(
       CurvedAnimation(parent: _ctrl, curve: AppMotion.curve),
     );
@@ -77,7 +77,7 @@ class _EliteButtonState extends State<EliteButton>
         scale: _scale,
         child: Container(
           width: widget.width ?? (widget.isFullWidth ? double.infinity : null),
-          height: widget.height ?? 48,
+          height: widget.height ?? AppSpacing.minTouchTarget,
           padding: const EdgeInsets.symmetric(
             vertical: AppSpacing.s,
             horizontal: AppSpacing.l,
@@ -91,11 +91,10 @@ class _EliteButtonState extends State<EliteButton>
                         : Colors.transparent)),
             borderRadius: BorderRadius.circular(AppSpacing.radiusM),
             border: !isPrimary && widget.onPressed != null
-                ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5))
+                ? Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5))
                 : null,
-            boxShadow: isPrimary && widget.onPressed != null
-                ? AppElevation.level1
-                : null,
+            boxShadow: null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -116,8 +115,8 @@ class _EliteButtonState extends State<EliteButton>
                   color: isPrimary
                       ? theme.colorScheme.onPrimary
                       : theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
                 child: widget.child,
               ),
@@ -252,27 +251,35 @@ class EliteSurface extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(r),
-        boxShadow:
-            hasGlassEffect ? [] : AppStyle.aura(theme.colorScheme.primary),
+        boxShadow: hasGlassEffect
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur ?? 25, sigmaY: blur ?? 25),
+          filter: ImageFilter.blur(sigmaX: blur ?? 8, sigmaY: blur ?? 8),
           child: Container(
             padding: padding ?? const EdgeInsets.all(AppSpacing.m),
             decoration: BoxDecoration(
               color: color ??
                   (isDark
-                      ? AppColors.surfaceDark.withValues(alpha: 0.7)
-                      : AppColors.surfaceLight.withValues(alpha: 0.85)),
+                      ? AppColors.surfaceDark.withValues(alpha: 0.94)
+                      : AppColors.surfaceLight.withValues(alpha: 0.96)),
               borderRadius: BorderRadius.circular(r),
               border: Border.all(
                 color: borderColor ??
                     (isDark
-                        ? Colors.white.withValues(alpha: borderOpacity ?? 0.1)
-                        : Colors.black.withValues(alpha: borderOpacity ?? 0.15)),
-                width: 1.5,
+                        ? Colors.white.withValues(alpha: borderOpacity ?? 0.12)
+                        : Colors.black
+                            .withValues(alpha: borderOpacity ?? 0.10)),
+                width: 1,
               ),
             ),
             child: DefaultTextStyle(
@@ -303,74 +310,45 @@ class EliteSurface extends StatelessWidget {
 
 /// 🌅 Aurora Dynamic Background
 /// High-performance organic animated gradient
-class AuroraBackground extends StatefulWidget {
+class AuroraBackground extends StatelessWidget {
   const AuroraBackground({super.key});
-
-  @override
-  State<AuroraBackground> createState() => _AuroraBackgroundState();
-}
-
-class _AuroraBackgroundState extends State<AuroraBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? const [AppColors.backgroundDark, Color(0xFF111827)]
+              : const [Color(0xFFFFFFFF), AppColors.backgroundLight],
+        ),
       ),
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, child) {
-          return Stack(
-            children: [
-              // 🧪 Layer 1: Primary Drift
-              Positioned(
-                top: -150 + (50 * _ctrl.value),
-                left: -100 + (30 * (1 - _ctrl.value)),
-                child: _AuraLayer(
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.05),
-                  size: 500,
-                ),
-              ),
-              // 🧪 Layer 2: Secondary Drift
-              Positioned(
-                bottom: -100 + (40 * _ctrl.value),
-                right: -80 + (60 * _ctrl.value),
-                child: _AuraLayer(
-                  color: AppColors.accent.withValues(alpha: isDark ? 0.12 : 0.04),
-                  size: 450,
-                ),
-              ),
-              // 🧪 Layer 3: Dynamic Glow
-              Center(
-                child: _AuraLayer(
-                  color: AppColors.primaryHighContrast
-                      .withValues(alpha: isDark ? 0.04 : 0.015),
-                  size: 800,
-                ),
-              ),
-            ],
-          );
-        },
+      child: Stack(
+        children: [
+          // 🧪 Layer 1: Primary Drift
+          Positioned(
+            top: -180,
+            right: -160,
+            child: _AuraLayer(
+              color: AppColors.primary.withValues(alpha: isDark ? 0.08 : 0.04),
+              size: 440,
+            ),
+          ),
+          // 🧪 Layer 2: Secondary Drift
+          Positioned(
+            bottom: -180,
+            left: -140,
+            child: _AuraLayer(
+              color: AppColors.accent.withValues(alpha: isDark ? 0.06 : 0.035),
+              size: 420,
+            ),
+          ),
+          // 🧪 Layer 3: Dynamic Glow
+        ],
       ),
     );
   }
@@ -548,7 +526,8 @@ class EliteSpeedometer extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? Colors.black87 : Colors.white,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 2),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.5), width: 2),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.3),
@@ -679,8 +658,8 @@ class OfflinePackCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: progress,
                       backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primary),
                       minHeight: 2,
                     ),
                   ),

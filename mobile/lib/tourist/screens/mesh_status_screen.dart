@@ -8,6 +8,7 @@ import 'package:saferoute/tourist/models/tourist_model.dart';
 import 'package:saferoute/tourist/providers/location_provider.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/tourist/providers/mesh_provider.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/widgets/sync_status_chip.dart';
 import 'package:uuid/uuid.dart';
@@ -68,13 +69,13 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                         Icon(Icons.bluetooth_searching_rounded,
                             color: theme.colorScheme.primary, size: 20),
                         const SizedBox(width: AppSpacing.m),
-                        Text("MESH IDENTITY",
+                        Text("Mesh identity",
                             style: TextStyle(
                                 color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.38),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 9,
-                                letterSpacing: 1.5)),
+                                    .withValues(alpha: 0.62),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                letterSpacing: 0)),
                         const Spacer(),
                         _statusBadge(_meshStatusLabel(mesh), mesh.isMeshActive),
                       ],
@@ -89,17 +90,17 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text("NODE ID:",
+                          Text("Node ID:",
                               style: TextStyle(
                                   color: theme.colorScheme.onSurface
                                       .withValues(alpha: 0.5),
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900)),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800)),
                           const SizedBox(width: 8),
                           Text(selfId,
                               style: TextStyle(
                                   color: theme.colorScheme.onSurface,
-                                  fontSize: 11,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   fontFamily: 'monospace')),
                         ],
@@ -111,7 +112,7 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                       style: TextStyle(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                        fontSize: 11,
+                        fontSize: 14,
                         height: 1.35,
                       ),
                     ),
@@ -121,7 +122,7 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                         mesh.lastError!,
                         style: const TextStyle(
                           color: AppColors.zoneYellow,
-                          fontSize: 10,
+                          fontSize: 12,
                           height: 1.35,
                         ),
                       ),
@@ -161,24 +162,24 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                   children: [
                     Icon(Icons.sos_rounded, size: 18),
                     SizedBox(width: AppSpacing.m),
-                    Text("BROADCAST SOS VIA MESH",
+                    Text("Broadcast SOS via mesh",
                         style: TextStyle(
                             fontWeight: FontWeight.w900,
-                            fontSize: 10,
-                            letterSpacing: 1)),
+                            fontSize: 12,
+                            letterSpacing: 0)),
                   ],
                 ),
               ),
 
               const SizedBox(height: AppSpacing.xxl),
 
-              Text("NEARBY NODES (SIMPLE VIEW)",
+              Text("Nearby nodes",
                   style: TextStyle(
                       color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.38),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2)),
+                          theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0)),
               const SizedBox(height: AppSpacing.m),
               _buildNearbyMembers(mesh),
 
@@ -199,25 +200,25 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                       color: theme.colorScheme.primary),
                   label: Text(
                       _showAdvanced
-                          ? "HIDE DIAGNOSTICS"
-                          : "SHOW NETWORK TOPOLOGY",
+                          ? "Hide diagnostics"
+                          : "Show network topology",
                       style: TextStyle(
                           color: theme.colorScheme.primary,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1)),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0)),
                 ),
               ),
 
               if (_showAdvanced) ...[
                 const SizedBox(height: AppSpacing.xl),
-                Text("NETWORK TRAFFIC (ADVANCED)",
+                Text("Network traffic",
                     style: TextStyle(
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.38),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2)),
+                            theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0)),
                 const SizedBox(height: AppSpacing.m),
                 _buildActivityList(mesh),
               ],
@@ -234,17 +235,17 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
               if (mesh.canBroadcast && position != null) {
                 mesh.broadcastLocation(position.latitude, position.longitude);
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('SIGNAL BROADCASTED')));
+                    const SnackBar(content: Text('Signal broadcasted')));
               }
             },
             backgroundColor: theme.colorScheme.primary,
             icon: Icon(Icons.waves_rounded, color: theme.colorScheme.onPrimary),
-            label: Text('BEACON',
+            label: Text('Beacon',
                 style: TextStyle(
                     color: theme.colorScheme.onPrimary,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    fontSize: 10)),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                    fontSize: 12)),
           ),
         )
       ],
@@ -253,25 +254,10 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
 
   Widget _buildEliteHeader(MeshProvider mesh, Tourist? tourist) {
     final theme = Theme.of(context);
-    return Container(
+    return AppSurface(
       padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withValues(alpha: 0.7)
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusL),
-        boxShadow: [
-          BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
-        ],
-      ),
+      color: theme.colorScheme.primary.withValues(alpha: 0.10),
+      borderColor: theme.colorScheme.primary.withValues(alpha: 0.28),
       child: Column(
         children: [
           Row(
@@ -282,18 +268,18 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("HYBRID SIGNAL",
+                  Text("Hybrid signal",
                       style: TextStyle(
-                          color: theme.colorScheme.onPrimary,
-                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w800,
                           fontSize: 18,
-                          letterSpacing: 1)),
+                          letterSpacing: 0)),
                   Text(_meshStatusLabel(mesh),
                       style: TextStyle(
-                          color: theme.colorScheme.onPrimary
-                              .withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.62),
                           fontWeight: FontWeight.bold,
-                          fontSize: 8)),
+                          fontSize: 12)),
                 ],
               ),
               const Spacer(),
@@ -309,9 +295,9 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _headerStat("ACTIVE PEERS", mesh.nearbyNodes.length.toString()),
-              _headerStat("PROTOCOL", "B-M17"),
-              _headerStat("HOPS", "MAX 7"),
+              _headerStat("Active peers", mesh.nearbyNodes.length.toString()),
+              _headerStat("Protocol", "B-M17"),
+              _headerStat("Hops", "Max 7"),
             ],
           ),
         ],
@@ -339,39 +325,39 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
     switch (mesh.meshState) {
       case MeshRuntimeState.checking:
       case MeshRuntimeState.starting:
-        return 'STARTING MESH';
+        return 'Starting mesh';
       case MeshRuntimeState.active:
-        return 'STOP MESH';
+        return 'Stop mesh';
       case MeshRuntimeState.bluetoothOff:
-        return 'TURN BLUETOOTH ON, THEN START';
+        return 'Turn Bluetooth on, then start';
       case MeshRuntimeState.permissionNeeded:
-        return 'GRANT BLUETOOTH PERMISSION';
+        return 'Grant Bluetooth permission';
       case MeshRuntimeState.unsupported:
-        return 'BLE NOT SUPPORTED';
+        return 'BLE not supported';
       case MeshRuntimeState.failed:
       case MeshRuntimeState.idle:
-        return 'START MESH';
+        return 'Start mesh';
     }
   }
 
   String _meshStatusLabel(MeshProvider mesh) {
     switch (mesh.meshState) {
       case MeshRuntimeState.checking:
-        return 'CHECKING';
+        return 'Checking';
       case MeshRuntimeState.permissionNeeded:
-        return 'PERMISSION';
+        return 'Permission needed';
       case MeshRuntimeState.bluetoothOff:
-        return 'BT OFF';
+        return 'Bluetooth off';
       case MeshRuntimeState.unsupported:
-        return 'UNSUPPORTED';
+        return 'Unsupported';
       case MeshRuntimeState.starting:
-        return 'STARTING';
+        return 'Starting';
       case MeshRuntimeState.active:
-        return 'ACTIVE';
+        return 'Active';
       case MeshRuntimeState.failed:
-        return 'FAILED';
+        return 'Failed';
       case MeshRuntimeState.idle:
-        return 'INACTIVE';
+        return 'Inactive';
     }
   }
 
@@ -398,15 +384,15 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
       children: [
         Text(value,
             style: TextStyle(
-                color: theme.colorScheme.onPrimary,
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
                 fontSize: 16)),
         Text(label,
             style: TextStyle(
-                color: theme.colorScheme.onPrimary.withValues(alpha: 0.38),
-                fontWeight: FontWeight.w900,
-                fontSize: 7,
-                letterSpacing: 0.5)),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.54),
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                letterSpacing: 0)),
       ],
     );
   }
@@ -422,7 +408,7 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
       ),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 8, fontWeight: FontWeight.w900)),
+              color: color, fontSize: 12, fontWeight: FontWeight.w800)),
     );
   }
 
@@ -438,12 +424,12 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   size: 32),
               const SizedBox(height: AppSpacing.m),
-              Text("SCANNING FOR SIGNALS...",
+              Text("Scanning for signals...",
                   style: TextStyle(
                       color:
                           theme.colorScheme.onSurface.withValues(alpha: 0.24),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900)),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800)),
             ],
           ),
         ),
@@ -464,16 +450,16 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(node.name.toUpperCase(),
+                          Text(node.name,
                               style: TextStyle(
                                   color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11)),
-                          Text('NODE: ${node.userId}',
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14)),
+                          Text('Node: ${node.userId}',
                               style: TextStyle(
                                   color: theme.colorScheme.onSurface
                                       .withValues(alpha: 0.38),
-                                  fontSize: 8,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold)),
                         ],
                       ),
@@ -481,8 +467,8 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                     Text('${node.rssi} dBm',
                         style: const TextStyle(
                             color: AppColors.zoneGreen,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900)),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800)),
                   ],
                 ),
               ))
@@ -494,11 +480,11 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
     final theme = Theme.of(context);
     if (mesh.recentActivity.isEmpty) {
       return Center(
-          child: Text('NO MESH TRAFFIC DETECTED',
+          child: Text('No mesh traffic detected',
               style: TextStyle(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900)));
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800)));
     }
 
     return Column(
@@ -527,20 +513,20 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(isSos ? 'EMERGENCY SOS RELAY' : 'LOCATION SYNC',
+                        Text(isSos ? 'Emergency SOS relay' : 'Location sync',
                             style: TextStyle(
                                 color: isSos
                                     ? AppColors.zoneRed
                                     : theme.colorScheme.primary,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 10,
-                                letterSpacing: 0.5)),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                letterSpacing: 0)),
                         Text(
-                            'SOURCE: ${_prefix(packet.sourceId, maxLength: 8)}...',
+                            'Source: ${_prefix(packet.sourceId, maxLength: 8)}...',
                             style: TextStyle(
                                 color: theme.colorScheme.onSurface
                                     .withValues(alpha: 0.38),
-                                fontSize: 8,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold)),
                       ],
                     ),
@@ -549,21 +535,21 @@ class _MeshStatusScreenState extends State<MeshStatusScreen> {
                       style: TextStyle(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.24),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900)),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800)),
                 ],
               ),
               if (packet.relayPathShortIds.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.m),
                 Divider(color: theme.dividerColor),
                 const SizedBox(height: AppSpacing.s),
-                Text("MESH PEER ROUTE",
+                Text("Mesh peer route",
                     style: TextStyle(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                        fontSize: 7,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1)),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0)),
                 const SizedBox(height: AppSpacing.s),
                 Wrap(
                   spacing: 4,

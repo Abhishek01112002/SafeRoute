@@ -46,17 +46,17 @@ class _MainScreenState extends State<MainScreen>
   String _getAppBarTitle(int index) {
     switch (index) {
       case 0:
-        return "DASHBOARD";
+        return "Home";
       case 1:
-        return "SAFETY ID";
+        return "Safety ID";
       case 2:
-        return "GROUP NETWORK";
+        return "Group";
       case 3:
-        return "MESH STATUS";
+        return "Mesh";
       case 4:
-        return "EMERGENCY SOS";
+        return "SOS";
       case 5:
-        return "LIVE NAVIGATION";
+        return "Map";
       default:
         return "SAFEROUTE";
     }
@@ -160,9 +160,9 @@ class _MainScreenState extends State<MainScreen>
                   title: Text(
                     _getAppBarTitle(currentIndex),
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.0,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -203,7 +203,7 @@ class _MainScreenState extends State<MainScreen>
         children: [
           // ── Animated Content Layer (Liquid Transitions) ──────────────────
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 600),
+            duration: AppMotion.standard,
             switchInCurve: Curves.easeOutQuart,
             switchOutCurve: Curves.easeInQuart,
             transitionBuilder: (Widget child, Animation<double> animation) {
@@ -218,7 +218,7 @@ class _MainScreenState extends State<MainScreen>
                   position: slideAnimation,
                   child: ScaleTransition(
                     scale:
-                        Tween<double>(begin: 0.98, end: 1.0).animate(animation),
+                        Tween<double>(begin: 1.0, end: 1.0).animate(animation),
                     child: child,
                   ),
                 ),
@@ -232,12 +232,12 @@ class _MainScreenState extends State<MainScreen>
 
           // ── Floating Mission Dock (Mission Control) ──────────────────────
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 400),
-            bottom: navProv.isImmersive ? -150 : 30,
-            left: 20,
-            right: 20,
+            duration: AppMotion.standard,
+            bottom: navProv.isImmersive ? -150 : 18,
+            left: 16,
+            right: 16,
             child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
+              duration: AppMotion.standard,
               opacity: navProv.isImmersive ? 0.0 : 1.0,
               child: IgnorePointer(
                 ignoring: navProv.isImmersive,
@@ -264,9 +264,12 @@ class MissionDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return EliteSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderRadius: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      borderRadius: AppSpacing.radiusL,
+      color: theme.colorScheme.surface,
+      borderColor: theme.colorScheme.outline.withValues(alpha: 0.30),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -340,10 +343,9 @@ class _SpringDockItemState extends State<_SpringDockItem>
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 300));
-    _scale = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.elasticOut),
+    _anim = AnimationController(vsync: this, duration: AppMotion.fast);
+    _scale = Tween<double>(begin: 1.0, end: 1.0).animate(
+      CurvedAnimation(parent: _anim, curve: AppMotion.fastCurve),
     );
   }
 
@@ -365,9 +367,10 @@ class _SpringDockItemState extends State<_SpringDockItem>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final color = widget.isSelected
-        ? (widget.color ?? AppColors.primaryHighContrast)
-        : Colors.white38;
+        ? (widget.color ?? theme.colorScheme.primary)
+        : theme.colorScheme.onSurface.withValues(alpha: 0.54);
 
     return GestureDetector(
       onTap: () {
@@ -375,7 +378,8 @@ class _SpringDockItemState extends State<_SpringDockItem>
         widget.onTap();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         color: Colors.transparent,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -384,20 +388,18 @@ class _SpringDockItemState extends State<_SpringDockItem>
               scale: _scale,
               child: Icon(widget.icon, color: color, size: 24),
             ),
-            if (widget.isSelected)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: color.withValues(alpha: 0.5), blurRadius: 4)
-                  ],
-                ),
+            const SizedBox(height: 2),
+            Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight:
+                    widget.isSelected ? FontWeight.w800 : FontWeight.w600,
               ),
+            ),
           ],
         ),
       ),
@@ -427,7 +429,7 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    )..value = 1;
     _pulseAnim = Tween<double>(begin: 0.4, end: 1.0).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
@@ -475,9 +477,9 @@ class _LiveStatusChipState extends State<_LiveStatusChip>
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 8,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
               ),
             ),
           ],

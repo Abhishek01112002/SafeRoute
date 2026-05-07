@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:saferoute/tourist/providers/mesh_provider.dart';
 import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
-import 'package:saferoute/widgets/premium_widgets.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 
 class SyncStatusChip extends StatefulWidget {
   final bool compact;
@@ -46,18 +46,17 @@ class _SyncStatusChipState extends State<SyncStatusChip>
       meshActive: mesh.isMeshActive,
       nodes: mesh.nearbyNodes.length,
     );
+    final theme = Theme.of(context);
 
     return Semantics(
       label: 'Sync status ${tone.label}',
-      child: EliteSurface(
+      child: AppSurface(
         padding: EdgeInsets.symmetric(
           horizontal: widget.compact ? 10 : 12,
           vertical: widget.compact ? 8 : 10,
         ),
-        borderRadius: 16,
-        color: Colors.white.withValues(alpha: tourist.isOnline ? 0.12 : 0.10),
+        color: theme.colorScheme.surface,
         borderColor: tone.color.withValues(alpha: 0.45),
-        borderOpacity: 0.45,
         child: Row(
           mainAxisSize: widget.compact ? MainAxisSize.min : MainAxisSize.max,
           children: [
@@ -80,9 +79,19 @@ class _SyncStatusChipState extends State<SyncStatusChip>
             ),
             const SizedBox(width: 8),
             if (widget.compact)
-              _SyncLabel(label: tone.label, compact: true)
+              _SyncLabel(
+                label: tone.label,
+                compact: true,
+                color: theme.colorScheme.onSurface,
+              )
             else
-              Expanded(child: _SyncLabel(label: tone.label, compact: false)),
+              Expanded(
+                child: _SyncLabel(
+                  label: tone.label,
+                  compact: false,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
           ],
         ),
       ),
@@ -94,22 +103,27 @@ class _SyncStatusChipState extends State<SyncStatusChip>
     required bool meshActive,
     required int nodes,
   }) {
-    if (online) return const _SyncTone('ONLINE SYNC', AppColors.success);
+    if (online) return const _SyncTone('Online sync', AppColors.success);
     if (meshActive && nodes > 0) {
-      return _SyncTone('OFFLINE / BLE MESH $nodes', AppColors.info);
+      return _SyncTone('BLE mesh ($nodes)', AppColors.info);
     }
     if (meshActive && nodes == 0) {
-      return const _SyncTone('OFFLINE / MESH SCANNING', AppColors.warning);
+      return const _SyncTone('Mesh scanning', AppColors.warning);
     }
-    return const _SyncTone('OFFLINE / LOCAL QUEUE', AppColors.warning);
+    return const _SyncTone('Local queue', AppColors.warning);
   }
 }
 
 class _SyncLabel extends StatelessWidget {
   final String label;
   final bool compact;
+  final Color color;
 
-  const _SyncLabel({required this.label, required this.compact});
+  const _SyncLabel({
+    required this.label,
+    required this.compact,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -118,10 +132,10 @@ class _SyncLabel extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: Colors.white,
+        color: color,
         fontWeight: FontWeight.w800,
-        fontSize: compact ? 9 : 10,
-        letterSpacing: 0.6,
+        fontSize: 12,
+        letterSpacing: 0,
       ),
     );
   }

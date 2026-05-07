@@ -8,6 +8,7 @@ import 'package:saferoute/screens/developer_sandbox_screen.dart';
 import 'package:saferoute/screens/permission_setup_screen.dart';
 import 'package:saferoute/tourist/screens/registration_screen.dart';
 import 'package:saferoute/utils/app_theme.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/utils/env.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 
@@ -17,6 +18,7 @@ class OnboardingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           const Positioned.fill(child: AuroraBackground()),
@@ -28,11 +30,11 @@ class OnboardingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _OnboardingTopBar(onSkip: () => _handleSkip(context)),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   const _BrandHero(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   const _SafetyPromiseCard(),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 28),
                   const _SectionLabel('Choose your access'),
                   const SizedBox(height: 12),
                   _roleCard(
@@ -91,34 +93,34 @@ class OnboardingScreen extends StatelessWidget {
   }
 
   void _showAuthorityOptions(BuildContext context) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => EliteSurface(
         margin: const EdgeInsets.all(AppSpacing.l),
         padding: const EdgeInsets.all(18),
-        borderRadius: 24,
-        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: AppSpacing.radiusL,
+        color: theme.colorScheme.surface,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Authority access',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Secure entry for rescue teams and local administrators.',
               style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+                fontSize: 14,
                 height: 1.4,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 18),
@@ -166,13 +168,12 @@ class OnboardingScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
-      borderRadius: 16,
       color: color.withValues(alpha: 0.12),
       borderColor: color.withValues(alpha: 0.35),
-      borderOpacity: 0.35,
       child: Row(
         children: [
           Icon(icon, color: color, size: 22),
@@ -181,13 +182,14 @@ class OnboardingScreen extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
               ),
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: color, size: 22),
+          Icon(Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.54),
+              size: 22),
         ],
       ),
     );
@@ -201,13 +203,12 @@ class OnboardingScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       onTap: onTap,
       padding: const EdgeInsets.all(16),
-      borderRadius: 20,
-      color: Colors.white.withValues(alpha: 0.10),
-      borderColor: color.withValues(alpha: 0.36),
-      borderOpacity: 0.36,
+      color: theme.colorScheme.surface,
+      borderColor: color.withValues(alpha: 0.30),
       child: Row(
         children: [
           Container(
@@ -227,10 +228,10 @@ class OnboardingScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -239,10 +240,9 @@ class OnboardingScreen extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.3,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -271,15 +271,13 @@ class OnboardingScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black.withValues(alpha: 0.90),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusL),
         ),
         title: const Text(
           'Restore tourist ID',
           style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
         ),
         content: Column(
@@ -287,20 +285,15 @@ class OnboardingScreen extends StatelessWidget {
           children: [
             const Text(
               'Enter your tourist identity number to restore your authenticated session.',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: AppSpacing.l),
-            EliteSurface(
-              color: Colors.white.withValues(alpha: 0.08),
+            AppSurface(
+              padding: EdgeInsets.zero,
               child: TextField(
                 controller: controller,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
                 decoration: const InputDecoration(
                   hintText: 'TID-XXXX-XXXX',
-                  hintStyle: TextStyle(color: Colors.white38),
                   border: InputBorder.none,
                 ),
               ),
@@ -350,7 +343,7 @@ class OnboardingScreen extends StatelessWidget {
                 );
               }
             },
-            child: const Text('RESTORE'),
+            child: const Text('Restore'),
           ),
         ],
       ),
@@ -365,16 +358,17 @@ class _OnboardingTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        const Icon(Icons.shield_rounded, color: AppColors.accent, size: 24),
+        const Icon(Icons.shield_rounded, color: AppColors.primary, size: 24),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'SafeRoute',
           style: TextStyle(
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
             fontSize: 18,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
         ),
         const Spacer(),
@@ -382,7 +376,10 @@ class _OnboardingTopBar extends StatelessWidget {
           onPressed: onSkip,
           icon: const Icon(Icons.dashboard_customize_rounded, size: 16),
           label: const Text('Guest mode'),
-          style: TextButton.styleFrom(foregroundColor: Colors.white70),
+          style: TextButton.styleFrom(
+            foregroundColor:
+                theme.colorScheme.onSurface.withValues(alpha: 0.72),
+          ),
         ),
       ],
     );
@@ -394,26 +391,26 @@ class _BrandHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final theme = Theme.of(context);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Your safety companion for remote trails.',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 30,
+            color: theme.colorScheme.onSurface,
+            fontSize: 28,
             height: 1.12,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Text(
           'Offline routes, BLE mesh relay, identity verification, and SOS context in one field-ready app.',
           style: TextStyle(
-            color: Colors.white70,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.70),
             fontSize: 14,
             height: 1.45,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -426,12 +423,10 @@ class _SafetyPromiseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    return AppSurface(
       padding: const EdgeInsets.all(14),
-      borderRadius: 20,
-      color: Colors.white.withValues(alpha: 0.10),
+      color: Theme.of(context).colorScheme.surface,
       borderColor: AppColors.accent.withValues(alpha: 0.28),
-      borderOpacity: 0.28,
       child: const Row(
         children: [
           _PromiseItem(icon: Icons.offline_pin_rounded, label: 'Offline ready'),
@@ -462,9 +457,8 @@ class _PromiseItem extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -481,7 +475,7 @@ class _PromiseDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 36,
-      color: Colors.white.withValues(alpha: 0.12),
+      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.28),
     );
   }
 }
@@ -493,13 +487,14 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        color: Colors.white60,
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.6,
+      label,
+      style: TextStyle(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0,
       ),
     );
   }

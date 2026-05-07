@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:saferoute/tourist/providers/trip_provider.dart';
 import 'package:saferoute/utils/app_theme.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 
 /// StartTripScreen — lets a tourist create a new trip with one or more stops.
 class StartTripScreen extends StatefulWidget {
@@ -23,20 +24,18 @@ class _StartTripScreenState extends State<StartTripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-    final surf = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
-    final textPrimary =
-        isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final textSecondary =
-        isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final divider = isDark ? AppColors.dividerDark : AppColors.dividerLight;
+    final surf = theme.colorScheme.surface;
+    final textPrimary = theme.colorScheme.onSurface;
+    final textSecondary = theme.colorScheme.onSurface.withValues(alpha: 0.64);
+    final divider = theme.colorScheme.outline.withValues(alpha: 0.42);
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: surf,
-        title: Text('Start a New Trip', style: TextStyle(color: textPrimary)),
+        title: Text('Start trip', style: TextStyle(color: textPrimary)),
         iconTheme: IconThemeData(color: textPrimary),
         elevation: 0,
       ),
@@ -45,7 +44,13 @@ class _StartTripScreenState extends State<StartTripScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _sectionTitle('Trip Dates', textPrimary),
+            const AppSectionHeader(
+              title: 'Plan your route',
+              subtitle:
+                  'Add travel dates and stops for destination-aware safety alerts.',
+            ),
+            const SizedBox(height: 20),
+            _sectionTitle('Trip dates', textPrimary),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -75,11 +80,11 @@ class _StartTripScreenState extends State<StartTripScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            _sectionTitle('Destinations / Stops', textPrimary),
+            _sectionTitle('Destinations and stops', textPrimary),
             const SizedBox(height: 4),
             Text(
               'Add all the places you plan to visit in order.',
-              style: TextStyle(color: textSecondary, fontSize: 13),
+              style: TextStyle(color: textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 16),
             ..._stops.asMap().entries.map((e) => _StopCard(
@@ -104,6 +109,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
+                minimumSize: const Size.fromHeight(AppSpacing.minTouchTarget),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
@@ -125,18 +131,13 @@ class _StartTripScreenState extends State<StartTripScreen> {
             _submitting
                 ? const Center(
                     child: CircularProgressIndicator(color: AppColors.primary))
-                : ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                : SizedBox(
+                    height: AppSpacing.fieldActionTarget,
+                    child: ElevatedButton.icon(
+                      onPressed: _submit,
+                      icon: const Icon(Icons.route_rounded),
+                      label: const Text('Start trip'),
                     ),
-                    child: const Text('Start Trip',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
             const SizedBox(height: 40),
           ],
@@ -233,8 +234,10 @@ class _StartTripScreenState extends State<StartTripScreen> {
           lastDate: DateTime.now().add(const Duration(days: 365)),
           builder: (ctx, child) => Theme(
             data: Theme.of(ctx).copyWith(
-                colorScheme:
-                    const ColorScheme.dark(primary: AppColors.primary)),
+              colorScheme: Theme.of(ctx)
+                  .colorScheme
+                  .copyWith(primary: AppColors.primary),
+            ),
             child: child!,
           ),
         );
@@ -250,7 +253,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(color: textSecondary, fontSize: 11)),
+            Text(label, style: TextStyle(color: textSecondary, fontSize: 12)),
             const SizedBox(height: 4),
             Text(
               value != null
@@ -258,6 +261,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
                   : 'Pick date',
               style: TextStyle(
                 color: value != null ? textPrimary : textSecondary,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -362,7 +366,7 @@ class _StopCardState extends State<_StopCard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: widget.surf,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusM),
         border: Border.all(color: widget.divider),
       ),
       child: Column(
@@ -383,7 +387,7 @@ class _StopCardState extends State<_StopCard> {
               ),
               const SizedBox(width: 8),
               Text('Stop',
-                  style: TextStyle(color: widget.textSecondary, fontSize: 13)),
+                  style: TextStyle(color: widget.textSecondary, fontSize: 14)),
               const Spacer(),
               if (widget.onRemove != null)
                 GestureDetector(
@@ -447,8 +451,10 @@ class _StopCardState extends State<_StopCard> {
           lastDate: last,
           builder: (ctx, child) => Theme(
             data: Theme.of(ctx).copyWith(
-                colorScheme:
-                    const ColorScheme.dark(primary: AppColors.primary)),
+              colorScheme: Theme.of(ctx)
+                  .colorScheme
+                  .copyWith(primary: AppColors.primary),
+            ),
             child: child!,
           ),
         );
@@ -465,14 +471,14 @@ class _StopCardState extends State<_StopCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(color: widget.textSecondary, fontSize: 10)),
+                style: TextStyle(color: widget.textSecondary, fontSize: 12)),
             const SizedBox(height: 2),
             Text(
               value != null ? DateFormat('dd MMM').format(value) : 'Pick',
               style: TextStyle(
                 color:
                     value != null ? widget.textPrimary : widget.textSecondary,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),

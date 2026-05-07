@@ -530,31 +530,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             children: [
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded,
-                    color: Colors.white, size: 22),
+                icon: Icon(Icons.arrow_back_rounded,
+                    color: theme.colorScheme.onSurface, size: 22),
               ),
               const SizedBox(width: 4),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Tourist registration',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
                         fontSize: 19,
                       ),
                     ),
-                    SizedBox(height: 3),
+                    const SizedBox(height: 3),
                     Text(
                       'Build your safety identity for offline rescue context.',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.64),
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -574,7 +574,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: EliteSurface(
         padding: const EdgeInsets.all(12),
         borderRadius: 18,
-        color: Colors.white.withValues(alpha: 0.09),
+        color: theme.colorScheme.surface,
         borderColor: AppColors.primary.withValues(alpha: 0.28),
         borderOpacity: 0.28,
         child: Row(
@@ -1096,18 +1096,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           borderColor: AppColors.success.withValues(alpha: 0.34),
           borderOpacity: 0.34,
           padding: const EdgeInsets.all(14),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.verified_user_rounded, color: AppColors.success),
-              SizedBox(width: 12),
+              const Icon(Icons.verified_user_rounded, color: AppColors.success),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   "Your identity and selected route context remain compatible with the existing backend registration flow.",
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 13,
                     height: 1.35,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -1128,7 +1127,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 child: EliteButton(
                     onPressed: () => setState(() => _currentStep--),
                     isPrimary: false,
-                    child: const Text("BACK"))),
+                    child: const Text("Back"))),
           const SizedBox(width: AppSpacing.m),
           Expanded(
               child: EliteButton(
@@ -1141,7 +1140,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             _submitForm();
                           }
                         },
-                  child: Text(_currentStep == 2 ? "FINALIZE" : "NEXT"))),
+                  child: Text(_currentStep == 2 ? "Finish" : "Next"))),
         ],
       ),
     );
@@ -1153,12 +1152,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: TextButton(
         onPressed: _showPrivacyProtocol,
         child: Text(
-          "VIEW PRIVACY & SECURITY PROTOCOL",
+          "View privacy and security protocol",
           style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            letterSpacing: 1,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.54),
+            letterSpacing: 0,
           ),
         ),
       ),
@@ -1169,20 +1168,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black.withValues(alpha: 0.9),
-        surfaceTintColor: AppColors.primary,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.radiusL)),
         title: const Row(
           children: [
             Icon(Icons.security_rounded, color: AppColors.primary),
             SizedBox(width: 12),
-            Text("PRIVACY PROTOCOL",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1)),
+            Text("Privacy protocol",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           ],
         ),
         content: SingleChildScrollView(
@@ -1203,9 +1196,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text("I UNDERSTAND",
+              child: const Text("I understand",
                   style: TextStyle(
-                      color: AppColors.primary, fontWeight: FontWeight.w900))),
+                      color: AppColors.primary, fontWeight: FontWeight.w800))),
         ],
       ),
     );
@@ -1217,14 +1210,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(),
+          Text(title,
               style: const TextStyle(
                   color: AppColors.primary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900)),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text(desc,
-              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(desc, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -1244,13 +1236,14 @@ class _StepTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final active = activeIndex == index;
     final complete = activeIndex > index;
     final color = complete
         ? AppColors.success
         : active
             ? AppColors.primary
-            : Colors.white38;
+            : theme.colorScheme.onSurface.withValues(alpha: 0.42);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -1277,9 +1270,11 @@ class _StepTab extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: active || complete ? Colors.white : Colors.white54,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
+                color: active || complete
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -1302,10 +1297,11 @@ class _RegistrationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return EliteSurface(
       padding: const EdgeInsets.all(16),
-      borderRadius: 22,
-      color: Colors.white.withValues(alpha: 0.10),
+      borderRadius: AppSpacing.radiusL,
+      color: theme.colorScheme.surface,
       borderColor: AppColors.primary.withValues(alpha: 0.24),
       borderOpacity: 0.24,
       child: Column(
@@ -1313,20 +1309,19 @@ class _RegistrationPanel extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
               fontSize: 16,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+              fontSize: 13,
               height: 1.35,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 16),
@@ -1477,6 +1472,7 @@ class _DestinationChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final name = '${destination['name'] ?? 'Destination'}';
     final district = '${destination['district'] ?? 'District'}';
     final altitude = '${destination['altitude_m'] ?? '--'}';
@@ -1487,10 +1483,10 @@ class _DestinationChoice extends StatelessWidget {
       borderRadius: 16,
       color: isSelected
           ? AppColors.primary.withValues(alpha: 0.16)
-          : Colors.white.withValues(alpha: 0.07),
+          : theme.colorScheme.surface,
       borderColor: isSelected
           ? AppColors.primary.withValues(alpha: 0.45)
-          : Colors.white.withValues(alpha: 0.12),
+          : theme.colorScheme.outline.withValues(alpha: 0.28),
       borderOpacity: isSelected ? 0.45 : 0.12,
       child: CheckboxListTile(
         contentPadding: EdgeInsets.zero,
@@ -1499,18 +1495,17 @@ class _DestinationChoice extends StatelessWidget {
         onChanged: onChanged,
         title: Text(
           name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
             fontSize: 13,
           ),
         ),
         subtitle: Text(
           '$district / Altitude ${altitude}m',
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+            fontSize: 12,
           ),
         ),
       ),
@@ -1523,21 +1518,22 @@ class _EmptyDestinationState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.28)),
       ),
-      child: const Text(
+      child: Text(
         'Destination data is not available yet. You can continue and the app will use the selected state fallback.',
         style: TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+          fontSize: 13,
           height: 1.35,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1559,6 +1555,7 @@ class _ReviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1578,12 +1575,12 @@ class _ReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                  label,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1591,8 +1588,8 @@ class _ReviewTile extends StatelessWidget {
                   value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),

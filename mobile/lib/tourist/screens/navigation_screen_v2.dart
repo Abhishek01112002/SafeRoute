@@ -50,6 +50,7 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
     final trail = locationProvider.trail;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final safetyColors = theme.extension<SafeRouteColors>()!;
 
     // Initial center if location is null
     final LatLng center = currentPos != null
@@ -134,9 +135,10 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   borderRadius: 30,
-                  color: Colors.white.withValues(
-                      alpha: 0.0001), // Near-total transparency as requested
-                  blur: 25,
+                  color: safetyColors.mapOverlay,
+                  borderColor:
+                      theme.colorScheme.outline.withValues(alpha: 0.30),
+                  blur: 6,
                   child: Row(
                     children: [
                       const Icon(Icons.shield_rounded,
@@ -146,7 +148,8 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
                         _getZoneName(locationProvider.zoneStatus),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
+                          letterSpacing: 0,
+                          color: safetyColors.mapOverlayText,
                         ),
                       ),
                     ],
@@ -189,7 +192,7 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
                 const SizedBox(height: 12),
                 _buildMapAction(
                   icon: Icons.view_in_ar_rounded,
-                  label: 'AR VIEW',
+                  label: 'AR',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -245,7 +248,7 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
                       color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.1,
+                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -271,6 +274,7 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
 
   Widget _buildMapAction(
       {required IconData icon, String? label, required VoidCallback onTap}) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: () {
         HapticFeedback.mediumImpact();
@@ -282,20 +286,21 @@ class _NavigationScreenV2State extends State<NavigationScreenV2> {
             padding: EdgeInsets.zero,
             width: 50,
             height: 50,
-            borderRadius: 25,
-            color: AppColors.primary.withValues(alpha: 0.8),
-            borderColor: Colors.white24,
-            child: Icon(icon, color: Colors.white, size: 24),
+            borderRadius: AppSpacing.radiusFull,
+            color: theme.colorScheme.surface.withValues(alpha: 0.96),
+            borderColor: theme.colorScheme.outline.withValues(alpha: 0.30),
+            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
           ),
           if (label != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 label,
-                style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
         ],

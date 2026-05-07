@@ -12,6 +12,7 @@ import 'package:saferoute/core/providers/auth_provider.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/screens/onboarding_screen.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/connectivity_chip.dart';
 import 'package:saferoute/core/service_locator.dart';
 
@@ -76,14 +77,14 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Authority Command Center',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Text('Authority Hub',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             Consumer<AuthProvider>(
               builder: (_, auth, __) => Text(
-                'JURISDICTION: DISTRICT',
+                'Jurisdiction: District',
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.5,
+                  fontSize: 12,
+                  letterSpacing: 0,
                   color: theme.colorScheme.primary,
                 ),
               ),
@@ -106,12 +107,12 @@ class _AuthorityDashboardScreenState extends State<AuthorityDashboardScreen>
           unselectedLabelColor:
               theme.colorScheme.onSurface.withValues(alpha: 0.5),
           labelStyle: const TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1),
+              fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0),
           tabs: const [
-            Tab(icon: Icon(Icons.layers_rounded, size: 18), text: 'ZONES'),
-            Tab(icon: Icon(Icons.people_rounded, size: 18), text: 'TOURISTS'),
+            Tab(icon: Icon(Icons.layers_rounded, size: 18), text: 'Zones'),
+            Tab(icon: Icon(Icons.people_rounded, size: 18), text: 'Tourists'),
             Tab(icon: Icon(Icons.sos_rounded, size: 18), text: 'SOS'),
-            Tab(icon: Icon(Icons.route_rounded, size: 18), text: 'TRAIL MAP'),
+            Tab(icon: Icon(Icons.route_rounded, size: 18), text: 'Trails'),
           ],
         ),
       ),
@@ -636,13 +637,10 @@ class _EmptyHint extends StatelessWidget {
   final String text;
   const _EmptyHint(this.text);
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(text,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade500, height: 1.6)),
-        ),
+  Widget build(BuildContext context) => AppEmptyState(
+        icon: Icons.info_outline_rounded,
+        title: 'Nothing to show',
+        message: text,
       );
 }
 
@@ -650,21 +648,5 @@ class _ErrorBanner extends StatelessWidget {
   final String message;
   const _ErrorBanner(this.message);
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.danger.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.danger),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(message, style: const TextStyle(fontSize: 12))),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) => AppErrorState(message: message);
 }

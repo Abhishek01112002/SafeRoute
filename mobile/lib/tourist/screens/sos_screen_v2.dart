@@ -39,7 +39,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   double _holdProgress = 0;
   final int _requiredHoldMs = 3000;
 
-  String _sosHeadline = 'SOS QUEUED SECURELY';
+  String _sosHeadline = 'SOS queued securely';
   String _sosDeliveryMessage = 'SafeRoute is reaching authorities.';
 
   @override
@@ -139,13 +139,13 @@ class _SOSScreenV2State extends State<SOSScreenV2>
                 Text(
                   _isHolding
                       ? 'Keep holding... ${(_requiredHoldMs / 1000 * (1 - _holdProgress)).clamp(0.0, 3.0).toStringAsFixed(1)}s'
-                      : 'PRESS & HOLD 3s TO SEND SOS',
+                      : 'Press and hold for 3 seconds to send SOS',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _isHolding ? Colors.white : Colors.white70,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 1.4,
-                    fontSize: 13,
+                    letterSpacing: 0,
+                    fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 28),
@@ -184,8 +184,8 @@ class _SOSScreenV2State extends State<SOSScreenV2>
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 28,
-                letterSpacing: 1.2,
+                fontSize: 26,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(height: 10),

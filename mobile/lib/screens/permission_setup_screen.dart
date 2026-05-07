@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:saferoute/utils/app_theme.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/utils/permission_helper.dart';
 import 'package:saferoute/screens/main_screen.dart';
@@ -26,9 +27,9 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
     if (!mounted) return;
     setState(() => _isRequesting = false);
 
-    locator<AnalyticsService>().logEvent(
-      granted ? AnalyticsEvent.permissionGranted : AnalyticsEvent.permissionDenied
-    );
+    locator<AnalyticsService>().logEvent(granted
+        ? AnalyticsEvent.permissionGranted
+        : AnalyticsEvent.permissionDenied);
 
     if (granted) {
       if (mounted) {
@@ -50,14 +51,15 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black.withValues(alpha: 0.9),
-        title: const Text("LIMITED MODE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+        title: const Text("Limited mode",
+            style: TextStyle(fontWeight: FontWeight.w800)),
         content: const Text(
           "Without permissions, live tracking and SOS broadcasting will be disabled. You can still view maps and sync data manually.",
-          style: TextStyle(color: Colors.white70, fontSize: 13),
+          style: TextStyle(fontSize: 14),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("RETRY")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("RETRY")),
           EliteButton(
             isFullWidth: false,
             onPressed: () async {
@@ -93,14 +95,15 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
                 children: [
                   const Hero(
                     tag: 'app_logo',
-                    child: Icon(Icons.security_rounded, size: 80, color: AppColors.primary),
+                    child: Icon(Icons.security_rounded,
+                        size: 80, color: AppColors.primary),
                   ),
-                  const SizedBox(height: AppSpacing.xxl),
+                  const SizedBox(height: AppSpacing.xl),
                   Text(
-                    "SAFETY CLEARANCE",
+                    "Safety permissions",
                     style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.m),
@@ -113,27 +116,36 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  _permissionItem(Icons.location_on_rounded, "LOCATION ACCESS", "To track your position and geofence status."),
+                  const SizedBox(height: AppSpacing.xl),
+                  _permissionItem(Icons.location_on_rounded, "Location access",
+                      "Tracks your position and zone status."),
                   const SizedBox(height: AppSpacing.m),
-                  _permissionItem(Icons.bluetooth_searching_rounded, "MESH NETWORKING", "To communicate with authorities without internet."),
+                  _permissionItem(
+                      Icons.bluetooth_searching_rounded,
+                      "Mesh networking",
+                      "Helps nearby phones relay safety signals."),
                   const SizedBox(height: AppSpacing.m),
-                  _permissionItem(Icons.notifications_active_rounded, "CRITICAL ALERTS", "To notify you of nearby dangers."),
+                  _permissionItem(
+                      Icons.notifications_active_rounded,
+                      "Critical alerts",
+                      "Notifies you about nearby risks and SOS updates."),
                   const Spacer(),
                   EliteButton(
                     onPressed: _isRequesting ? null : _handlePermissions,
-                    child: Text(_isRequesting ? "REQUESTING..." : "GRANT ALL ACCESS"),
+                    child:
+                        Text(_isRequesting ? "Requesting..." : "Grant access"),
                   ),
                   const SizedBox(height: AppSpacing.m),
                   TextButton(
                     onPressed: () => _handleLimitedMode(),
                     child: Text(
-                      "CONTINUE WITH LIMITED FEATURES",
+                      "Continue with limited features",
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 9,
-                        letterSpacing: 1,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -147,13 +159,14 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
   }
 
   void _handleLimitedMode() {
-    locator<AnalyticsService>().logEvent(AnalyticsEvent.permissionDenied, properties: {'mode': 'manual_skip'});
+    locator<AnalyticsService>().logEvent(AnalyticsEvent.permissionDenied,
+        properties: {'mode': 'manual_skip'});
     _showLimitedModeDialog();
   }
 
   Widget _permissionItem(IconData icon, String title, String desc) {
     final theme = Theme.of(context);
-    return EliteSurface(
+    return AppSurface(
       padding: const EdgeInsets.all(AppSpacing.m),
       child: Row(
         children: [
@@ -163,8 +176,17 @@ class _PermissionSetupScreenState extends State<PermissionSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1)),
-                Text(desc, style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: 0)),
+                const SizedBox(height: 2),
+                Text(desc,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.62))),
               ],
             ),
           ),

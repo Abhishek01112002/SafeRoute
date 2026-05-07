@@ -10,6 +10,7 @@ import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/secure_storage_service.dart';
 import 'package:saferoute/core/config/env_config.dart';
 import 'package:saferoute/utils/app_theme.dart';
+import 'package:saferoute/widgets/app_ui.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:saferoute/core/service_locator.dart';
 
@@ -22,20 +23,15 @@ class DigitalIDScreenV2 extends StatelessWidget {
 
     if (tourist == null) {
       return const Scaffold(
-        body: Stack(
-          children: [
-            AuroraBackground(),
-            Center(child: CircularProgressIndicator()),
-          ],
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          const AuroraBackground(),
+          const Positioned.fill(child: AuroraBackground()),
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -65,24 +61,24 @@ class _ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final theme = Theme.of(context);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Digital safety ID',
           style: TextStyle(
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
             fontSize: 24,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           'Responder-ready identity, route, and emergency context.',
           style: TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+            fontSize: 14,
           ),
         ),
       ],
@@ -97,20 +93,19 @@ class _IdentityPassport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       padding: EdgeInsets.zero,
-      borderRadius: 24,
-      color: Colors.white.withValues(alpha: 0.10),
+      color: theme.colorScheme.surface,
       borderColor: _syncColor.withValues(alpha: 0.38),
-      borderOpacity: 0.38,
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _syncColor.withValues(alpha: 0.12),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppSpacing.radiusM)),
             ),
             child: Row(
               children: [
@@ -128,22 +123,23 @@ class _IdentityPassport extends StatelessWidget {
                     children: [
                       Text(
                         tourist.isSynced
-                            ? 'VERIFIED SAFETY NETWORK'
-                            : 'OFFLINE ID PENDING SYNC',
-                        style: const TextStyle(
-                          color: Colors.white,
+                            ? 'Verified safety network'
+                            : 'Offline ID pending sync',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.1,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
                         ),
                       ),
                       Text(
-                        tourist.destinationState.toUpperCase(),
+                        tourist.destinationState,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.62),
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -168,18 +164,21 @@ class _IdentityPassport extends StatelessWidget {
                         tourist.fullName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontSize: 18,
                           height: 1.15,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 10),
                       _InfoLine(label: 'Tourist ID', value: tourist.touristId),
                       _InfoLine(
                         label: 'TUID',
-                        value: tourist.tuid ?? (tourist.isSynced ? 'Not assigned' : 'Pending server sync'),
+                        value: tourist.tuid ??
+                            (tourist.isSynced
+                                ? 'Not assigned'
+                                : 'Pending server sync'),
                       ),
                       _InfoLine(
                         label: 'Document',
@@ -239,11 +238,12 @@ class _PhotoSectionState extends State<_PhotoSection> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: 98,
       height: 124,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.42)),
       ),
@@ -285,7 +285,8 @@ class _PhotoSectionState extends State<_PhotoSection> {
   Future<Uint8List> _loadPhoto(Tourist tourist) async {
     // Try S3-style fetch first
     try {
-      return await locator<ApiService>().fetchSecureMedia(tourist.photoObjectKey!);
+      return await locator<ApiService>()
+          .fetchSecureMedia(tourist.photoObjectKey!);
     } catch (_) {
       // S3 fetch failed - try backend photo endpoint
       try {
@@ -316,11 +317,17 @@ class _PhotoSectionState extends State<_PhotoSection> {
         return Image.memory(base64Decode(tourist.photoBase64),
             fit: BoxFit.cover);
       } catch (_) {
-        return const Icon(Icons.person_rounded,
-            size: 42, color: Colors.white38);
+        return Icon(Icons.person_rounded,
+            size: 42,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.38));
       }
     }
-    return const Icon(Icons.person_rounded, size: 42, color: Colors.white38);
+    return Icon(Icons.person_rounded,
+        size: 42,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38));
   }
 }
 
@@ -331,10 +338,10 @@ class _QrVerificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return AppSurface(
       padding: const EdgeInsets.all(16),
-      borderRadius: 24,
-      color: Colors.white.withValues(alpha: 0.10),
+      color: theme.colorScheme.surface,
       child: Row(
         children: [
           Container(
@@ -358,22 +365,21 @@ class _QrVerificationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Secure verification',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Scan to verify identity, trip validity, and emergency details.',
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+                    fontSize: 14,
                     height: 1.35,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -461,31 +467,33 @@ class _DetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EliteSurface(
+    final theme = Theme.of(context);
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      borderRadius: 22,
-      color: Colors.white.withValues(alpha: 0.09),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.accent, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
+      child: AppSurface(
+        padding: const EdgeInsets.all(16),
+        color: theme.colorScheme.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppColors.accent, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...rows.map((row) => _InfoLine(label: row.label, value: row.value)),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...rows.map((row) => _InfoLine(label: row.label, value: row.value)),
+          ],
+        ),
       ),
     );
   }
@@ -510,12 +518,15 @@ class _InfoLine extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.0,
+            label,
+            style: TextStyle(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.56),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 2),
@@ -524,8 +535,8 @@ class _InfoLine extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: valueColor ?? Colors.white,
-              fontSize: 13,
+              color: valueColor ?? Theme.of(context).colorScheme.onSurface,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -551,11 +562,11 @@ class _StatusBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.34)),
       ),
       child: Text(
-        label.toUpperCase(),
+        label,
         style: TextStyle(
           color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
