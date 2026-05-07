@@ -1,7 +1,7 @@
 // lib/services/background_service.dart
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,7 +10,9 @@ import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
 import 'package:saferoute/services/sync_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saferoute/core/config/env_config.dart';
 import 'package:saferoute/core/service_locator.dart';
+import 'package:saferoute/utils/constants.dart';
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
@@ -20,6 +22,7 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
+  await _ensureBackgroundDependencies();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -174,11 +177,41 @@ Future<void> onStart(ServiceInstance service) async {
   });
 }
 
+Future<void> _ensureBackgroundDependencies() async {
+  _ensureBackgroundEnvConfig();
+  if (!locator.isRegistered<ApiService>()) {
+    setupLocator();
+  }
+  await locator<SyncEngine>().initialize();
+}
+
+void _ensureBackgroundEnvConfig() {
+  try {
+    EnvConfig.apiBaseUrl;
+    return;
+  } catch (_) {
+    EnvConfig.init(
+      env: kReleaseMode ? Environment.prod : Environment.dev,
+      apiBaseUrl: kBaseUrl,
+      webSocketUrl: _webSocketUrlFromApi(kBaseUrl),
+    );
+  }
+}
+
+String _webSocketUrlFromApi(String apiBaseUrl) {
+  final uri = Uri.parse(apiBaseUrl);
+  return uri
+      .replace(scheme: uri.scheme == 'https' ? 'wss' : 'ws')
+      .toString();
+}
+
 class BackgroundService {
   static const String notificationChannelId = 'saferoute_foreground';
   static const int notificationId = 888;
 
   static Future<void> initializeBackgroundService() async {
+    await _ensureBackgroundDependencies();
+
     final service = FlutterBackgroundService();
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(

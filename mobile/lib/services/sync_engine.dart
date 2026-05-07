@@ -53,16 +53,16 @@ class SyncOperation {
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'type': type.name,
-    'priority': priority.name,
-    'payload': jsonEncode(payload),
-    'state': state.name,
-    'retry_count': retryCount,
-    'last_attempt': lastAttempt?.millisecondsSinceEpoch,
-    'error_message': errorMessage,
-    'created_at': createdAt.millisecondsSinceEpoch,
-  };
+        'id': id,
+        'type': type.name,
+        'priority': priority.name,
+        'payload': jsonEncode(payload),
+        'state': state.name,
+        'retry_count': retryCount,
+        'last_attempt': lastAttempt?.millisecondsSinceEpoch,
+        'error_message': errorMessage,
+        'created_at': createdAt.millisecondsSinceEpoch,
+      };
 
   static SyncOperation fromMap(Map<String, dynamic> map) {
     return SyncOperation(
@@ -116,11 +116,13 @@ class SyncEngine {
 
   // Internal state
   bool _isRunning = false;
+  bool _isInitialized = false;
   final _progressController = StreamController<SyncProgress>.broadcast();
   Timer? _periodicTimer;
 
   // Configuration
   static const int _maxRetries = 3;
+  static const int _maxSosRetries = 50;
   static const Duration _baseBackoff = Duration(seconds: 2);
   static const Duration _maxBackoff = Duration(minutes: 5);
   static const int _batchSize = 50;
@@ -130,6 +132,7 @@ class SyncEngine {
 
   /// Initialize the sync engine database tables
   Future<void> initialize() async {
+    if (_isInitialized) return;
     final db = await _db.database;
     await db.execute('''
       CREATE TABLE IF NOT EXISTS sync_queue (
@@ -145,25 +148,28 @@ class SyncEngine {
       )
     ''');
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_sync_state_priority ON sync_queue(state, priority, created_at)'
-    );
+        'CREATE INDEX IF NOT EXISTS idx_sync_state_priority ON sync_queue(state, priority, created_at)');
+    _isInitialized = true;
     debugPrint('✅ SyncEngine: Initialized');
   }
 
   /// Enqueue a sync operation
   Future<void> enqueue(SyncOperation operation) async {
+    await initialize();
     final db = await _db.database;
     await db.insert(
       'sync_queue',
       operation.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    debugPrint('📥 SyncEngine: Enqueued ${operation.type.name} (${operation.priority.name})');
+    debugPrint(
+        '📥 SyncEngine: Enqueued ${operation.type.name} (${operation.priority.name})');
     await _notifyProgress();
   }
 
   /// Start periodic background sync
   void startPeriodicSync(Duration interval) {
+    unawaited(initialize());
     _periodicTimer?.cancel();
     _periodicTimer = Timer.periodic(interval, (_) => processQueue());
     debugPrint('🔄 SyncEngine: Periodic sync started ($interval)');
@@ -178,6 +184,7 @@ class SyncEngine {
 
   /// Process all pending operations in priority order
   Future<void> processQueue() async {
+    await initialize();
     if (_isRunning) {
       debugPrint('⏳ SyncEngine: Already running, skipping');
       return;
@@ -204,6 +211,12 @@ class SyncEngine {
         );
 
         await _processOperation(op);
+        await _notifyProgress(
+          currentOperation: op,
+          completedOperations: i + 1,
+          totalOperations: operations.length,
+          startTime: startTime,
+        );
       }
 
       debugPrint('✅ SyncEngine: Queue processing complete');
@@ -246,7 +259,8 @@ class SyncEngine {
       await _handleFailure(op, 'Rate limited', retryAfter: e.retryAfter);
     } on AuthCorruptionException catch (e) {
       debugPrint('🛑 SyncEngine: Auth corruption, aborting: $e');
-      await _updateOperationState(op, SyncState.failed, error: 'Auth corruption');
+      await _updateOperationState(op, SyncState.failed,
+          error: 'Auth corruption');
     } catch (e) {
       debugPrint('❌ SyncEngine: ${op.type.name} failed: $e');
       await _handleFailure(op, e.toString());
@@ -277,7 +291,8 @@ class SyncEngine {
         return result.accepted;
 
       case SyncOperationType.locationPing:
-        final success = await _api.sendLocationPing(LocationPing.fromMap(op.payload));
+        final success =
+            await _api.sendLocationPing(LocationPing.fromMap(op.payload));
         if (success && op.payload['id'] != null) {
           await _db.markPingSynced(op.payload['id']);
         }
@@ -292,7 +307,8 @@ class SyncEngine {
         return true;
 
       case SyncOperationType.zoneData:
-        final zones = await _api.getZonesForDestination(op.payload['destinationId']);
+        final zones =
+            await _api.getZonesForDestination(op.payload['destinationId']);
         if (zones.isNotEmpty) {
           await _db.saveZones(op.payload['destinationId'], zones);
         }
@@ -313,7 +329,9 @@ class SyncEngine {
     String error, {
     Duration? retryAfter,
   }) async {
-    if (op.retryCount >= _maxRetries) {
+    final maxRetries =
+        op.type == SyncOperationType.sosEvent ? _maxSosRetries : _maxRetries;
+    if (op.retryCount >= maxRetries) {
       await _updateOperationState(op, SyncState.failed, error: error);
       debugPrint('🔴 SyncEngine: ${op.type.name} max retries exceeded');
       return;
@@ -324,7 +342,8 @@ class SyncEngine {
 
     op.retryCount++;
     await _updateOperationState(op, SyncState.retrying, error: error);
-    debugPrint('🔄 SyncEngine: ${op.type.name} retry ${op.retryCount}/$_maxRetries');
+    debugPrint(
+        '🔄 SyncEngine: ${op.type.name} retry ${op.retryCount}/$_maxRetries');
   }
 
   /// Calculate exponential backoff with jitter
@@ -357,6 +376,7 @@ class SyncEngine {
 
   /// Clean up completed operations older than 7 days
   Future<void> cleanupOldOperations() async {
+    await initialize();
     final db = await _db.database;
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     final deleted = await db.delete(
@@ -371,6 +391,7 @@ class SyncEngine {
 
   /// Retry all failed operations
   Future<void> retryFailed() async {
+    await initialize();
     final db = await _db.database;
     await db.update(
       'sync_queue',
@@ -384,6 +405,7 @@ class SyncEngine {
 
   /// Get current queue statistics
   Future<Map<String, int>> getStats() async {
+    await initialize();
     final db = await _db.database;
     final result = await db.rawQuery('''
       SELECT state, COUNT(*) as count FROM sync_queue GROUP BY state

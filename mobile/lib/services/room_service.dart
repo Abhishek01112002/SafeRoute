@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:saferoute/tourist/models/room_member_model.dart';
 import 'package:saferoute/services/notification_service.dart';
@@ -47,10 +48,13 @@ class RoomService {
 
     final uri = _buildWebSocketUri();
 
-    debugPrint('[WS] Connecting to: $uri (attempt #${_reconnectAttempts + 1})');
-
     try {
-      _channel = WebSocketChannel.connect(uri);
+      _channel = IOWebSocketChannel.connect(
+        uri,
+        headers: _authToken == null
+            ? null
+            : {'Authorization': 'Bearer $_authToken'},
+      );
 
       _channel!.stream.listen(
         (data) {
@@ -87,7 +91,7 @@ class RoomService {
     return apiUri.replace(
       scheme: scheme,
       path: wsPath,
-      queryParameters: _authToken == null ? null : {'token': _authToken},
+      queryParameters: const <String, String>{},
     );
   }
 

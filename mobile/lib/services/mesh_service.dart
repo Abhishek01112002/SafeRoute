@@ -352,14 +352,16 @@ class MeshService {
         }
       }
 
-      // Verification logic:
-      // If we are the source, we know our secret.
-      // Otherwise, we check if it's signed with the 'trusted' global salt.
-      final expectedSig = packet.signature;
+      // Verify packets that claim this device's TUID with the local mesh key.
+      final localTuid = await _storage.getTuid();
+      final localSuffix =
+          localTuid == null ? null : _localTuidSuffix(localTuid);
+      final isLocalOrigin = localSuffix == packet.tuidSuffix;
 
-      debugPrint(
-          "[MeshService] Packet carries origin signature; backend will verify.");
-      if (packet.signature != expectedSig) {
+      debugPrint(isLocalOrigin
+          ? "[MeshService] Packet matches local TUID; verifying HMAC."
+          : "[MeshService] Foreign origin packet; backend will verify HMAC.");
+      if (isLocalOrigin && !await _hasValidLocalSignature(packet)) {
         debugPrint(
             "❌ Invalid or missing signature. Dropping packet ${packet.packetId}. Possible spoofing attempt.");
         return;
@@ -411,6 +413,27 @@ class MeshService {
       return;
     }
     _enqueuePacket(packet);
+  }
+
+  String _localTuidSuffix(String value) {
+    final normalized = value.trim().toUpperCase();
+    if (normalized.length >= 4) {
+      return normalized.substring(normalized.length - 4);
+    }
+    return normalized.padLeft(4, '0');
+  }
+
+  Future<bool> _hasValidLocalSignature(MeshPacket packet) async {
+    final meshSecret = await _storage.getMeshSecret();
+    final keyVersion = await _storage.getMeshKeyVersion();
+    if (meshSecret == null || keyVersion == null) return false;
+    if (keyVersion != packet.keyVersion) return false;
+
+    final expectedSignature = packet.generateSignature(
+      meshSecret,
+      bytesLen: packet.signatureByteLength,
+    );
+    return packet.signature == expectedSignature;
   }
 
   Future<void> stop() async {

@@ -488,7 +488,7 @@ class DatabaseService {
   }) async {
     final db = await database;
     final eventTimestamp = timestamp ?? DateTime.now();
-    return await db.insert('sos_events', {
+    final insertedId = await db.insert('sos_events', {
       'touristId': touristId,
       'latitude': latitude,
       'longitude': longitude,
@@ -497,7 +497,14 @@ class DatabaseService {
       'isSynced': isSynced ? 1 : 0,
       'idempotencyKey': idempotencyKey,
       'deliveryState': isSynced ? 'QUEUED' : 'LOCAL_PENDING',
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }, conflictAlgorithm: ConflictAlgorithm.abort);
+
+    if (insertedId <= 0) {
+      throw StateError(
+        'SOS save failed: no row inserted for idempotencyKey=$idempotencyKey',
+      );
+    }
+    return insertedId;
   }
 
   Future<List<Map<String, dynamic>>> getUnsyncedSosEvents() async {

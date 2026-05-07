@@ -12,6 +12,7 @@ import 'package:saferoute/tourist/providers/tourist_provider.dart';
 import 'package:saferoute/services/analytics_service.dart';
 import 'package:saferoute/services/api_service.dart';
 import 'package:saferoute/services/database_service.dart';
+import 'package:saferoute/services/sync_engine.dart';
 import 'package:saferoute/utils/app_theme.dart';
 import 'package:saferoute/widgets/premium_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,7 +32,12 @@ class _SOSScreenV2State extends State<SOSScreenV2>
   late final AnimationController _pulseController;
   Timer? _hapticTicker;
   Timer? _statusPollTimer;
+  Timer? _localSosStatusTimer;
+  StreamSubscription<SyncProgress>? _syncProgressSub;
   int _statusPollAttempt = 0;
+  int? _activeLocalSosId;
+  int? _activeServerSosId;
+  bool _dismissedAlertView = false;
 
   bool _isActivated = false;
   bool _isTriggering = false;
@@ -68,12 +74,22 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+
+    _syncProgressSub =
+        locator<SyncEngine>().progressStream.listen(_handleSyncProgress);
+    unawaited(_loadLatestSosStatus());
+    _localSosStatusTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_refreshActiveLocalSosStatus()),
+    );
   }
 
   @override
   void dispose() {
     _stopHapticTicker();
     _statusPollTimer?.cancel();
+    _localSosStatusTimer?.cancel();
+    _syncProgressSub?.cancel();
     _holdController.dispose();
     _pulseController.dispose();
     super.dispose();
@@ -218,6 +234,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
               borderOpacity: 0.3,
               onTap: () {
                 _statusPollTimer?.cancel();
+                _dismissedAlertView = true;
                 setState(() => _isActivated = false);
                 _resetHoldVisuals();
               },
@@ -342,6 +359,10 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       'is_online': touristProv.isOnline,
     });
 
+    _dismissedAlertView = false;
+    _activeLocalSosId = null;
+    _activeServerSosId = null;
+
     setState(() {
       _isTriggering = true;
       _isActivated = true;
@@ -349,6 +370,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       _sosDeliveryMessage = 'Saving your SOS before contacting the network.';
     });
     unawaited(HapticFeedback.heavyImpact());
+
+    final api = locator<ApiService>();
+    final db = locator<DatabaseService>();
+    final idempotencyKey = const Uuid().v4();
+    final sosTimestamp = DateTime.now();
 
     Position? pos = locProv.currentPosition;
 
@@ -364,21 +390,39 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     }
 
     if (pos == null) {
+      var fallbackLat = 999.0;
+      var fallbackLng = 999.0;
+      try {
+        final trail = await db.getTrailPings();
+        if (trail.isNotEmpty) {
+          fallbackLat = trail.last.latitude;
+          fallbackLng = trail.last.longitude;
+        }
+      } catch (_) {}
+
+      final localSosId = await db.saveSosEvent(
+        touristId: effectiveUserId,
+        latitude: fallbackLat,
+        longitude: fallbackLng,
+        triggerType: 'MANUAL',
+        idempotencyKey: idempotencyKey,
+        timestamp: sosTimestamp,
+      );
+      _activeLocalSosId = localSosId;
+
       if (mounted) {
         setState(() {
-          _sosDeliveryMessage = 'NO GPS FIX. CALL 112 IMMEDIATELY.';
+          _sosHeadline = 'SOS SAVED LOCALLY';
+          _sosDeliveryMessage =
+              'No GPS fix. Your SOS is saved on this device, but SafeRoute cannot send an accurate location yet. Call 112 immediately.';
           _isTriggering = false;
-          _isActivated = false;
+          _isActivated = true;
         });
         _resetHoldVisuals();
       }
       return;
     }
 
-    final api = locator<ApiService>();
-    final db = locator<DatabaseService>();
-    final idempotencyKey = const Uuid().v4();
-    final sosTimestamp = DateTime.now();
     final localSosId = await db.saveSosEvent(
       touristId: effectiveUserId,
       latitude: pos.latitude,
@@ -387,6 +431,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       idempotencyKey: idempotencyKey,
       timestamp: sosTimestamp,
     );
+    _activeLocalSosId = localSosId;
 
     try {
       if (touristProv.isOnline) {
@@ -405,16 +450,25 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             deliveryState: result.deliveryState,
           );
         }
+        if (result.accepted && result.sosId != null) {
+          _activeServerSosId = result.sosId;
+        }
         if (mounted) {
           setState(() {
-            _sosHeadline = result.dispatched
-                ? 'RESCUE NETWORK NOTIFIED'
-                : 'SOS QUEUED SECURELY';
-            _sosDeliveryMessage = result.message ??
-                'SOS queued securely. SafeRoute is reaching authorities.';
+            if (result.accepted) {
+              _sosHeadline = result.dispatched
+                  ? 'RESCUE NETWORK NOTIFIED'
+                  : 'SOS QUEUED SECURELY';
+              _sosDeliveryMessage = result.message ??
+                  'SOS queued securely. SafeRoute is reaching authorities.';
+            } else {
+              _sosHeadline = 'SOS SAVED OFFLINE';
+              _sosDeliveryMessage =
+                  'Backend did not accept this SOS yet. The same SOS is saved for retry and BLE relay.';
+            }
           });
         }
-        if (result.sosId != null) {
+        if (result.accepted && result.sosId != null) {
           _startStatusPolling(result.sosId!);
         }
       } else {
@@ -474,9 +528,235 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     }
   }
 
+  void _handleSyncProgress(SyncProgress progress) {
+    final operation = progress.currentOperation;
+    if (operation == null || operation.type != SyncOperationType.sosEvent) {
+      return;
+    }
+
+    final localSosId = _intFrom(operation.payload['localId']);
+    if (_activeLocalSosId != null &&
+        localSosId != null &&
+        _activeLocalSosId != localSosId) {
+      return;
+    }
+    if (localSosId != null) {
+      _activeLocalSosId = localSosId;
+    }
+
+    if (operation.state == SyncState.completed) {
+      unawaited(_refreshLocalSosStatus(localSosId: localSosId, reveal: true));
+      return;
+    }
+
+    if (operation.state == SyncState.retrying ||
+        operation.state == SyncState.failed) {
+      _setSosStatusUi(
+        'RETRYING SOS SYNC',
+        'SafeRoute has not received backend confirmation yet. It will keep retrying in the background.',
+      );
+      return;
+    }
+
+    if (progress.isRunning) {
+      _setSosStatusUi(
+        'SYNCING SAVED SOS',
+        'Network is back. SafeRoute is sending your saved SOS now.',
+      );
+    }
+  }
+
+  Future<void> _loadLatestSosStatus() async {
+    try {
+      await _refreshLocalSosStatus(reveal: true);
+    } catch (_) {
+      // Status refresh must never block the SOS screen from opening.
+    }
+  }
+
+  Future<void> _refreshActiveLocalSosStatus() async {
+    if (_activeServerSosId != null) return;
+    if (_activeLocalSosId == null) return;
+    await _refreshLocalSosStatus(
+      localSosId: _activeLocalSosId,
+      reveal: !_dismissedAlertView,
+    );
+  }
+
+  Future<void> _refreshLocalSosStatus({
+    int? localSosId,
+    bool reveal = true,
+  }) async {
+    try {
+      final db = await locator<DatabaseService>().database;
+      final rows = await db.query(
+        'sos_events',
+        where: localSosId == null ? null : 'id = ?',
+        whereArgs: localSosId == null ? null : [localSosId],
+        orderBy: 'timestamp DESC',
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+      await _applyLocalSosRow(rows.first, reveal: reveal);
+    } catch (_) {
+      if (mounted && _activeLocalSosId != null) {
+        _setSosStatusUi(
+          'SOS STATUS PENDING',
+          'SafeRoute is checking the saved SOS status. If uncertain, this stays pending.',
+          reveal: reveal,
+        );
+      }
+    }
+  }
+
+  Future<void> _applyLocalSosRow(
+    Map<String, Object?> row, {
+    required bool reveal,
+  }) async {
+    final localSosId = _intFrom(row['id']);
+    if (localSosId == null) return;
+    _activeLocalSosId = localSosId;
+
+    final serverSosId = _intFrom(row['serverSosId']);
+    if (serverSosId != null) {
+      _activeServerSosId = serverSosId;
+      _startStatusPolling(serverSosId);
+      await _refreshServerSosStatus(serverSosId, reveal: reveal);
+      return;
+    }
+
+    final isSynced = _intFrom(row['isSynced']) == 1;
+    final deliveryState = row['deliveryState']?.toString();
+    if (_isBackendDeliveredState(deliveryState)) {
+      _setSosStatusUi(
+        'SOS DELIVERED TO AUTHORITIES',
+        'Backend delivery is confirmed. Keep your phone reachable and follow authority instructions.',
+        reveal: reveal,
+      );
+      return;
+    }
+
+    if (isSynced) {
+      _setSosStatusUi(
+        'SOS SYNCED TO SAFEROUTE',
+        'SafeRoute accepted your SOS. Waiting for authority delivery confirmation.',
+        reveal: reveal,
+      );
+      return;
+    }
+
+    final queueState = await _syncQueueStateForLocalSos(localSosId);
+    if (queueState == 'inProgress') {
+      _setSosStatusUi(
+        'SYNCING SAVED SOS',
+        'Network is back. SafeRoute is sending your saved SOS now.',
+        reveal: reveal,
+      );
+    } else if (queueState == 'retrying' || queueState == 'failed') {
+      _setSosStatusUi(
+        'RETRYING SOS SYNC',
+        'SafeRoute has not received backend confirmation yet. It will keep retrying in the background.',
+        reveal: reveal,
+      );
+    } else if (_activeLocalSosId == localSosId && _isActivated) {
+      _setSosStatusUi(
+        'SOS SAVED OFFLINE',
+        'Saved on this device. It will sync when the backend is reachable.',
+        reveal: reveal,
+      );
+    }
+  }
+
+  Future<void> _refreshServerSosStatus(
+    int sosId, {
+    bool reveal = true,
+  }) async {
+    try {
+      final status = await locator<ApiService>().getSosStatus(sosId);
+      if (!mounted) return;
+      if (status.authorityAcknowledged) {
+        _setSosStatusUi(
+          'AUTHORITY ACKNOWLEDGED',
+          status.message,
+          reveal: reveal,
+        );
+      } else if (status.rescueNetworkNotified) {
+        _setSosStatusUi(
+          'SOS DELIVERED TO AUTHORITIES',
+          status.message.isNotEmpty
+              ? status.message
+              : 'Backend delivery is confirmed. Keep your phone reachable.',
+          reveal: reveal,
+        );
+      } else {
+        _setSosStatusUi(
+          'SOS SYNCED TO SAFEROUTE',
+          status.message.isNotEmpty
+              ? status.message
+              : 'SafeRoute accepted your SOS. Waiting for authority delivery confirmation.',
+          reveal: reveal,
+        );
+      }
+    } catch (_) {
+      _setSosStatusUi(
+        'SOS SYNCED TO SAFEROUTE',
+        'SafeRoute accepted your SOS. Delivery confirmation is still pending.',
+        reveal: reveal,
+      );
+    }
+  }
+
+  Future<String?> _syncQueueStateForLocalSos(int localSosId) async {
+    try {
+      await locator<SyncEngine>().initialize();
+      final db = await locator<DatabaseService>().database;
+      final rows = await db.query(
+        'sync_queue',
+        columns: ['state'],
+        where: 'id = ?',
+        whereArgs: ['sos_$localSosId'],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      return rows.first['state']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _setSosStatusUi(
+    String headline,
+    String message, {
+    bool reveal = true,
+  }) {
+    if (!mounted) return;
+    setState(() {
+      if (reveal && !_dismissedAlertView) {
+        _isActivated = true;
+      }
+      _sosHeadline = headline;
+      _sosDeliveryMessage = message;
+    });
+  }
+
+  bool _isBackendDeliveredState(String? state) {
+    final normalized = state?.toUpperCase();
+    return normalized == 'DELIVERED' ||
+        normalized == 'ESCALATED' ||
+        normalized == 'ACKNOWLEDGED' ||
+        normalized == 'RESOLVED';
+  }
+
+  int? _intFrom(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
   void _startStatusPolling(int sosId) {
     _statusPollTimer?.cancel();
     _statusPollAttempt = 0;
+    _activeServerSosId = sosId;
     const delays = [2, 5, 10, 30, 60];
     final api = locator<ApiService>();
 
@@ -493,9 +773,9 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             if (status.authorityAcknowledged) {
               _sosHeadline = 'AUTHORITY ACKNOWLEDGED';
             } else if (status.rescueNetworkNotified) {
-              _sosHeadline = 'RESCUE NETWORK NOTIFIED';
+              _sosHeadline = 'SOS DELIVERED TO AUTHORITIES';
             } else {
-              _sosHeadline = 'SOS QUEUED SECURELY';
+              _sosHeadline = 'SOS SYNCED TO SAFEROUTE';
             }
             _sosDeliveryMessage = status.message;
           });
