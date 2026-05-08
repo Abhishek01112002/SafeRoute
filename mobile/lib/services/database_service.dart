@@ -133,8 +133,7 @@ class DatabaseService {
       )
     ''');
     await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_zones_dest ON zones(destination_id, is_active)'
-    );
+        'CREATE INDEX IF NOT EXISTS idx_zones_dest ON zones(destination_id, is_active)');
   }
 
   Future<void> _createTrailGraphsTable(Database db) async {
@@ -224,9 +223,12 @@ class DatabaseService {
     if (oldVersion < 9) {
       try {
         await db.execute('ALTER TABLE tourists ADD COLUMN photoObjectKey TEXT');
-        await db.execute('ALTER TABLE tourists ADD COLUMN documentObjectKey TEXT');
-        await db.execute('ALTER TABLE tourists ADD COLUMN isSynced INTEGER DEFAULT 1');
-        await db.execute('ALTER TABLE tourists ADD COLUMN registrationFields TEXT');
+        await db
+            .execute('ALTER TABLE tourists ADD COLUMN documentObjectKey TEXT');
+        await db.execute(
+            'ALTER TABLE tourists ADD COLUMN isSynced INTEGER DEFAULT 1');
+        await db
+            .execute('ALTER TABLE tourists ADD COLUMN registrationFields TEXT');
       } catch (_) {
         // Columns might exist
       }
@@ -260,8 +262,7 @@ class DatabaseService {
     try {
       // Check if old table exists
       final tables = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='geofence_zones'"
-      );
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='geofence_zones'");
       if (tables.isEmpty) {
         debugPrint('✅ No geofence_zones table to migrate');
         return;
@@ -273,29 +274,34 @@ class DatabaseService {
 
       // Migrate each zone
       for (final zone in legacyZones) {
-        final zoneId = zone['id'] as String? ?? 'legacy_${zone['state']}_${DateTime.now().millisecondsSinceEpoch}';
+        final zoneId = zone['id'] as String? ??
+            'legacy_${zone['state']}_${DateTime.now().millisecondsSinceEpoch}';
         final destinationId = zone['state'] as String? ?? 'unknown';
 
-        await db.insert('zones', {
-          'id': zoneId,
-          'destination_id': destinationId,
-          'authority_id': null,
-          'name': zone['name'] ?? 'Legacy Zone',
-          'type': (zone['type'] as String?)?.toUpperCase() ?? 'SAFE',
-          'shape': 'CIRCLE',
-          'center_lat': zone['lat'] ?? 0.0,
-          'center_lng': zone['lng'] ?? 0.0,
-          'radius_m': zone['radius'] ?? 500.0,
-          'polygon_json': '[]',
-          'is_active': 1,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        await db.insert(
+            'zones',
+            {
+              'id': zoneId,
+              'destination_id': destinationId,
+              'authority_id': null,
+              'name': zone['name'] ?? 'Legacy Zone',
+              'type': (zone['type'] as String?)?.toUpperCase() ?? 'SAFE',
+              'shape': 'CIRCLE',
+              'center_lat': zone['lat'] ?? 0.0,
+              'center_lng': zone['lng'] ?? 0.0,
+              'radius_m': zone['radius'] ?? 500.0,
+              'polygon_json': '[]',
+              'is_active': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace);
       }
 
       // Drop old table after successful migration
       await db.execute('DROP TABLE IF EXISTS geofence_zones');
-      debugPrint('✅ Migrated ${legacyZones.length} zones and dropped geofence_zones table');
+      debugPrint(
+          '✅ Migrated ${legacyZones.length} zones and dropped geofence_zones table');
     } catch (e) {
       debugPrint('⚠️ Zone migration failed (non-critical): $e');
     }
@@ -306,9 +312,11 @@ class DatabaseService {
   Future<void> saveZones(String destinationId, List<ZoneModel> zones) async {
     final db = await database;
     await db.transaction((txn) async {
-      await txn.delete('zones', where: 'destination_id = ?', whereArgs: [destinationId]);
+      await txn.delete('zones',
+          where: 'destination_id = ?', whereArgs: [destinationId]);
       for (final z in zones) {
-        await txn.insert('zones', z.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.insert('zones', z.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
   }
@@ -325,9 +333,11 @@ class DatabaseService {
 
   // ── Legacy Zone Methods (DEPRECATED - use saveZones) ────────────────────
 
-  @Deprecated('Use saveZones() instead. geofence_zones table migrated to zones.')
+  @Deprecated(
+      'Use saveZones() instead. geofence_zones table migrated to zones.')
   Future<void> saveGeofenceZones(String state, List<dynamic> zones) async {
-    debugPrint('⚠️ saveGeofenceZones is deprecated. Use SyncEngine to manage zones.');
+    debugPrint(
+        '⚠️ saveGeofenceZones is deprecated. Use SyncEngine to manage zones.');
     // No-op for legacy call to prevent DatabaseException(no such table: geofence_zones)
   }
 
@@ -336,22 +346,25 @@ class DatabaseService {
     debugPrint('⚠️ getGeofenceZones is deprecated. Reading from zones table.');
     final zones = await getZonesForDestination(state);
     // Convert ZoneModel back to legacy map format for backward compatibility
-    return zones.map((z) => {
-      'id': z.id,
-      'name': z.name,
-      'type': z.type,
-      'lat': z.centerLat,
-      'lng': z.centerLng,
-      'radius': z.radiusM,
-      'state': z.destinationId,
-    }).toList();
+    return zones
+        .map((z) => {
+              'id': z.id,
+              'name': z.name,
+              'type': z.type,
+              'lat': z.centerLat,
+              'lng': z.centerLng,
+              'radius': z.radiusM,
+              'state': z.destinationId,
+            })
+        .toList();
   }
 
   // ── Trail Graph Methods ────────────────────────────────────────────────────
 
   Future<void> saveTrailGraph(TrailGraph graph) async {
     final db = await database;
-    await db.insert('trail_graphs', graph.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('trail_graphs', graph.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<TrailGraph?> getTrailGraph(String destinationId) async {
@@ -400,7 +413,8 @@ class DatabaseService {
     await db.delete('tourists');
   }
 
-  Future<void> markTouristSynced(String touristId, {String? tuid, String? photoKey, String? docKey}) async {
+  Future<void> markTouristSynced(String touristId,
+      {String? tuid, String? photoKey, String? docKey}) async {
     final db = await database;
     await db.update(
       'tourists',
@@ -446,15 +460,17 @@ class DatabaseService {
 
   Future<void> deleteOldSyncedPings() async {
     final db = await database;
-    final seventyTwoHoursAgo =
-        DateTime.now().subtract(const Duration(hours: 72)).millisecondsSinceEpoch;
+    final seventyTwoHoursAgo = DateTime.now()
+        .subtract(const Duration(hours: 72))
+        .millisecondsSinceEpoch;
     final deletedCount = await db.delete(
       'location_pings',
       where: 'isSynced = ? AND timestamp < ?',
       whereArgs: [1, seventyTwoHoursAgo],
     );
     if (deletedCount > 0) {
-      debugPrint('🧹 Database Cleanup: Deleted $deletedCount synced pings older than 72h');
+      debugPrint(
+          '🧹 Database Cleanup: Deleted $deletedCount synced pings older than 72h');
     }
   }
 
@@ -479,8 +495,8 @@ class DatabaseService {
   // SOS Events Table Methods
   Future<int> saveSosEvent({
     required String touristId,
-    required double latitude,
-    required double longitude,
+    required double? latitude,
+    required double? longitude,
     required String triggerType,
     String? idempotencyKey,
     DateTime? timestamp,
@@ -488,16 +504,19 @@ class DatabaseService {
   }) async {
     final db = await database;
     final eventTimestamp = timestamp ?? DateTime.now();
-    final insertedId = await db.insert('sos_events', {
-      'touristId': touristId,
-      'latitude': latitude,
-      'longitude': longitude,
-      'timestamp': eventTimestamp.millisecondsSinceEpoch,
-      'triggerType': triggerType,
-      'isSynced': isSynced ? 1 : 0,
-      'idempotencyKey': idempotencyKey,
-      'deliveryState': isSynced ? 'QUEUED' : 'LOCAL_PENDING',
-    }, conflictAlgorithm: ConflictAlgorithm.abort);
+    final insertedId = await db.insert(
+        'sos_events',
+        {
+          'touristId': touristId,
+          'latitude': latitude,
+          'longitude': longitude,
+          'timestamp': eventTimestamp.millisecondsSinceEpoch,
+          'triggerType': triggerType,
+          'isSynced': isSynced ? 1 : 0,
+          'idempotencyKey': idempotencyKey,
+          'deliveryState': isSynced ? 'QUEUED' : 'LOCAL_PENDING',
+        },
+        conflictAlgorithm: ConflictAlgorithm.abort);
 
     if (insertedId <= 0) {
       throw StateError(

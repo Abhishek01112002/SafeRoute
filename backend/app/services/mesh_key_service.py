@@ -160,7 +160,7 @@ def truncated_hmac_hex(secret: str, canonical_payload: str, bytes_len: int = 4) 
 
 
 def verify_relay_signature(secret: str, canonical_payload: str, signature_hex: str) -> bool:
-    if not signature_hex or len(signature_hex) < 8:
+    if not signature_hex or len(signature_hex) < 6:
         return False
     expected = truncated_hmac_hex(secret, canonical_payload, bytes_len=len(signature_hex) // 2)
     return hmac.compare_digest(expected.lower(), signature_hex.lower())

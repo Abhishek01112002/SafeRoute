@@ -90,14 +90,14 @@ class TestSosTriggerValidation:
                 f"trigger_type={trigger_type} should be valid, got {resp.status_code}: {resp.text}"
             )
 
-    def test_sos_trigger_stale_timestamp(self, client, tourist_auth_header):
-        """A timestamp more than 10 minutes old should be rejected."""
+    def test_sos_trigger_stale_timestamp_is_accepted_for_offline_replay(self, client, tourist_auth_header):
+        """A delayed offline SOS should keep its original event time and still be accepted."""
         payload = valid_sos_payload()
-        stale_time = datetime.datetime.now() - datetime.timedelta(minutes=15)
+        stale_time = datetime.datetime.now() - datetime.timedelta(minutes=45)
         payload["timestamp"] = stale_time.isoformat()
         resp = client.post("/sos/trigger", json=payload, headers=tourist_auth_header)
-        assert resp.status_code == 400, (
-            f"Expected 400 for stale timestamp, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 202, (
+            f"Expected 202 for delayed offline SOS replay, got {resp.status_code}: {resp.text}"
         )
 
     def test_sos_trigger_future_timestamp(self, client, tourist_auth_header):

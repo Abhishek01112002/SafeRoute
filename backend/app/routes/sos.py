@@ -9,8 +9,7 @@ from app.db.session import get_db
 from app.core import limiter
 from app.services import group_safety
 
-from app.models.schemas import MeshSOSSync, SOSTriggerRequest, SOSRelayTriggerRequest
-from app.services.identity_service import verify_sos_signature
+from app.models.schemas import SOSTriggerRequest, SOSRelayTriggerRequest
 from app.services.jwt_service import verify_jwt_payload
 from app.services.mesh_key_service import (
     canonical_relay_payload,
@@ -29,6 +28,7 @@ from app.services.sos_delivery import (
 )
 from app.models.database import SOSEvent, SOSDeliveryAudit, SOSDispatchQueue
 from app.logging_config import get_logger
+from app.config import settings
 from sqlalchemy import select
 
 router = APIRouter()
@@ -60,18 +60,21 @@ async def trigger_sos(
     trigger_type = payload.trigger_type
     group_id = payload.group_id
 
-    # Validate coordinates
-    if latitude is None or longitude is None:
-        raise HTTPException(status_code=400, detail="latitude and longitude are required")
+    # Validate coordinates. A delayed offline SOS may legitimately arrive
+    # without a GPS fix, so accept a fully missing location as location_unknown.
+    location_unknown = latitude is None and longitude is None
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(status_code=400, detail="latitude and longitude must both be present or both be omitted")
 
-    if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
-        raise HTTPException(status_code=400, detail="latitude and longitude must be numbers")
+    if not location_unknown:
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            raise HTTPException(status_code=400, detail="latitude and longitude must be numbers")
 
-    if not (-90 <= latitude <= 90):
-        raise HTTPException(status_code=400, detail=f"Invalid latitude: {latitude}. Must be between -90 and +90")
+        if not (-90 <= latitude <= 90):
+            raise HTTPException(status_code=400, detail=f"Invalid latitude: {latitude}. Must be between -90 and +90")
 
-    if not (-180 <= longitude <= 180):
-        raise HTTPException(status_code=400, detail=f"Invalid longitude: {longitude}. Must be between -180 and +180")
+        if not (-180 <= longitude <= 180):
+            raise HTTPException(status_code=400, detail=f"Invalid longitude: {longitude}. Must be between -180 and +180")
 
     # Validate trigger type enum
     VALID_TRIGGER_TYPES = {"MANUAL", "AUTO_FALL", "GEOFENCE_BREACH"}
@@ -116,12 +119,14 @@ async def trigger_sos(
     else:
         timestamp = datetime.datetime.now()
 
-    # Timestamp freshness validation: reject stale/future timestamps (>10 minutes drift)
+    # Timestamp freshness validation: reject far-future timestamps only.
+    # Stale timestamps are valid for offline-first SOS replay and are made
+    # safe by idempotency.
     now = datetime.datetime.now(timestamp.tzinfo) if timestamp.tzinfo else datetime.datetime.now()
-    if abs((now - timestamp).total_seconds()) > 600:
+    if (timestamp - now).total_seconds() > 600:
         raise HTTPException(
             status_code=400,
-            detail="timestamp is too old or too far in the future",
+            detail="timestamp is too far in the future",
         )
 
     if group_id:
@@ -141,16 +146,17 @@ async def trigger_sos(
             }
         group_id = group.group_id
 
+    location_part = "UNKNOWN" if location_unknown else f"{latitude:.6f}:{longitude:.6f}"
     idempotency_key = payload.idempotency_key or hashlib.sha256(
-        f"{tourist_id}:{latitude:.6f}:{longitude:.6f}:{timestamp.isoformat()}:{trigger_type}".encode("utf-8")
+        f"{tourist_id}:{location_part}:{timestamp.isoformat()}:{trigger_type}".encode("utf-8")
     ).hexdigest()[:32]
 
     sos_event, queue, created = await create_or_get_queued_sos(
         db,
         tourist_id=str(tourist_id),
         tuid=tuid,
-        latitude=float(latitude),
-        longitude=float(longitude),
+        latitude=None if location_unknown else float(latitude),
+        longitude=None if location_unknown else float(longitude),
         trigger_type=str(trigger_type),
         timestamp=timestamp,
         idempotency_key=idempotency_key,
@@ -220,8 +226,9 @@ async def trigger_relay_sos(
     if not payload.idempotency_hash or len(payload.idempotency_hash) < 12:
         raise HTTPException(status_code=400, detail="idempotency_hash must be at least 12 hex characters")
 
-    packet_time = datetime.datetime.fromtimestamp(payload.unix_minute * 60)
-    if abs((datetime.datetime.now() - packet_time).total_seconds()) > 1800:
+    packet_time = datetime.datetime.utcfromtimestamp(payload.unix_minute * 60)
+    packet_age_seconds = (datetime.datetime.utcnow() - packet_time).total_seconds()
+    if packet_age_seconds < -600 or packet_age_seconds > settings.SOS_DELIVERY_TTL_SECONDS:
         raise HTTPException(status_code=400, detail="relay packet timestamp is stale or too far in the future")
 
     keys = await get_valid_keys_for_suffix(
@@ -461,97 +468,3 @@ async def respond_to_sos(
     log.info("sos.event.responded", event_id=event_id, authority_id=authority_id)
     return {"status": "resolved", "event_id": event_id}
 
-@router.post(
-    "/sync",
-    responses={
-        429: {
-            "description": "Rate limit exceeded",
-            "content": {
-                "application/json": {
-                    "example": {"error": "Rate limit exceeded: 10 per 1 minute"}
-                }
-            }
-        }
-    }
-)
-@limiter.limit("10/minute")
-async def sync_mesh_sos(
-    request: Request,
-    payload: MeshSOSSync,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Sync an SOS event received via BLE Mesh.
-    Verifies the cryptographic signature against the tourist's TUID.
-    """
-    # 1. Find tourist by TUID suffix
-    tourist = await crud.get_tourist_by_tuid_suffix(db, payload.tourist_id_suffix)
-    if not tourist:
-        raise HTTPException(status_code=404, detail="Tourist not found for this suffix")
-
-    # 2. Reconstruct payload for signature verification
-    # Format: "suffix:lat:lng:timestamp"
-    # Note: Using fixed precision for floats to ensure deterministic bytes
-    payload_str = f"{payload.tourist_id_suffix}:{payload.latitude:.6f}:{payload.longitude:.6f}:{payload.timestamp.isoformat()}"
-    payload_bytes = payload_str.encode()
-
-    # 3. Verify signature
-    if not verify_sos_signature(tourist.tuid, payload_bytes, payload.signature):
-        raise HTTPException(status_code=401, detail="Invalid cryptographic signature for SOS packet")
-
-    # 4. Check for de-duplication (don't record same SOS multiple times)
-    # Deduplication logic: Same tourist, same location (approx), within 5 minutes
-    existing = await crud.check_existing_sos(db, tourist.tourist_id, payload.latitude, payload.longitude, payload.timestamp)
-    if existing:
-        return {"status": "already_synced", "id": existing.id}
-
-    group_id = None
-    if payload.group_id:
-        group = await group_safety.assert_group_member(db, payload.group_id, tourist.tourist_id)
-        group_id = group.group_id
-        recent_group_sos = await crud.check_recent_group_sos(
-            db,
-            tourist_id=tourist.tourist_id,
-            group_id=group_id,
-            timestamp=payload.timestamp,
-        )
-        if recent_group_sos:
-            return {"status": "already_synced", "id": recent_group_sos.id, "group_id": group_id}
-
-    # 5. Queue SOS through the same durable delivery path as direct and relay triggers.
-    idempotency_key = payload.packet_id or hashlib.sha256(
-        f"LEGACY_SYNC:{tourist.tourist_id}:{payload.latitude:.6f}:{payload.longitude:.6f}:{payload.timestamp.isoformat()}".encode("utf-8")
-    ).hexdigest()[:32]
-    sos_event, queue, created = await create_or_get_queued_sos(
-        db,
-        tourist_id=tourist.tourist_id,
-        tuid=tourist.tuid,
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-        trigger_type="MESH_SYNC",
-        timestamp=payload.timestamp,
-        idempotency_key=idempotency_key,
-        source="LEGACY_MESH_SYNC",
-        group_id=group_id,
-        correlation_id=getattr(request.state, "correlation_id", None),
-    )
-
-    if group_id:
-        await group_safety.record_group_event(
-            db,
-            group_ref=group_id,
-            tourist_id=tourist.tourist_id,
-            event_type="sos_relay",
-            source="mesh",
-            trust_level=group_safety.TRUST_MESH,
-            payload={"sos_event_id": sos_event.id, "packet_id": payload.packet_id},
-        )
-
-    return {
-        "status": "mesh_sos_recorded",
-        "created": created,
-        "id": sos_event.id,
-        "queue_id": queue.queue_id,
-        "tuid": tourist.tuid,
-        "group_id": group_id,
-    }

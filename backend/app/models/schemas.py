@@ -276,6 +276,7 @@ class MeshSOSSync(BaseModel):
 class SOSTriggerRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    location_unknown: bool = False
     trigger_type: str = "MANUAL"
     timestamp: Optional[datetime] = None
     group_id: Optional[str] = None

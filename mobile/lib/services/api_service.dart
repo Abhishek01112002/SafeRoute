@@ -724,8 +724,8 @@ class ApiService {
   // -------------------------------------------------------------------------
 
   Future<SosAlertResult> triggerSosAlert(
-    double lat,
-    double lng,
+    double? lat,
+    double? lng,
     String triggerType, {
     String? touristId,
     String? groupId,
@@ -739,15 +739,27 @@ class ApiService {
     final guestSessionId =
         touristId?.startsWith('GUEST-') == true ? touristId : null;
 
-    final coordError = Validators.validateCoordinates(lat, lng);
-    if (coordError != null) {
-      debugPrint('❌ SOS validation failed: $coordError');
+    final locationUnknown = lat == null && lng == null;
+    if ((lat == null) != (lng == null)) {
+      debugPrint('❌ SOS validation failed: incomplete coordinates');
       return const SosAlertResult(
         accepted: false,
         dispatched: false,
         status: 'invalid_coordinates',
         dispatchStatus: 'not_sent',
       );
+    }
+    if (!locationUnknown) {
+      final coordError = Validators.validateCoordinates(lat!, lng!);
+      if (coordError != null) {
+        debugPrint('❌ SOS validation failed: $coordError');
+        return const SosAlertResult(
+          accepted: false,
+          dispatched: false,
+          status: 'invalid_coordinates',
+          dispatchStatus: 'not_sent',
+        );
+      }
     }
 
     final triggerTypeError = Validators.validateSosTriggerType(triggerType);
@@ -777,6 +789,7 @@ class ApiService {
       'tourist_id': touristId ?? 'UNKNOWN',
       'latitude': lat,
       'longitude': lng,
+      'location_unknown': locationUnknown,
       'trigger_type': triggerType,
       'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
       'idempotency_key': effectiveIdempotencyKey,

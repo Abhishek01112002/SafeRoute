@@ -389,55 +389,49 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       }
     }
 
+    var usingLastKnownLocation = false;
+    double? sosLatitude = pos?.latitude;
+    double? sosLongitude = pos?.longitude;
     if (pos == null) {
-      var fallbackLat = 999.0;
-      var fallbackLng = 999.0;
       try {
         final trail = await db.getTrailPings();
         if (trail.isNotEmpty) {
-          fallbackLat = trail.last.latitude;
-          fallbackLng = trail.last.longitude;
+          sosLatitude = trail.last.latitude;
+          sosLongitude = trail.last.longitude;
+          usingLastKnownLocation = true;
         }
       } catch (_) {}
-
-      final localSosId = await db.saveSosEvent(
-        touristId: effectiveUserId,
-        latitude: fallbackLat,
-        longitude: fallbackLng,
-        triggerType: 'MANUAL',
-        idempotencyKey: idempotencyKey,
-        timestamp: sosTimestamp,
-      );
-      _activeLocalSosId = localSosId;
-
-      if (mounted) {
-        setState(() {
-          _sosHeadline = 'SOS SAVED LOCALLY';
-          _sosDeliveryMessage =
-              'No GPS fix. Your SOS is saved on this device, but SafeRoute cannot send an accurate location yet. Call 112 immediately.';
-          _isTriggering = false;
-          _isActivated = true;
-        });
-        _resetHoldVisuals();
-      }
-      return;
     }
 
     final localSosId = await db.saveSosEvent(
       touristId: effectiveUserId,
-      latitude: pos.latitude,
-      longitude: pos.longitude,
+      latitude: sosLatitude,
+      longitude: sosLongitude,
       triggerType: 'MANUAL',
       idempotencyKey: idempotencyKey,
       timestamp: sosTimestamp,
     );
     _activeLocalSosId = localSosId;
+    final syncEngine = locator<SyncEngine>();
+    try {
+      await syncEngine.enqueueSosEvent(
+        localId: localSosId,
+        touristId: effectiveUserId,
+        latitude: sosLatitude,
+        longitude: sosLongitude,
+        triggerType: 'MANUAL',
+        idempotencyKey: idempotencyKey,
+        timestamp: sosTimestamp.millisecondsSinceEpoch,
+      );
+    } catch (e) {
+      debugPrint('SOS sync queue enqueue failed; startup scan will retry: $e');
+    }
 
     try {
       if (touristProv.isOnline) {
         final result = await api.triggerSosAlert(
-          pos.latitude,
-          pos.longitude,
+          sosLatitude,
+          sosLongitude,
           'MANUAL',
           touristId: effectiveUserId,
           idempotencyKey: idempotencyKey,
@@ -449,6 +443,7 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             serverSosId: result.sosId,
             deliveryState: result.deliveryState,
           );
+          await syncEngine.markSosOperationCompleted(localSosId);
         }
         if (result.accepted && result.sosId != null) {
           _activeServerSosId = result.sosId;
@@ -475,8 +470,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
         if (mounted) {
           setState(() {
             _sosHeadline = 'SOS SAVED OFFLINE';
-            _sosDeliveryMessage =
-                'Saved on this device. BLE relay will keep broadcasting until sync confirms it.';
+            _sosDeliveryMessage = sosLatitude == null || sosLongitude == null
+                ? 'Saved on this device without a GPS fix. It will notify SafeRoute when network returns, but call 112 if possible.'
+                : usingLastKnownLocation
+                    ? 'Saved with your last known location. BLE relay will broadcast until sync confirms it.'
+                    : 'Saved on this device. BLE relay will keep broadcasting until sync confirms it.';
           });
         }
       }
@@ -484,8 +482,9 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       if (mounted) {
         setState(() {
           _sosHeadline = 'SOS SAVED OFFLINE';
-          _sosDeliveryMessage =
-              'Network failed. The same SOS is saved for retry and BLE relay.';
+          _sosDeliveryMessage = sosLatitude == null || sosLongitude == null
+              ? 'Network failed. The same SOS is saved for retry without a GPS fix. Call 112 if possible.'
+              : 'Network failed. The same SOS is saved for retry and BLE relay.';
         });
       }
     }
@@ -494,10 +493,12 @@ class _SOSScreenV2State extends State<SOSScreenV2>
       if (!meshProv.isMeshActive) {
         await meshProv.startMesh();
       }
-      if (meshProv.canBroadcast) {
+      if (meshProv.canBroadcast &&
+          sosLatitude != null &&
+          sosLongitude != null) {
         await meshProv.sendSosRelay(
-          pos.latitude,
-          pos.longitude,
+          sosLatitude,
+          sosLongitude,
           idempotencyKey: idempotencyKey,
           originTuid: tourist?.tuid,
         );
@@ -506,6 +507,11 @@ class _SOSScreenV2State extends State<SOSScreenV2>
             _sosDeliveryMessage = '$_sosDeliveryMessage MESH RELAY ACTIVE.';
           });
         }
+      } else if (meshProv.canBroadcast && mounted) {
+        setState(() {
+          _sosDeliveryMessage =
+              '$_sosDeliveryMessage BLE relay needs a GPS or last-known location before it can broadcast.';
+        });
       } else if (mounted) {
         setState(() {
           _sosDeliveryMessage =
@@ -587,12 +593,30 @@ class _SOSScreenV2State extends State<SOSScreenV2>
     int? localSosId,
     bool reveal = true,
   }) async {
+    if (!mounted) return;
+    final ownerId = _currentSosOwnerId();
+    if (ownerId == null || ownerId.isEmpty) return;
+
     try {
       final db = await locator<DatabaseService>().database;
+      final cutoff = DateTime.now()
+          .subtract(const Duration(hours: 24))
+          .millisecondsSinceEpoch;
+      final whereParts = <String>[
+        'touristId = ?',
+        'timestamp >= ?',
+        '(deliveryState IS NULL OR UPPER(deliveryState) != ?)',
+      ];
+      final whereArgs = <Object?>[ownerId, cutoff, 'RESOLVED'];
+      if (localSosId != null) {
+        whereParts.insert(0, 'id = ?');
+        whereArgs.insert(0, localSosId);
+      }
+
       final rows = await db.query(
         'sos_events',
-        where: localSosId == null ? null : 'id = ?',
-        whereArgs: localSosId == null ? null : [localSosId],
+        where: whereParts.join(' AND '),
+        whereArgs: whereArgs,
         orderBy: 'timestamp DESC',
         limit: 1,
       );
@@ -607,6 +631,14 @@ class _SOSScreenV2State extends State<SOSScreenV2>
         );
       }
     }
+  }
+
+  String? _currentSosOwnerId() {
+    final touristProvider = context.read<TouristProvider>();
+    if (touristProvider.userState == UserState.guest) {
+      return touristProvider.guestSessionId;
+    }
+    return touristProvider.tourist?.touristId;
   }
 
   Future<void> _applyLocalSosRow(

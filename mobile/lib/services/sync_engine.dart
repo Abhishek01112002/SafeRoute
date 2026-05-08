@@ -167,6 +167,72 @@ class SyncEngine {
     await _notifyProgress();
   }
 
+  /// Ensure a locally saved SOS has a durable sync queue row.
+  Future<void> enqueueSosEvent({
+    required int localId,
+    required String touristId,
+    required double? latitude,
+    required double? longitude,
+    required String triggerType,
+    required String idempotencyKey,
+    required int timestamp,
+  }) async {
+    await initialize();
+    final db = await _db.database;
+    final operationId = 'sos_$localId';
+    final existing = await db.query(
+      'sync_queue',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [operationId],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) return;
+
+    await enqueue(SyncOperation(
+      id: operationId,
+      type: SyncOperationType.sosEvent,
+      priority: SyncPriority.critical,
+      payload: {
+        'localId': localId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'triggerType': triggerType,
+        'touristId': touristId,
+        'idempotencyKey': idempotencyKey,
+        'timestamp': timestamp,
+      },
+    ));
+  }
+
+  /// Mark a direct-send SOS queue row as completed so it is not replayed.
+  Future<void> markSosOperationCompleted(int localId) async {
+    await initialize();
+    final db = await _db.database;
+    final operationId = 'sos_$localId';
+    final updated = await db.update(
+      'sync_queue',
+      {
+        'state': SyncState.completed.name,
+        'last_attempt': DateTime.now().millisecondsSinceEpoch,
+        'error_message': null,
+      },
+      where: 'id = ?',
+      whereArgs: [operationId],
+    );
+    if (updated == 0) return;
+    await _notifyProgress();
+  }
+
+  /// Rebuild missing SOS sync rows from local SQLite before queue processing.
+  Future<void> enqueuePendingSosEvents() async {
+    await initialize();
+    final events = await _db.getUnsyncedSosEvents();
+    for (final event in events) {
+      await _enqueueSosEventFromMap(event);
+    }
+  }
+
   /// Start periodic background sync
   void startPeriodicSync(Duration interval) {
     unawaited(initialize());
@@ -193,6 +259,7 @@ class SyncEngine {
     final startTime = DateTime.now();
 
     try {
+      await enqueuePendingSosEvents();
       final operations = await _getPendingOperations();
       if (operations.isEmpty) {
         debugPrint('✅ SyncEngine: No pending operations');
@@ -235,7 +302,8 @@ class SyncEngine {
       'sync_queue',
       where: 'state IN (?, ?, ?)',
       whereArgs: ['pending', 'failed', 'retrying'],
-      orderBy: 'priority DESC, created_at ASC',
+      orderBy:
+          "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END ASC, created_at ASC",
       limit: 100,
     );
     return maps.map(SyncOperation.fromMap).toList();
@@ -272,8 +340,8 @@ class SyncEngine {
     switch (op.type) {
       case SyncOperationType.sosEvent:
         final result = await _api.triggerSosAlert(
-          op.payload['latitude'],
-          op.payload['longitude'],
+          (op.payload['latitude'] as num?)?.toDouble(),
+          (op.payload['longitude'] as num?)?.toDouble(),
           op.payload['triggerType'],
           touristId: op.payload['touristId'],
           idempotencyKey: op.payload['idempotencyKey'],
@@ -343,7 +411,7 @@ class SyncEngine {
     op.retryCount++;
     await _updateOperationState(op, SyncState.retrying, error: error);
     debugPrint(
-        '🔄 SyncEngine: ${op.type.name} retry ${op.retryCount}/$_maxRetries');
+        '🔄 SyncEngine: ${op.type.name} retry ${op.retryCount}/$maxRetries');
   }
 
   /// Calculate exponential backoff with jitter
@@ -491,23 +559,38 @@ class SyncEngine {
   Future<void> _enqueueSosEvents(String touristId) async {
     final events = await _db.getUnsyncedSosEvents();
     for (final event in events) {
-      final idempotencyKey =
-          event['idempotencyKey']?.toString() ?? const Uuid().v4();
-      await enqueue(SyncOperation(
-        id: 'sos_${event['id']}',
-        type: SyncOperationType.sosEvent,
-        priority: SyncPriority.critical,
-        payload: {
-          'localId': event['id'],
-          'latitude': event['latitude'],
-          'longitude': event['longitude'],
-          'triggerType': event['triggerType'],
-          'touristId': touristId,
-          'idempotencyKey': idempotencyKey,
-          'timestamp': event['timestamp'],
-        },
-      ));
+      await _enqueueSosEventFromMap(event, touristIdOverride: touristId);
     }
+  }
+
+  Future<void> _enqueueSosEventFromMap(
+    Map<String, dynamic> event, {
+    String? touristIdOverride,
+  }) async {
+    final localId = event['id'] is int
+        ? event['id'] as int
+        : int.tryParse(event['id']?.toString() ?? '');
+    if (localId == null) return;
+
+    final idempotencyKey =
+        event['idempotencyKey']?.toString() ?? const Uuid().v4();
+    final touristId = touristIdOverride ?? event['touristId']?.toString();
+    if (touristId == null || touristId.isEmpty) return;
+
+    final timestamp = event['timestamp'] is int
+        ? event['timestamp'] as int
+        : int.tryParse(event['timestamp']?.toString() ?? '');
+    if (timestamp == null) return;
+
+    await enqueueSosEvent(
+      localId: localId,
+      touristId: touristId,
+      latitude: (event['latitude'] as num?)?.toDouble(),
+      longitude: (event['longitude'] as num?)?.toDouble(),
+      triggerType: event['triggerType']?.toString() ?? 'MANUAL',
+      idempotencyKey: idempotencyKey,
+      timestamp: timestamp,
+    );
   }
 
   /// Enqueue zone sync (LOW priority)

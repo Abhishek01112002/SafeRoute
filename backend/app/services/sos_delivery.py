@@ -70,6 +70,12 @@ def _now() -> datetime:
     return datetime.now()
 
 
+def _location_text(event: SOSEvent) -> str:
+    if event.latitude is None or event.longitude is None:
+        return "location unavailable"
+    return f"{event.latitude:.5f},{event.longitude:.5f}"
+
+
 def public_status_message(event: SOSEvent, queue: Optional[SOSDispatchQueue]) -> str:
     state = queue.state if queue else event.delivery_state
     if event.incident_status == INCIDENT_ACKNOWLEDGED:
@@ -82,6 +88,8 @@ def public_status_message(event: SOSEvent, queue: Optional[SOSDispatchQueue]) ->
         return "SOS is still stored, but no responder channel confirmed delivery. Try 112, move toward signal, or use BLE relay."
     if state == QUEUE_EXPIRED_NO_RESPONSE:
         return "Rescue network was notified, but no authority acknowledged yet. Keep trying local emergency options."
+    if event.latitude is None or event.longitude is None:
+        return "SOS queued securely. SafeRoute is reaching authorities, but your exact location is unavailable."
     return "SOS queued securely. SafeRoute is reaching authorities."
 
 
@@ -90,8 +98,8 @@ async def create_or_get_queued_sos(
     *,
     tourist_id: str,
     tuid: Optional[str],
-    latitude: float,
-    longitude: float,
+    latitude: Optional[float],
+    longitude: Optional[float],
     trigger_type: str,
     timestamp: datetime,
     idempotency_key: str,
@@ -289,6 +297,7 @@ async def _dispatch_webhook(event: SOSEvent) -> ChannelResult:
             "tuid": event.tuid,
             "latitude": event.latitude,
             "longitude": event.longitude,
+            "location_unknown": event.latitude is None or event.longitude is None,
             "trigger_type": event.trigger_type,
             "timestamp": event.timestamp.isoformat() if event.timestamp else None,
         }
@@ -318,7 +327,7 @@ async def _dispatch_sms(event: SOSEvent, targets: list[str]) -> list[ChannelResu
 
     message = (
         f"[SafeRoute SOS] {event.trigger_type} from {event.tourist_id} "
-        f"at {event.latitude:.5f},{event.longitude:.5f}"
+        f"at {_location_text(event)}"
     )
 
     def _send_one(phone: str) -> ChannelResult:
@@ -351,7 +360,7 @@ async def _dispatch_fcm(event: SOSEvent, tokens: list[str]) -> list[ChannelResul
             msg = messaging.Message(
                 notification=messaging.Notification(
                     title=f"SafeRoute SOS - {event.trigger_type}",
-                    body=f"{event.tourist_id} at {event.latitude:.5f},{event.longitude:.5f}",
+                    body=f"{event.tourist_id} at {_location_text(event)}",
                 ),
                 data={"sos_id": str(event.id), "tourist_id": event.tourist_id},
                 token=token,
