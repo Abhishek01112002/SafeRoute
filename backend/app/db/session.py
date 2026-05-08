@@ -64,6 +64,9 @@ async def init_models() -> None:
     """Create local SQLite tables for development and hackathon deployments."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        if engine.dialect.name != "sqlite":
+            return
         
         # Idempotent column additions for missing fields across environments
         ddl_statements = [
@@ -79,13 +82,12 @@ async def init_models() -> None:
             "ALTER TABLE sos_events ADD COLUMN acknowledged_by VARCHAR(30)",
         ]
         
-        if engine.dialect.name == "sqlite":
-            ddl_statements.extend([
-                "ALTER TABLE sos_events ADD COLUMN authority_response TEXT",
-                "ALTER TABLE sos_events ADD COLUMN resolved_at DATETIME",
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_tourist_idempotency ON sos_events (tourist_id, idempotency_key)",
-                "CREATE INDEX IF NOT EXISTS ix_sos_incident_status ON sos_events (incident_status)",
-            ])
+        ddl_statements.extend([
+            "ALTER TABLE sos_events ADD COLUMN authority_response TEXT",
+            "ALTER TABLE sos_events ADD COLUMN resolved_at DATETIME",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_tourist_idempotency ON sos_events (tourist_id, idempotency_key)",
+            "CREATE INDEX IF NOT EXISTS ix_sos_incident_status ON sos_events (incident_status)",
+        ])
             
         for ddl in ddl_statements:
             try:
