@@ -9,10 +9,19 @@ Run once after first deploy:
 Safe to re-run — skips already-existing records.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+for path in (BACKEND_DIR, PROJECT_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import uuid, json, datetime
-from backend.database import init_db, get_db
+import asyncio
+from sqlalchemy import select
+
+from app.db.session import AsyncSessionLocal, init_models
+from app.models.database import Authority, Destination, EmergencyContact, Zone
 
 SEED_AUTHORITY_ID = "AID-SYSTEM-SEED"   # placeholder authority for seeded data
 
@@ -200,65 +209,105 @@ DESTINATIONS = [
 ]
 
 
-def seed():
-    init_db()
-    now = datetime.datetime.now().isoformat()
+async def _seed_async():
+    await init_models()
+    now = datetime.datetime.now()
     seeded_dest = seeded_zone = seeded_contact = 0
 
-    with get_db() as conn:
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
         # 0. Ensure the seed authority exists
-        auth_exists = conn.execute("SELECT authority_id FROM authorities WHERE authority_id=?", (SEED_AUTHORITY_ID,)).fetchone()
-        if not auth_exists:
-            conn.execute(
-                """INSERT INTO authorities (authority_id, full_name, password) VALUES (?, ?, ?)""",
-                (SEED_AUTHORITY_ID, "System Seed Authority", "not_a_real_password")
+            auth_exists = await db.scalar(
+                select(Authority.authority_id).where(Authority.authority_id == SEED_AUTHORITY_ID)
             )
-
-        for d in DESTINATIONS:
-            exists = conn.execute(
-                "SELECT id FROM destinations WHERE id=?", (d["id"],)
-            ).fetchone()
-
-            if not exists:
-                conn.execute(
-                    """INSERT INTO destinations
-                       (id,state,name,district,altitude_m,center_lat,center_lng,
-                        category,difficulty,connectivity,best_season,warnings_json,authority_id,is_active)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
-                    (d["id"], d["state"], d["name"], d["district"], d["altitude_m"],
-                     d["center_lat"], d["center_lng"], d["category"], d["difficulty"],
-                     d["connectivity"], d["best_season"], json.dumps(d["warnings"]),
-                     SEED_AUTHORITY_ID)
+            if not auth_exists:
+                db.add(
+                    Authority(
+                        authority_id=SEED_AUTHORITY_ID,
+                        full_name="System Seed Authority",
+                        badge_id="SYSTEM-SEED",
+                        email="system-seed@saferoute.local",
+                        password_hash="not_a_real_password",
+                        status="active",
+                        role="authority",
+                    )
                 )
-                seeded_dest += 1
 
-            # Contacts
-            for c in d.get("contacts", []):
-                cid = f"EC-{d['id']}-{c['label'].replace(' ','_').upper()}"
-                if not conn.execute("SELECT id FROM emergency_contacts WHERE id=?", (cid,)).fetchone():
-                    conn.execute(
-                        """INSERT INTO emergency_contacts (id,destination_id,label,phone,notes)
-                           VALUES (?,?,?,?,?)""",
-                        (cid, d["id"], c["label"], c["phone"], c.get("notes"))
+            for d in DESTINATIONS:
+                exists = await db.scalar(
+                    select(Destination.id).where(Destination.id == d["id"])
+                )
+
+                if not exists:
+                    db.add(
+                        Destination(
+                            id=d["id"],
+                            state=d["state"],
+                            name=d["name"],
+                            district=d["district"],
+                            altitude_m=d["altitude_m"],
+                            center_lat=d["center_lat"],
+                            center_lng=d["center_lng"],
+                            category=d["category"],
+                            difficulty=d["difficulty"],
+                            connectivity=d["connectivity"],
+                            best_season=d["best_season"],
+                            warnings_json=json.dumps(d["warnings"]),
+                            authority_id=SEED_AUTHORITY_ID,
+                            is_active=True,
+                        )
                     )
-                    seeded_contact += 1
+                    seeded_dest += 1
 
-            # Zones
-            for z in d.get("zones", []):
-                zid = f"Z-{d['id']}-{z['name'].replace(' ','_').upper()[:20]}"
-                if not conn.execute("SELECT id FROM zones WHERE id=?", (zid,)).fetchone():
-                    conn.execute(
-                        """INSERT INTO zones
-                           (id,destination_id,authority_id,name,type,shape,
-                            center_lat,center_lng,radius_m,polygon_json,is_active,created_at,updated_at)
-                           VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)""",
-                        (zid, d["id"], SEED_AUTHORITY_ID, z["name"], z["type"], z["shape"],
-                         z.get("center_lat"), z.get("center_lng"), z.get("radius_m"),
-                         json.dumps(z.get("polygon_points", [])), now, now)
+                # Contacts
+                for c in d.get("contacts", []):
+                    cid = f"EC-{d['id']}-{c['label'].replace(' ','_').upper()}"
+                    contact_exists = await db.scalar(
+                        select(EmergencyContact.id).where(EmergencyContact.id == cid)
                     )
-                    seeded_zone += 1
+                    if not contact_exists:
+                        db.add(
+                            EmergencyContact(
+                                id=cid,
+                                destination_id=d["id"],
+                                label=c["label"],
+                                phone=c["phone"],
+                                notes=c.get("notes"),
+                            )
+                        )
+                        seeded_contact += 1
 
-        conn.commit()
+                # Zones
+                for z in d.get("zones", []):
+                    zid = f"Z-{d['id']}-{z['name'].replace(' ','_').upper()[:20]}"
+                    zone_exists = await db.scalar(
+                        select(Zone.id).where(Zone.id == zid)
+                    )
+                    if not zone_exists:
+                        db.add(
+                            Zone(
+                                id=zid,
+                                destination_id=d["id"],
+                                authority_id=SEED_AUTHORITY_ID,
+                                name=z["name"],
+                                type=z["type"],
+                                shape=z["shape"],
+                                center_lat=z.get("center_lat"),
+                                center_lng=z.get("center_lng"),
+                                radius_m=z.get("radius_m"),
+                                polygon_json=json.dumps(z.get("polygon_points", [])),
+                                is_active=True,
+                                created_at=now,
+                                updated_at=now,
+                            )
+                        )
+                        seeded_zone += 1
+
+    return seeded_dest, seeded_zone, seeded_contact
+
+
+def seed():
+    seeded_dest, seeded_zone, seeded_contact = asyncio.run(_seed_async())
 
     print(f"Seed complete: {seeded_dest} destinations, {seeded_zone} zones, {seeded_contact} contacts")
 
