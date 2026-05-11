@@ -524,6 +524,41 @@ async def get_zones(db: AsyncSession, destination_id: str) -> List[dict]:
     result = await db.execute(select(Zone).where(Zone.destination_id == destination_id, Zone.is_active == True))
     return [_zone_to_dict(z) for z in result.scalars().all()]
 
+async def update_zone(
+    db: AsyncSession,
+    zone_id: str,
+    zone_in: schemas.ZoneUpdate,
+    authority_id: str,
+) -> dict:
+    result = await db.execute(select(Zone).where(Zone.id == zone_id, Zone.is_active == True))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Zone not found")
+    if zone.authority_id != authority_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Jurisdiction mismatch")
+
+    updates = zone_in.model_dump(exclude_unset=True)
+    if "name" in updates and updates["name"] is not None:
+        zone.name = updates["name"].strip()
+    if "type" in updates and updates["type"] is not None:
+        zone.type = updates["type"].upper()
+    if "shape" in updates and updates["shape"] is not None:
+        zone.shape = updates["shape"].upper()
+    if "center_lat" in updates:
+        zone.center_lat = updates["center_lat"]
+    if "center_lng" in updates:
+        zone.center_lng = updates["center_lng"]
+    if "radius_m" in updates:
+        zone.radius_m = updates["radius_m"]
+    if "polygon_points" in updates and updates["polygon_points"] is not None:
+        zone.polygon_json = json.dumps([point.model_dump() for point in updates["polygon_points"]])
+
+    await db.flush()
+    await db.refresh(zone)
+    return _zone_to_dict(zone)
+
 async def delete_zone(db: AsyncSession, zone_id: str, authority_id: str):
     result = await db.execute(select(Zone).where(Zone.id == zone_id))
     zone = result.scalar_one_or_none()
@@ -637,7 +672,7 @@ async def get_tourist_last_locations(
     )
 
     result = await db.execute(
-        select(LocationPing)
+        select(LocationPing, Tourist.destination_state)
         .join(
             latest_per_tourist,
             and_(
@@ -645,15 +680,17 @@ async def get_tourist_last_locations(
                 LocationPing.timestamp == latest_per_tourist.c.latest_timestamp,
             ),
         )
+        .join(Tourist, LocationPing.tourist_id == Tourist.tourist_id, isouter=True)
         .order_by(LocationPing.timestamp.desc())
         .limit(limit)
         .offset(offset)
     )
-    pings = result.scalars().all()
+    rows = result.all()
     return [
         {
             "tourist_id": ping.tourist_id,
             "tuid": ping.tuid,
+            "destination_state": destination_state,
             "latitude": ping.latitude,
             "longitude": ping.longitude,
             "speed_kmh": ping.speed_kmh,
@@ -661,7 +698,7 @@ async def get_tourist_last_locations(
             "zone_status": ping.zone_status,
             "timestamp": _isoformat(ping.timestamp),
         }
-        for ping in pings
+        for ping, destination_state in rows
     ]
 
 
@@ -1019,11 +1056,13 @@ def _sos_event_dict(
     event: SOSEvent,
     queue: Optional[SOSDispatchQueue] = None,
     last_successful_channel: Optional[str] = None,
+    destination_state: Optional[str] = None,
 ) -> dict:
     return {
         "id": event.id,
         "tourist_id": event.tourist_id,
         "tuid": event.tuid,
+        "destination_state": destination_state,
         "latitude": event.latitude,
         "longitude": event.longitude,
         "trigger_type": event.trigger_type,
@@ -1037,6 +1076,7 @@ def _sos_event_dict(
         "last_successful_channel": last_successful_channel,
         "acknowledged_at": _isoformat(event.acknowledged_at),
         "acknowledged_by": event.acknowledged_by,
+        "authority_response": event.authority_response,
         "resolved_at": _isoformat(event.resolved_at),
         "relayed_by_tourist_id": event.relayed_by_tourist_id,
         "timestamp": _isoformat(event.timestamp),
@@ -1069,8 +1109,26 @@ async def get_sos_events_paginated(db: AsyncSession, limit: int = 50, offset: in
     )
     events = result.scalars().all()
     queue_by_event, last_success_by_event = await _sos_queue_maps(db, [e.id for e in events])
+    destination_by_tourist: dict[str, Optional[str]] = {}
+    if events:
+        tourist_ids = [e.tourist_id for e in events]
+        tourist_rows = (
+            await db.execute(
+                select(Tourist.tourist_id, Tourist.destination_state).where(
+                    Tourist.tourist_id.in_(tourist_ids)
+                )
+            )
+        ).all()
+        destination_by_tourist = {
+            tourist_id: destination_state for tourist_id, destination_state in tourist_rows
+        }
     return [
-        _sos_event_dict(e, queue_by_event.get(e.id), last_success_by_event.get(e.id))
+        _sos_event_dict(
+            e,
+            queue_by_event.get(e.id),
+            last_success_by_event.get(e.id),
+            destination_by_tourist.get(e.tourist_id),
+        )
         for e in events
     ]
 

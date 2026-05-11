@@ -5,8 +5,14 @@ from sqlalchemy import delete
 
 from app.db import sqlite_legacy
 from app.db.session import AsyncSessionLocal
-from app.models.database import Destination, Tourist
-from tests.conftest import TEST_TOURIST_ID, TEST_TOURIST_TUID, valid_location_payload, valid_sos_payload
+from app.models.database import Destination, Tourist, Zone
+from tests.conftest import (
+    TEST_AUTHORITY_ID,
+    TEST_TOURIST_ID,
+    TEST_TOURIST_TUID,
+    valid_location_payload,
+    valid_sos_payload,
+)
 
 
 def _run_async(coro):
@@ -47,6 +53,39 @@ async def _clear_db_destinations() -> None:
     async with AsyncSessionLocal() as db:
         async with db.begin():
             await db.execute(delete(Destination))
+
+
+async def _seed_editable_zone() -> None:
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            await db.execute(delete(Zone).where(Zone.id == "ZONE-EDIT-001"))
+            if not await db.get(Destination, "DEST-EDIT-001"):
+                db.add(
+                    Destination(
+                        id="DEST-EDIT-001",
+                        state="Uttarakhand",
+                        name="Editable Test Destination",
+                        district="Rudraprayag",
+                        center_lat=30.7333,
+                        center_lng=79.0667,
+                        authority_id=TEST_AUTHORITY_ID,
+                    )
+                )
+            db.add(
+                Zone(
+                    id="ZONE-EDIT-001",
+                    destination_id="DEST-EDIT-001",
+                    authority_id=TEST_AUTHORITY_ID,
+                    name="Original Zone",
+                    type="SAFE",
+                    shape="CIRCLE",
+                    center_lat=30.7333,
+                    center_lng=79.0667,
+                    radius_m=500,
+                    polygon_json="[]",
+                    is_active=True,
+                )
+            )
 
 
 def test_dashboard_analytics_returns_command_centre_shape(client, authority_auth_header):
@@ -132,3 +171,28 @@ def test_sos_respond_accepts_dashboard_response_payload(
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "resolved"
+
+
+def test_zone_update_requires_authority_and_returns_updated_zone(
+    client, tourist_auth_header, authority_auth_header
+):
+    _run_async(_seed_editable_zone())
+
+    forbidden = client.put(
+        "/zones/ZONE-EDIT-001",
+        json={"name": "Blocked update"},
+        headers=tourist_auth_header,
+    )
+    assert forbidden.status_code == 403
+
+    response = client.put(
+        "/zones/ZONE-EDIT-001",
+        json={"name": "Updated Zone", "type": "CAUTION", "radius_m": 750},
+        headers=authority_auth_header,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["name"] == "Updated Zone"
+    assert body["type"] == "CAUTION"
+    assert body["radius_m"] == 750

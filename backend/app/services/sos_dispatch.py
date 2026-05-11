@@ -1,5 +1,6 @@
 # app/services/sos_dispatch.py
 import json
+import os
 import time
 import urllib.parse
 import urllib.request
@@ -14,7 +15,16 @@ def dispatch_sos_alert(event: dict) -> dict:
     Dispatch SOS to an external responder pipeline.
     Production deployments use SOS_DISPATCH_WEBHOOK_URL.
     """
-    webhook_url = settings.SOS_DISPATCH_WEBHOOK_URL
+    try:
+        webhook_url = settings.get_sos_dispatch_webhook_url(
+            require_https=os.getenv("ENVIRONMENT") == "production"
+        )
+    except ValueError as exc:
+        logger.error("sos.dispatch.invalid_webhook_url", error=str(exc))
+        return {
+            "status": "failed",
+            "message": str(exc),
+        }
     if not webhook_url:
         logger.warning(
             "sos.dispatch.not_configured",
@@ -47,7 +57,8 @@ def dispatch_sos_alert(event: dict) -> dict:
                 webhook_host=urllib.parse.urlparse(webhook_url).netloc,
                 tourist_id=event.get("tourist_id"),
             )
-            with urllib.request.urlopen(request, timeout=5) as response:
+            # URL scheme and netloc are validated before dispatch.
+            with urllib.request.urlopen(request, timeout=5) as response:  # nosec B310
                 status = "delivered" if 200 <= response.status < 300 else "failed"
                 logger.info(
                     "sos.dispatch.completed",

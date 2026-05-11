@@ -1,6 +1,6 @@
 import datetime
 import json
-import random
+import secrets
 import string
 import time
 from typing import Optional
@@ -71,7 +71,7 @@ def _active_group_conflict_detail(group: TouristGroup) -> dict:
 
 async def _generate_invite_code(db: AsyncSession) -> str:
     for _ in range(100):
-        code = "".join(random.choice(_invite_alphabet) for _ in range(INVITE_CODE_LENGTH))
+        code = "".join(secrets.choice(_invite_alphabet) for _ in range(INVITE_CODE_LENGTH))
         exists = await db.scalar(select(func.count()).select_from(TouristGroup).where(TouristGroup.invite_code == code))
         if not exists:
             return code
@@ -159,7 +159,7 @@ async def create_group(
 
     tourist = await _get_tourist(db, tourist_id)
     now = _now()
-    group_id = f"GRP-{random.SystemRandom().randint(10**9, 10**10 - 1)}"
+    group_id = f"GRP-{secrets.randbelow(9 * 10**9) + 10**9}"
     invite_code = await _generate_invite_code(db)
     group = TouristGroup(
         group_id=group_id,

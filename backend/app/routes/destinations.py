@@ -59,8 +59,8 @@ async def get_destination_detail(dest_id: str, db: AsyncSession = Depends(get_db
     warnings = []
     try:
         warnings = json.loads(destination.get("warnings_json") or "[]")
-    except Exception:
-        pass
+    except (TypeError, json.JSONDecodeError):
+        warnings = []
 
     return {
         "id": destination["id"],

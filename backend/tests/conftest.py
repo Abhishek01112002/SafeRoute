@@ -16,6 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Using a file-based SQLite for tests to ensure tables persist across sessions
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_saferoute.db"
 os.environ["REDIS_URL"] = ""
+os.environ["JWT_SECRET"] = "test-jwt-secret-0123456789abcdef0123456789abcdef"
+os.environ["DOC_NUMBER_SALT"] = "test-doc-salt-0123456789abcdef"
+os.environ["MESH_SECRET_MASTER_KEY"] = "test-mesh-secret-0123456789abcdef0123456789abcdef"
 
 from fastapi.testclient import TestClient
 from app import create_app
@@ -31,7 +34,7 @@ limiter.enabled = False
 # ---------------------------------------------------------------------------
 
 TEST_TOURIST_ID = "TID-2025-UK-TEST1"
-TEST_TOURIST_TUID = "TUID-CONFTEST-TOURIST-0001"
+TEST_TOURIST_TUID = "SR-IN-26-ABCDEF123456"
 TEST_AUTHORITY_ID = "AUTH-2025-TEST-001"
 
 # ---------------------------------------------------------------------------

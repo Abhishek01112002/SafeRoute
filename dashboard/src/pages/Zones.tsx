@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import * as QRCode from 'qrcode';
-import { Database, MapPin, Navigation, Plus, QrCode, RadioTower, RefreshCw, Trash2, X } from 'lucide-react';
-import api, { getErrorMessage, type Destination, type Zone } from '../api';
+import {
+  Database,
+  Edit3,
+  MapPin,
+  Navigation,
+  Plus,
+  QrCode,
+  RadioTower,
+  RefreshCw,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
+import api, { getErrorMessage, updateZone, type Destination, type Zone } from '../api';
+import { hasPermission, readAuthoritySession } from '../auth';
 import ZoneMap from '../components/ZoneMap';
 import './Zones.css';
 
@@ -20,6 +33,13 @@ interface Authority {
   jurisdiction_zone?: string;
 }
 
+interface ZoneEditDraft {
+  name: string;
+  type: string;
+  shape: string;
+  radius_m: number | null;
+}
+
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
 
 const Zones = () => {
@@ -34,7 +54,16 @@ const Zones = () => {
   const [qrBundle, setQrBundle] = useState<{ token: string; zone_count: number } | null>(null);
   const [qrImage, setQrImage] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
+  const [editingZoneId, setEditingZoneId] = useState('');
+  const [editDraft, setEditDraft] = useState<ZoneEditDraft>({
+    name: '',
+    type: 'SAFE',
+    shape: 'POLYGON',
+    radius_m: null,
+  });
   const [error, setError] = useState('');
+  const session = readAuthoritySession();
+  const canManageZones = hasPermission(session, 'zones:manage');
 
   const authority: Authority = useMemo(() => {
     try {
@@ -165,12 +194,60 @@ const Zones = () => {
     return '';
   };
 
-  const handleDelete = async (zoneId: string) => {
-    if (!window.confirm('Deactivate this zone?')) return;
+  const startEditing = (zone: Zone) => {
+    setEditingZoneId(zone.id);
+    setEditDraft({
+      name: zone.name || '',
+      type: zone.type || 'SAFE',
+      shape: zone.shape || 'POLYGON',
+      radius_m: zone.radius_m,
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingZoneId('');
+    setEditDraft({ name: '', type: 'SAFE', shape: 'POLYGON', radius_m: null });
+  };
+
+  const handleSaveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingZoneId || !canManageZones) return;
+    if (!editDraft.name.trim()) {
+      setError('Zone name is required.');
+      return;
+    }
+    if (editDraft.shape === 'CIRCLE' && Number(editDraft.radius_m) <= 0) {
+      setError('Circle radius must be greater than 0 metres.');
+      return;
+    }
+    const confirmed = window.confirm(`Apply edits to "${editDraft.name.trim()}"?`);
+    if (!confirmed) return;
+
     setError('');
     try {
-      await api.delete(`/zones/${zoneId}`);
-      setZones((current) => current.filter((zone) => zone.id !== zoneId));
+      const updated = await updateZone(editingZoneId, {
+        name: editDraft.name.trim(),
+        type: editDraft.type,
+        shape: editDraft.shape,
+        radius_m: editDraft.shape === 'CIRCLE' ? Number(editDraft.radius_m) : null,
+      });
+      setZones((current) => current.map((zone) => (zone.id === updated.id ? updated : zone)));
+      cancelEditing();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
+  };
+
+  const handleDelete = async (zone: Zone) => {
+    if (!canManageZones) return;
+    const confirmed = window.confirm(
+      `Deactivate "${zone.name || zone.id}"? It will stop appearing in active zone sync.`,
+    );
+    if (!confirmed) return;
+    setError('');
+    try {
+      await api.delete(`/zones/${zone.id}`);
+      setZones((current) => current.filter((currentZone) => currentZone.id !== zone.id));
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     }
@@ -178,6 +255,7 @@ const Zones = () => {
 
   const handleAddZone = async (event: FormEvent) => {
     event.preventDefault();
+    if (!canManageZones) return;
     const validationError = validateZoneDraft();
     if (validationError) {
       setError(validationError);
@@ -240,7 +318,11 @@ const Zones = () => {
             <QrCode size={16} />
             {qrLoading ? 'Generating' : 'Generate QR'}
           </button>
-          <button className="btn-primary" onClick={() => setShowAddForm((current) => !current)}>
+          <button
+            className="btn-primary"
+            onClick={() => setShowAddForm((current) => !current)}
+            disabled={!canManageZones}
+          >
             <Plus size={16} />
             New zone
           </button>
@@ -248,6 +330,9 @@ const Zones = () => {
       </section>
 
       {error && <div className="alert-banner">{error}</div>}
+      {!canManageZones && (
+        <div className="permission-note">Zone deployment and edits are unavailable for this role.</div>
+      )}
 
       <section className="selector-panel">
         <div className="selector-command">
@@ -348,7 +433,7 @@ const Zones = () => {
         />
       </section>
 
-      {showAddForm && (
+      {showAddForm && canManageZones && (
         <form className="add-zone-form" onSubmit={handleAddZone}>
           <h2>Define new zone</h2>
           <div className="form-grid">
@@ -417,20 +502,80 @@ const Zones = () => {
         <section className="zones-grid">
           {zones.map((zone) => (
             <article key={zone.id} className={`zone-card type-${(zone.type || 'safe').toLowerCase()}`}>
-              <div className="zone-header">
-                <div>
-                  <h2>{zone.name || 'Unnamed zone'}</h2>
-                  <span>{zone.destination_id}</span>
-                </div>
-                <span className="zone-badge">{zone.type || 'SAFE'}</span>
-              </div>
-              <div className="zone-details">
-                <p><MapPin size={14} /> {(zone.center_lat || 0).toFixed(4)}, {(zone.center_lng || 0).toFixed(4)}</p>
-                <p>{zone.shape || 'POLYGON'}{zone.shape === 'CIRCLE' ? ` - ${zone.radius_m}m radius` : ''}</p>
-              </div>
-              <button className="icon-button delete" onClick={() => handleDelete(zone.id)} title="Deactivate zone">
-                <Trash2 size={17} />
-              </button>
+              {editingZoneId === zone.id ? (
+                <form className="zone-edit-form" onSubmit={handleSaveEdit}>
+                  <div className="form-group">
+                    <label>Name</label>
+                    <input
+                      required
+                      value={editDraft.name}
+                      onChange={(event) => setEditDraft({ ...editDraft, name: event.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Type</label>
+                    <select
+                      value={editDraft.type}
+                      onChange={(event) => setEditDraft({ ...editDraft, type: event.target.value })}
+                    >
+                      <option value="SAFE">SAFE</option>
+                      <option value="CAUTION">CAUTION</option>
+                      <option value="RESTRICTED">RESTRICTED</option>
+                    </select>
+                  </div>
+                  {editDraft.shape === 'CIRCLE' && (
+                    <div className="form-group">
+                      <label>Radius (m)</label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        value={editDraft.radius_m ?? 0}
+                        onChange={(event) =>
+                          setEditDraft({
+                            ...editDraft,
+                            radius_m: Number.parseInt(event.target.value, 10) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                  <div className="zone-edit-actions">
+                    <button type="button" className="btn-secondary btn-small" onClick={cancelEditing}>
+                      <X size={14} />
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary btn-small">
+                      <Save size={14} />
+                      Save
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="zone-header">
+                    <div>
+                      <h2>{zone.name || 'Unnamed zone'}</h2>
+                      <span>{zone.destination_id}</span>
+                    </div>
+                    <span className="zone-badge">{zone.type || 'SAFE'}</span>
+                  </div>
+                  <div className="zone-details">
+                    <p><MapPin size={14} /> {(zone.center_lat || 0).toFixed(4)}, {(zone.center_lng || 0).toFixed(4)}</p>
+                    <p>{zone.shape || 'POLYGON'}{zone.shape === 'CIRCLE' ? ` - ${zone.radius_m}m radius` : ''}</p>
+                  </div>
+                  {canManageZones && (
+                    <div className="zone-card-actions">
+                      <button className="icon-button" onClick={() => startEditing(zone)} title="Edit zone">
+                        <Edit3 size={17} />
+                      </button>
+                      <button className="icon-button delete" onClick={() => handleDelete(zone)} title="Deactivate zone">
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </article>
           ))}
           {zones.length === 0 && <div className="empty-state">No active zones for this destination.</div>}

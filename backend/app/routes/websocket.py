@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal, get_db
 from app.dependencies import get_current_tourist
+from app.logging_config import get_logger
 from app.services import group_safety
 from app.services.jwt_service import verify_jwt_payload
 
 
 router = APIRouter()
+log = get_logger("websocket")
 
 # Live socket registry only. Canonical group state lives in PostgreSQL tables.
 connections: dict[str, List[WebSocket]] = {}
@@ -136,8 +138,8 @@ async def room_websocket(
     except Exception as exc:
         try:
             await websocket.send_text(json.dumps({"type": "error", "detail": str(exc)}))
-        except Exception:
-            pass
+        except Exception as send_exc:
+            log.debug("websocket.error_send_failed", error=str(send_exc))
     finally:
         if websocket in connections.get(group_id, []):
             connections[group_id].remove(websocket)

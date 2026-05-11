@@ -51,11 +51,16 @@ const Login = () => {
 
   const persistSession = (data: Record<string, unknown>, authorityProfile = {}) => {
     localStorage.setItem('token', String(data.token));
+    if (data.refresh_token) {
+      localStorage.setItem('refresh_token', String(data.refresh_token));
+    }
     localStorage.setItem(
       'authority',
       JSON.stringify({
         ...authorityProfile,
         ...data,
+        role: data.role || 'authority',
+        status: data.status || 'active',
       }),
     );
     window.location.href = '/';

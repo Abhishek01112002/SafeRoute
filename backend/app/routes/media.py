@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
-import os
 
 from app.models.schemas import MediaUploadRequest
 from app.services.minio_service import minio_service
+from app.services.identity_service import verify_tuid_format
+from app.services.file_access import FileAccessError, resolve_tourist_upload
 from app.dependencies import get_current_tourist
 from app.core import limiter
-import re
+from app.db import crud
+from app.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -16,7 +19,9 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 @limiter.limit("5/minute")
 async def get_upload_url(
     request: Request,
-    payload: MediaUploadRequest
+    payload: MediaUploadRequest,
+    tourist_id: str = Depends(get_current_tourist),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get a presigned PUT URL to upload a photo directly to MinIO.
@@ -28,12 +33,15 @@ async def get_upload_url(
             detail=f"Invalid content_type. Allowed: {ALLOWED_MIME_TYPES}"
         )
 
-    # Validate TUID format: 24 alphanumeric characters
-    if not payload.tuid or not re.match(r"^[a-zA-Z0-9]{24}$", payload.tuid):
+    if not payload.tuid or not verify_tuid_format(payload.tuid):
         raise HTTPException(
             status_code=400,
-            detail="Invalid TUID format (must be 24 alphanumeric characters).",
+            detail="Invalid TUID format.",
         )
+
+    tourist = await crud.get_tourist(db, tourist_id)
+    if not tourist or tourist.get("tuid") != payload.tuid:
+        raise HTTPException(status_code=403, detail="TUID does not belong to the authenticated tourist")
 
     # 5MB limit
     if payload.file_size_bytes > 5 * 1024 * 1024:
@@ -81,16 +89,12 @@ async def get_upload(
     Secure download: Returns the file only if the tourist is authenticated.
     Path format: uploaded_files/tourist_TID-XXXX/uuid_type.ext
     """
-    # Security: Ensure they can only access their own files
-    # A simple path check: "tourist_{tourist_id}" must be in the path
-    if f"tourist_{tourist_id}" not in file_path or ".." in file_path:
-        raise HTTPException(status_code=403, detail="Access denied to this file")
-
-    # Only allow access to the uploaded_files directory
-    if not file_path.startswith("uploaded_files/"):
+    try:
+        resolved_path = resolve_tourist_upload(file_path, tourist_id)
+    except FileAccessError:
         raise HTTPException(status_code=403, detail="Invalid file path")
 
-    if not os.path.exists(file_path):
+    if not resolved_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(file_path)
+    return FileResponse(str(resolved_path))

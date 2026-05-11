@@ -18,6 +18,7 @@ import {
   type SosDeliveryAudit,
   type SOSEvent,
 } from '../api';
+import { hasPermission, readAuthoritySession } from '../auth';
 import './SOS.css';
 
 const PAGE_SIZE = 50;
@@ -29,6 +30,17 @@ const eventAge = (timestamp: string) => {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m active`;
 };
 
+const hasCoordinates = (event: SOSEvent) =>
+  typeof event.latitude === 'number' && typeof event.longitude === 'number';
+
+const formatCoordinates = (event: SOSEvent) =>
+  hasCoordinates(event)
+    ? `${event.latitude?.toFixed(5)}, ${event.longitude?.toFixed(5)}`
+    : 'Location unknown';
+
+const timelineTime = (value?: string | null) =>
+  value ? new Date(value).toLocaleString() : 'Pending';
+
 const SOS = () => {
   const [events, setEvents] = useState<SOSEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +49,10 @@ const SOS = () => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
   const [deliveryAudit, setDeliveryAudit] = useState<Record<number, SosDeliveryAudit>>({});
+  const [expandedTimelineIds, setExpandedTimelineIds] = useState<Set<number>>(() => new Set());
+  const [auditLoadingIds, setAuditLoadingIds] = useState<Set<number>>(() => new Set());
+  const session = readAuthoritySession();
+  const canRespond = hasPermission(session, 'sos:respond');
 
   const refreshEvents = useCallback(async (newOffset = 0) => {
     setRefreshing(true);
@@ -66,6 +82,7 @@ const SOS = () => {
   }, [refreshEvents]);
 
   const handleRespond = async (id: number) => {
+    if (!canRespond) return;
     const confirmed = window.confirm('Mark response initiated for this SOS event?');
     if (!confirmed) return;
 
@@ -84,6 +101,7 @@ const SOS = () => {
   };
 
   const handleAcknowledge = async (id: number) => {
+    if (!canRespond) return;
     try {
       await acknowledgeSos(id);
       setEvents((current) =>
@@ -98,20 +116,31 @@ const SOS = () => {
     }
   };
 
-  const handleToggleAudit = async (id: number) => {
-    if (deliveryAudit[id]) {
-      setDeliveryAudit((current) => {
-        const next = { ...current };
-        delete next[id];
+  const handleToggleTimeline = async (id: number) => {
+    if (expandedTimelineIds.has(id)) {
+      setExpandedTimelineIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
         return next;
       });
       return;
     }
-    try {
-      const audit = await fetchSosDelivery(id);
-      setDeliveryAudit((current) => ({ ...current, [id]: audit }));
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
+
+    setExpandedTimelineIds((current) => new Set(current).add(id));
+    if (!deliveryAudit[id]) {
+      setAuditLoadingIds((current) => new Set(current).add(id));
+      try {
+        const audit = await fetchSosDelivery(id);
+        setDeliveryAudit((current) => ({ ...current, [id]: audit }));
+      } catch (requestError) {
+        setError(getErrorMessage(requestError));
+      } finally {
+        setAuditLoadingIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      }
     }
   };
 
@@ -178,7 +207,7 @@ const SOS = () => {
                       </div>
                     </div>
                     <div className="incident-meta-grid">
-                      <span><Crosshair size={14} /> {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}</span>
+                      <span><Crosshair size={14} /> {formatCoordinates(event)}</span>
                       <span><Clock size={14} /> {new Date(event.timestamp).toLocaleString()}</span>
                       <span className={event.group_id ? 'group-context active' : 'group-context'}>
                         <UsersRound size={14} /> Group: {event.group_id || 'solo'}
@@ -190,32 +219,29 @@ const SOS = () => {
                       <span>Last channel: {event.last_successful_channel || 'none yet'}</span>
                     </div>
                     <div className="incident-actions">
-                      {event.incident_status !== 'ACKNOWLEDGED' && (
+                      {canRespond && event.incident_status !== 'ACKNOWLEDGED' && (
                         <button className="btn-secondary" onClick={() => handleAcknowledge(event.id)}>
                           Acknowledge
                         </button>
                       )}
-                      <button className="btn-secondary" onClick={() => handleToggleAudit(event.id)}>
-                        {deliveryAudit[event.id] ? 'Hide audit' : 'Audit'}
+                      <button className="btn-secondary" onClick={() => handleToggleTimeline(event.id)}>
+                        {expandedTimelineIds.has(event.id) ? 'Hide timeline' : 'Timeline'}
                       </button>
-                      <button className="btn-danger" onClick={() => handleRespond(event.id)}>
-                        Resolve
-                      </button>
+                      {canRespond && (
+                        <button className="btn-danger" onClick={() => handleRespond(event.id)}>
+                          Resolve
+                        </button>
+                      )}
                     </div>
-                    {deliveryAudit[event.id] && (
-                      <div className="audit-drawer">
-                        <strong>{deliveryAudit[event.id].event.message}</strong>
-                        {deliveryAudit[event.id].audit.length === 0 ? (
-                          <span>No delivery attempts recorded yet.</span>
-                        ) : (
-                          deliveryAudit[event.id].audit.slice(0, 8).map((row) => (
-                            <span key={row.audit_id}>
-                              {row.channel} - {row.status}
-                              {row.provider_status ? ` (${row.provider_status})` : ''}
-                            </span>
-                          ))
-                        )}
-                      </div>
+                    {!canRespond && (
+                      <div className="permission-note">Response controls are unavailable for this role.</div>
+                    )}
+                    {expandedTimelineIds.has(event.id) && (
+                      <IncidentTimeline
+                        event={event}
+                        audit={deliveryAudit[event.id]}
+                        loading={auditLoadingIds.has(event.id)}
+                      />
                     )}
                   </article>
                 ))}
@@ -235,14 +261,26 @@ const SOS = () => {
             ) : (
               <div className="resolved-table">
                 {resolvedEvents.map((event) => (
-                  <div className="resolved-row" key={event.id}>
-                    <CheckCircle2 size={16} />
-                    <div>
-                      <strong>{event.tourist_id}</strong>
-                      <span>{event.trigger_type} - {new Date(event.timestamp).toLocaleString()}</span>
-                      {event.group_id && <span>Group: {event.group_id}</span>}
+                  <div className="resolved-item" key={event.id}>
+                    <div className="resolved-row">
+                      <CheckCircle2 size={16} />
+                      <div>
+                        <strong>{event.tourist_id}</strong>
+                        <span>{event.trigger_type} - {new Date(event.timestamp).toLocaleString()}</span>
+                        {event.group_id && <span>Group: {event.group_id}</span>}
+                      </div>
+                      <span>{event.incident_status || event.status}</span>
+                      <button className="btn-secondary btn-small" onClick={() => handleToggleTimeline(event.id)}>
+                        {expandedTimelineIds.has(event.id) ? 'Hide' : 'Timeline'}
+                      </button>
                     </div>
-                    <span>{event.incident_status || event.status}</span>
+                    {expandedTimelineIds.has(event.id) && (
+                      <IncidentTimeline
+                        event={event}
+                        audit={deliveryAudit[event.id]}
+                        loading={auditLoadingIds.has(event.id)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -257,6 +295,90 @@ const SOS = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const IncidentTimeline = ({
+  event,
+  audit,
+  loading,
+}: {
+  event: SOSEvent;
+  audit?: SosDeliveryAudit;
+  loading: boolean;
+}) => {
+  const auditRows = [...(audit?.audit ?? [])].sort(
+    (a, b) =>
+      new Date(a.timestamp || event.timestamp).getTime() -
+      new Date(b.timestamp || event.timestamp).getTime(),
+  );
+  const entries = [
+    {
+      key: 'triggered',
+      label: 'SOS triggered',
+      time: timelineTime(event.timestamp),
+      detail: `${event.trigger_type} / ${event.source || 'DIRECT'}`,
+      tone: 'danger',
+    },
+    event.acknowledged_at
+      ? {
+          key: 'acknowledged',
+          label: 'Acknowledged',
+          time: timelineTime(event.acknowledged_at),
+          detail: event.acknowledged_by ? `By ${event.acknowledged_by}` : 'Authority acknowledged',
+          tone: 'info',
+        }
+      : null,
+    ...auditRows.slice(0, 8).map((row) => ({
+      key: row.audit_id,
+      label: `${row.channel} ${row.status}`,
+      time: timelineTime(row.timestamp),
+      detail: row.provider_status || row.error_message || `Attempt ${row.attempt_number}`,
+      tone: row.status === 'SUCCESS' ? 'success' : row.status === 'FAILED' ? 'danger' : 'info',
+    })),
+    audit?.queue.next_attempt_at
+      ? {
+          key: 'next-attempt',
+          label: 'Next dispatch attempt',
+          time: timelineTime(audit.queue.next_attempt_at),
+          detail: audit.queue.state || 'Queued',
+          tone: 'info',
+        }
+      : null,
+    event.resolved_at
+      ? {
+          key: 'resolved',
+          label: 'Resolved',
+          time: timelineTime(event.resolved_at),
+          detail: event.authority_response || 'Response initiated from command centre',
+          tone: 'success',
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    time: string;
+    detail: string;
+    tone: string;
+  }>;
+
+  return (
+    <ol className="incident-timeline" aria-label={`Timeline for SOS ${event.id}`}>
+      {entries.map((entry) => (
+        <li className={`timeline-entry ${entry.tone}`} key={entry.key}>
+          <span className="timeline-dot" />
+          <div>
+            <strong>{entry.label}</strong>
+            <span>{entry.time}</span>
+            <small>{entry.detail}</small>
+          </div>
+        </li>
+      ))}
+      {loading && <li className="timeline-loading">Loading delivery audit...</li>}
+      {!loading && audit && audit.audit.length === 0 && (
+        <li className="timeline-loading">No delivery attempts recorded yet.</li>
+      )}
+    </ol>
   );
 };
 

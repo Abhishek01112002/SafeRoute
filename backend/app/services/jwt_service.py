@@ -1,4 +1,6 @@
 # app/services/jwt_service.py
+import base64
+import binascii
 import datetime
 import jwt
 from typing import Optional, Dict, Any
@@ -16,12 +18,16 @@ class AuthPrincipal:
 
 # Load RSA keys from paths defined in settings
 try:
-    with open(settings.PRIVATE_KEY_PATH, "r") as f:
-        PRIVATE_KEY = f.read()
-    with open(settings.PUBLIC_KEY_PATH, "r") as f:
-        PUBLIC_KEY = f.read()
+    if settings.PRIVATE_KEY_BASE64 and settings.PUBLIC_KEY_BASE64:
+        PRIVATE_KEY = base64.b64decode(settings.PRIVATE_KEY_BASE64, validate=True).decode("utf-8")
+        PUBLIC_KEY = base64.b64decode(settings.PUBLIC_KEY_BASE64, validate=True).decode("utf-8")
+    else:
+        with open(settings.PRIVATE_KEY_PATH, "r") as f:
+            PRIVATE_KEY = f.read()
+        with open(settings.PUBLIC_KEY_PATH, "r") as f:
+            PUBLIC_KEY = f.read()
     JWT_ALGORITHM = "RS256"
-except FileNotFoundError:
+except (FileNotFoundError, ValueError, UnicodeDecodeError, binascii.Error):
     # Development fallback. Production validation requires RSA keys.
     PRIVATE_KEY = settings.JWT_SECRET
     PUBLIC_KEY = settings.JWT_SECRET

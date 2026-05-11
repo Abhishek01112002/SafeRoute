@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
   Activity,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   ShieldAlert,
 } from 'lucide-react';
+import { hasPermission, readAuthoritySession, type DashboardPermission } from '../auth';
 import {
   API_BASE_URL,
   POLL_INTERVAL_MS,
@@ -30,12 +32,25 @@ const formatTime = (value?: string) => {
 const readinessCheck = (readiness: Readiness | null, key: string) =>
   Boolean(readiness?.checks?.[key]);
 
+const navItems: Array<{
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  permission: DashboardPermission;
+}> = [
+  { to: '/', label: 'Overview', icon: Activity, permission: 'overview:view' },
+  { to: '/zones', label: 'Zones', icon: Map, permission: 'zones:view' },
+  { to: '/sos', label: 'SOS Triage', icon: ShieldAlert, permission: 'sos:view' },
+];
+
 const Layout = () => {
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string | undefined>();
   const [statusError, setStatusError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [clock, setClock] = useState(() => new Date());
+  const session = readAuthoritySession();
+  const allowedNavItems = navItems.filter((item) => hasPermission(session, item.permission));
 
   const refreshStatus = useCallback(async () => {
     setRefreshing(true);
@@ -69,6 +84,7 @@ const Layout = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('authority');
     window.location.href = '/login';
   };
@@ -94,19 +110,29 @@ const Layout = () => {
           <small>IST command watch</small>
         </div>
 
+        <div className="authority-card">
+          <span className="role-pill">{session?.role || 'authority'}</span>
+          <strong>{session?.full_name || session?.authority_id || 'Authority session'}</strong>
+          <small>{session?.jurisdiction_zone || session?.department || 'Jurisdiction pending'}</small>
+        </div>
+
         <nav className="sidebar-nav" aria-label="Primary navigation">
-          <NavLink to="/" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            <Activity size={19} />
-            <span>Overview</span>
-          </NavLink>
-          <NavLink to="/zones" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            <Map size={19} />
-            <span>Zones</span>
-          </NavLink>
-          <NavLink to="/sos" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            <ShieldAlert size={19} />
-            <span>SOS Triage</span>
-          </NavLink>
+          {allowedNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+              >
+                <Icon size={19} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+          {allowedNavItems.length === 0 && (
+            <div className="nav-empty">No dashboard areas are available for this role.</div>
+          )}
         </nav>
 
         <div className="side-telemetry">

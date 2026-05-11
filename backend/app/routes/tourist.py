@@ -13,6 +13,7 @@ from app.services.jwt_service import create_jwt_token
 from app.services.tourist_config import derive_tourist_config
 from app.services.identity_service import generate_tuid, hash_document_number
 from app.services.mesh_key_service import ensure_active_mesh_key, rotate_mesh_key as rotate_tourist_mesh_key
+from app.services.file_access import FileAccessError, resolve_tourist_upload
 from app.db import crud
 from app.db.session import get_db
 from app.core import limiter
@@ -172,6 +173,9 @@ async def get_tourist_photo(
     """
     from fastapi.responses import FileResponse
 
+    if tourist != tourist_id:
+        raise HTTPException(status_code=403, detail="Access denied to this photo")
+
     tourist_data = await crud.get_tourist(db, tourist_id)
     if not tourist_data:
         raise HTTPException(status_code=404, detail="Tourist not found")
@@ -180,11 +184,15 @@ async def get_tourist_photo(
     if not photo_key:
         raise HTTPException(status_code=404, detail="No photo on file")
 
-    # Check if file exists on local filesystem
-    if os.path.exists(photo_key):
-        return FileResponse(photo_key, media_type="image/jpeg")
+    try:
+        photo_path = resolve_tourist_upload(photo_key, tourist_id)
+    except FileAccessError:
+        raise HTTPException(status_code=403, detail="Access denied to this photo")
 
-    raise HTTPException(status_code=404, detail="Photo file not found on server")
+    if not photo_path.is_file():
+        raise HTTPException(status_code=404, detail="Photo file not found on server")
+
+    return FileResponse(str(photo_path), media_type="image/jpeg")
 
 MAX_PHOTO_SIZE = 5 * 1024 * 1024
 MAX_DOC_SIZE = 10 * 1024 * 1024
@@ -229,8 +237,6 @@ async def register_tourist_multipart(
     Advanced Registration (V3.1): Supports multipart/form-data for files.
     """
     try:
-        with open("call_marker.txt", "a") as f:
-            f.write(f"Function called at {datetime.datetime.now()}\n")
         # 1. File Validation
         await validate_file(profile_photo, MAX_PHOTO_SIZE, ["image/jpeg", "image/png"])
         await validate_file(document_scan, MAX_DOC_SIZE, ["image/jpeg", "image/png", "application/pdf"])
@@ -278,8 +284,8 @@ async def register_tourist_multipart(
         try:
             qr_service = _get_qr_service()
             qr_jwt = qr_service.sign_qr_jwt(tuid, full_name, nationality)
-        except:
-            pass
+        except Exception as exc:
+            log.warning("tourist.qr_jwt.sign_failed", error=str(exc))
 
         # 7. Persist
         from app.models.schemas import TouristRegister as TR

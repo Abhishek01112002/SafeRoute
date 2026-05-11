@@ -40,6 +40,28 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        manifestPlaceholders["appLabel"] = "SafeRoute"
+    }
+
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "SafeRoute Dev"
+        }
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            manifestPlaceholders["appLabel"] = "SafeRoute Staging"
+        }
+        create("prod") {
+            dimension = "environment"
+            manifestPlaceholders["appLabel"] = "SafeRoute"
+        }
     }
 
     signingConfigs {

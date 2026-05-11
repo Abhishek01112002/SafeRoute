@@ -13,7 +13,7 @@ const String _webSocketUrl = String.fromEnvironment(
 
 void main() {
   EnvConfig.init(
-    env: Environment.prod,
+    env: Environment.staging,
     apiBaseUrl: _apiBaseUrl,
     webSocketUrl: _webSocketUrl,
   );

@@ -16,5 +16,6 @@ class EnvConfig {
   }
 
   static bool get isDev => environment == Environment.dev;
+  static bool get isStaging => environment == Environment.staging;
   static bool get isProd => environment == Environment.prod;
 }

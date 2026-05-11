@@ -286,7 +286,12 @@ async def _authority_targets(db: AsyncSession, event: SOSEvent) -> tuple[list[st
 
 
 async def _dispatch_webhook(event: SOSEvent) -> ChannelResult:
-    url = settings.SOS_DISPATCH_WEBHOOK_URL
+    try:
+        url = settings.get_sos_dispatch_webhook_url(
+            require_https=os.getenv("ENVIRONMENT") == "production"
+        )
+    except ValueError as exc:
+        return ChannelResult("WEBHOOK", None, AUDIT_FAILED, "INVALID_URL", str(exc))
     if not url:
         return ChannelResult("WEBHOOK", None, AUDIT_SKIPPED, "NOT_CONFIGURED", "SOS_DISPATCH_WEBHOOK_URL is empty")
 
@@ -306,7 +311,8 @@ async def _dispatch_webhook(event: SOSEvent) -> ChannelResult:
     def _send() -> ChannelResult:
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=5) as response:
+            # URL scheme and netloc are validated before dispatch.
+            with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310
                 if 200 <= response.status < 300:
                     return ChannelResult("WEBHOOK", url, AUDIT_SUCCESS, str(response.status))
                 return ChannelResult("WEBHOOK", url, AUDIT_FAILED, str(response.status), "Non-2xx webhook response")

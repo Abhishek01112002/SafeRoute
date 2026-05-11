@@ -4,7 +4,14 @@ Centralized settings for SafeRoute backend.
 Loaded from environment variables with sensible defaults.
 """
 import os
+import base64
+import binascii
+from ipaddress import ip_address
+from urllib.parse import urlparse
 from dotenv import load_dotenv
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 
 # Load .env file from backend root if it exists
 load_dotenv()
@@ -175,9 +182,20 @@ class Settings:
             "unsafe-development-secret-change-me-32-bytes",
         }):
             missing.append("JWT_SECRET (security risk: default or missing)")
+        elif is_production and len(self.JWT_SECRET.encode("utf-8")) < 32:
+            missing.append("JWT_SECRET (must be at least 32 bytes for HS256/QR signing)")
 
         if is_production and (not self.DOC_NUMBER_SALT or self.DOC_NUMBER_SALT == "unsafe-doc-salt-dev"):
             missing.append("DOC_NUMBER_SALT (security risk: default or missing)")
+
+        if is_production:
+            origins = self.get_allowed_origins_list()
+            if not origins or "*" in origins:
+                missing.append("ALLOWED_ORIGINS (must list explicit dashboard origins; '*' is not allowed)")
+            elif not any(origin.startswith("https://") for origin in origins):
+                missing.append("ALLOWED_ORIGINS (production must include at least one HTTPS dashboard origin)")
+            elif any(self._is_local_origin(origin) for origin in origins):
+                missing.append("ALLOWED_ORIGINS (remove localhost/loopback origins in production)")
 
         if is_production and (not self.TUID_SALT or self.TUID_SALT == "SR_IDENTITY_V1_UTTARAKHAND_2025"):
             # Note: This is a warning but recommended to change
@@ -185,7 +203,7 @@ class Settings:
 
         if is_production and (
             not self.MESH_SECRET_MASTER_KEY
-            or self.MESH_SECRET_MASTER_KEY == "unsafe-mesh-master-key-dev-change-me"
+            or self.MESH_SECRET_MASTER_KEY == "unsafe-mesh-master-key-dev-change-me"  # nosec B105
         ):
             missing.append("MESH_SECRET_MASTER_KEY (required for BLE SOS signatures)")
 
@@ -204,8 +222,14 @@ class Settings:
         if self.READ_FROM_PG and not self.ENABLE_PG:
             raise ValueError("READ_FROM_PG cannot be true if ENABLE_PG is false.")
 
+        if self.SOS_DISPATCH_WEBHOOK_URL:
+            self.get_sos_dispatch_webhook_url(require_https=is_production)
+
         has_key_paths = os.path.exists(self.PRIVATE_KEY_PATH) and os.path.exists(self.PUBLIC_KEY_PATH)
         has_key_env = bool(self.PRIVATE_KEY_BASE64 and self.PUBLIC_KEY_BASE64)
+        if has_key_env:
+            self._validate_base64_pem(self.PRIVATE_KEY_BASE64, "PRIVATE_KEY_BASE64", "PRIVATE KEY")
+            self._validate_base64_pem(self.PUBLIC_KEY_BASE64, "PUBLIC_KEY_BASE64", "PUBLIC KEY")
         if not has_key_paths and not has_key_env:
             if os.getenv("ENVIRONMENT") == "production":
                 raise FileNotFoundError(
@@ -216,6 +240,18 @@ class Settings:
     def get_allowed_origins_list(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
+    def get_sos_dispatch_webhook_url(self, *, require_https: bool = False) -> str:
+        """Return a validated responder webhook URL or raise ValueError."""
+        url = self.SOS_DISPATCH_WEBHOOK_URL.strip()
+        if not url:
+            return ""
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("SOS_DISPATCH_WEBHOOK_URL must be an absolute http(s) URL.")
+        if require_https and parsed.scheme != "https":
+            raise ValueError("SOS_DISPATCH_WEBHOOK_URL must use HTTPS in production.")
+        return url
+
     @staticmethod
     def _normalize_database_url(url: str) -> str:
         """Accept common hosted Postgres URL formats and force asyncpg."""
@@ -224,6 +260,39 @@ class Settings:
         if url.startswith("postgres://"):
             return url.replace("postgres://", "postgresql+asyncpg://", 1)
         return url
+
+    @staticmethod
+    def _validate_base64_pem(value: str, env_name: str, pem_label: str) -> None:
+        try:
+            decoded = base64.b64decode(value, validate=True).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError) as exc:
+            raise ValueError(f"{env_name} must be valid base64-encoded PEM.") from exc
+
+        if f"-----BEGIN" not in decoded or pem_label not in decoded:
+            raise ValueError(f"{env_name} must decode to a PEM {pem_label}.")
+        try:
+            if pem_label == "PRIVATE KEY":
+                key = serialization.load_pem_private_key(decoded.encode("utf-8"), password=None)
+                if not isinstance(key, rsa.RSAPrivateKey):
+                    raise ValueError("not an RSA private key")
+            else:
+                key = serialization.load_pem_public_key(decoded.encode("utf-8"))
+                if not isinstance(key, rsa.RSAPublicKey):
+                    raise ValueError("not an RSA public key")
+        except (ValueError, TypeError, UnsupportedAlgorithm) as exc:
+            raise ValueError(f"{env_name} must contain a valid RSA PEM {pem_label}.") from exc
+
+    @staticmethod
+    def _is_local_origin(origin: str) -> bool:
+        parsed = urlparse(origin)
+        host = parsed.hostname
+        if host == "localhost":
+            return True
+        try:
+            address = ip_address(host or "")
+        except ValueError:
+            return False
+        return address.is_loopback or address.is_unspecified
 
 
 # Singleton — imported everywhere

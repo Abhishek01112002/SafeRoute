@@ -46,6 +46,7 @@ export interface ActivityItem {
 export interface LocationRecord {
   tourist_id: string;
   tuid?: string | null;
+  destination_state?: string | null;
   latitude: number;
   longitude: number;
   speed_kmh?: number | null;
@@ -58,9 +59,10 @@ export interface SOSEvent {
   id: number;
   tourist_id: string;
   tuid?: string | null;
+  destination_state?: string | null;
   group_id?: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   trigger_type: string;
   dispatch_status?: string | null;
   delivery_state?: string | null;
@@ -70,6 +72,7 @@ export interface SOSEvent {
   last_successful_channel?: string | null;
   acknowledged_at?: string | null;
   acknowledged_by?: string | null;
+  authority_response?: string | null;
   resolved_at?: string | null;
   relayed_by_tourist_id?: string | null;
   status: 'ACTIVE' | 'RESOLVED' | string;
@@ -121,6 +124,16 @@ export interface Zone {
   polygon_points: { lat: number; lng: number }[];
 }
 
+export interface ZoneUpdatePayload {
+  name?: string;
+  type?: string;
+  shape?: string;
+  center_lat?: number | null;
+  center_lng?: number | null;
+  radius_m?: number | null;
+  polygon_points?: { lat: number; lng: number }[];
+}
+
 export interface Destination {
   id: string;
   state?: string;
@@ -157,6 +170,7 @@ api.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('authority');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
@@ -217,6 +231,11 @@ export const acknowledgeSos = async (eventId: number) => {
 
 export const fetchSosDelivery = async (eventId: number) => {
   const response = await api.get<SosDeliveryAudit>(`/sos/events/${eventId}/delivery`);
+  return response.data;
+};
+
+export const updateZone = async (zoneId: string, payload: ZoneUpdatePayload) => {
+  const response = await api.put<Zone>(`/zones/${zoneId}`, payload);
   return response.data;
 };
 

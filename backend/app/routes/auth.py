@@ -24,7 +24,7 @@ def _safe_authority_view(auth: dict) -> dict:
 
 # Password strength requirements
 MIN_PASSWORD_LENGTH = 12
-PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$"
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$"  # nosec B105
 
 @router.post("/register/authority")
 @limiter.limit("5/minute")

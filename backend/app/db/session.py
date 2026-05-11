@@ -1,6 +1,7 @@
 # app/db/session.py
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.exc import OperationalError
 from app.config import settings
 from app.models.database import Base
 
@@ -92,6 +93,6 @@ async def init_models() -> None:
         for ddl in ddl_statements:
             try:
                 await conn.exec_driver_sql(ddl)
-            except Exception:
-                # Ignores errors if column already exists
-                pass
+            except OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise

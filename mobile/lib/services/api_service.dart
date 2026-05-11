@@ -123,10 +123,9 @@ class ApiService {
   factory ApiService() => _instance;
 
   ApiService._internal() {
-    debugPrint(
-        '🚀 ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
-    // Temporary log for registration handshake audit (visible in device & Render logs)
-    debugPrint('[DBG] 📝 ApiService INIT: baseUrl=${EnvConfig.apiBaseUrl}');
+    if (kDebugMode) {
+      debugPrint('ApiService initialized with baseUrl: ${EnvConfig.apiBaseUrl}');
+    }
     _validateNetworkConfiguration();
 
     // --- Primary API client ---
@@ -498,9 +497,9 @@ class ApiService {
   Future<Map<String, dynamic>> registerTouristWithToken(
       Map<String, dynamic> formData) async {
     try {
-      // Temporary log for registration handshake audit
-      debugPrint(
-          '[DBG] 📝 registerTouristWithToken: POST /v3/tourist/register fields=${formData.keys.toList()}');
+      if (kDebugMode) {
+        debugPrint('registerTouristWithToken: POST /v3/tourist/register');
+      }
       final response = await _retryWithBackoff(
         () => _dio
             .post('/v3/tourist/register', data: formData)
@@ -519,7 +518,9 @@ class ApiService {
         }
         await _secureStorage.saveTouristId(touristId);
         await _saveIdentitySidecars(response.data, touristData);
-        debugPrint('✅ JWT tokens saved for tourist: $touristId');
+        if (kDebugMode) {
+          debugPrint('JWT credentials saved for registered tourist');
+        }
       }
 
       return {
@@ -791,7 +792,7 @@ class ApiService {
       'longitude': lng,
       'location_unknown': locationUnknown,
       'trigger_type': triggerType,
-      'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
+      'timestamp': (timestamp ?? DateTime.now()).toUtc().toIso8601String(),
       'idempotency_key': effectiveIdempotencyKey,
       'user_type': userType,
       'guest_session_id': guestSessionId,

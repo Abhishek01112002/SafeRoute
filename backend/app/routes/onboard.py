@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db import crud
 from app.config import settings
+from app.dependencies import get_current_authority
 
 router = APIRouter()
 
@@ -130,8 +131,7 @@ async def get_zone_bundle(token: str, db: AsyncSession = Depends(get_db)):
     destination_id = validate_destination_token(token)
 
     # Fetch destination metadata
-    destinations = await crud.get_destinations(db, state=None)
-    destination = next((d for d in destinations if d["id"] == destination_id), None)
+    destination = await crud.get_destination_by_id(db, destination_id)
     if not destination:
         raise HTTPException(status_code=404, detail="Destination not found")
 
@@ -144,9 +144,10 @@ async def get_zone_bundle(token: str, db: AsyncSession = Depends(get_db)):
     expires_at = (
         datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
     ).isoformat()
+    token_valid = True
 
     return {
-        "token_valid": True,
+        "token_valid": token_valid,
         "destination": destination,
         "zones": zones,
         "zone_count": len(zones),
@@ -161,14 +162,14 @@ async def get_zone_bundle(token: str, db: AsyncSession = Depends(get_db)):
 @router.get("/preview/{destination_id}")
 async def preview_bundle(
     destination_id: str,
+    authority_id: str = Depends(get_current_authority),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Dashboard preview — authority-viewable bundle (no HMAC needed; for UI).
     Returns the same structure + the generated QR token string.
     """
-    destinations = await crud.get_destinations(db, state=None)
-    destination = next((d for d in destinations if d["id"] == destination_id), None)
+    destination = await crud.get_destination_by_id(db, destination_id)
     if not destination:
         raise HTTPException(status_code=404, detail="Destination not found")
 

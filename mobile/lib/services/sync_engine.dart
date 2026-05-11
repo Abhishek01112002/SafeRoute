@@ -37,6 +37,7 @@ class SyncOperation {
   SyncState state;
   int retryCount;
   DateTime? lastAttempt;
+  DateTime? nextAttempt;
   String? errorMessage;
   final DateTime createdAt;
 
@@ -48,6 +49,7 @@ class SyncOperation {
     this.state = SyncState.pending,
     this.retryCount = 0,
     this.lastAttempt,
+    this.nextAttempt,
     this.errorMessage,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -60,6 +62,7 @@ class SyncOperation {
         'state': state.name,
         'retry_count': retryCount,
         'last_attempt': lastAttempt?.millisecondsSinceEpoch,
+        'next_attempt': nextAttempt?.millisecondsSinceEpoch,
         'error_message': errorMessage,
         'created_at': createdAt.millisecondsSinceEpoch,
       };
@@ -74,6 +77,9 @@ class SyncOperation {
       retryCount: map['retry_count'],
       lastAttempt: map['last_attempt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['last_attempt'])
+          : null,
+      nextAttempt: map['next_attempt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['next_attempt'])
           : null,
       errorMessage: map['error_message'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
@@ -143,12 +149,18 @@ class SyncEngine {
         state TEXT NOT NULL DEFAULT 'pending',
         retry_count INTEGER DEFAULT 0,
         last_attempt INTEGER,
+        next_attempt INTEGER,
         error_message TEXT,
         created_at INTEGER NOT NULL
       )
     ''');
+    try {
+      await db.execute('ALTER TABLE sync_queue ADD COLUMN next_attempt INTEGER');
+    } catch (_) {
+      // Existing databases already have this column after the first migration.
+    }
     await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_sync_state_priority ON sync_queue(state, priority, created_at)');
+        'CREATE INDEX IF NOT EXISTS idx_sync_state_priority ON sync_queue(state, priority, next_attempt, created_at)');
     _isInitialized = true;
     debugPrint('✅ SyncEngine: Initialized');
   }
@@ -298,10 +310,22 @@ class SyncEngine {
   /// Get all pending operations sorted by priority
   Future<List<SyncOperation>> _getPendingOperations() async {
     final db = await _db.database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final staleInProgressCutoff =
+        DateTime.now().subtract(_maxBackoff).millisecondsSinceEpoch;
     final maps = await db.query(
       'sync_queue',
-      where: 'state IN (?, ?, ?)',
-      whereArgs: ['pending', 'failed', 'retrying'],
+      where: '''
+        (state IN (?, ?) AND (next_attempt IS NULL OR next_attempt <= ?))
+        OR (state = ? AND (last_attempt IS NULL OR last_attempt <= ?))
+      ''',
+      whereArgs: [
+        'pending',
+        'retrying',
+        now,
+        'inProgress',
+        staleInProgressCutoff,
+      ],
       orderBy:
           "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END ASC, created_at ASC",
       limit: 100,
@@ -405,11 +429,14 @@ class SyncEngine {
       return;
     }
 
-    final backoff = retryAfter ?? _calculateBackoff(op.retryCount);
-    await Future.delayed(backoff);
-
     op.retryCount++;
-    await _updateOperationState(op, SyncState.retrying, error: error);
+    final backoff = retryAfter ?? _calculateBackoff(op.retryCount - 1);
+    await _updateOperationState(
+      op,
+      SyncState.retrying,
+      error: error,
+      nextAttempt: DateTime.now().add(backoff),
+    );
     debugPrint(
         '🔄 SyncEngine: ${op.type.name} retry ${op.retryCount}/$maxRetries');
   }
@@ -428,10 +455,15 @@ class SyncEngine {
     SyncOperation op,
     SyncState state, {
     String? error,
+    DateTime? nextAttempt,
   }) async {
     final db = await _db.database;
     op.state = state;
     op.lastAttempt = DateTime.now();
+    op.nextAttempt =
+        state == SyncState.retrying || state == SyncState.failed
+            ? nextAttempt
+            : null;
     if (error != null) op.errorMessage = error;
 
     await db.update(

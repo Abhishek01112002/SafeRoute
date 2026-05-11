@@ -247,6 +247,40 @@ class ZoneCreate(BaseModel):
             raise ValueError(f"type must be one of {allowed}")
         return v
 
+
+class ZoneUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    shape: Optional[str] = None
+    center_lat: Optional[float] = None
+    center_lng: Optional[float] = None
+    radius_m: Optional[float] = None
+    polygon_points: Optional[List[ZonePoint]] = None
+
+    @field_validator("type")
+    @classmethod
+    def validate_zone_type(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure zone type is uppercase and valid when supplied."""
+        if v is None:
+            return v
+        v = v.strip().upper()
+        allowed = {"SAFE", "CAUTION", "RESTRICTED"}
+        if v not in allowed:
+            raise ValueError(f"type must be one of {allowed}")
+        return v
+
+    @field_validator("shape")
+    @classmethod
+    def validate_zone_shape(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure zone shape is uppercase and valid when supplied."""
+        if v is None:
+            return v
+        v = v.strip().upper()
+        allowed = {"CIRCLE", "POLYGON"}
+        if v not in allowed:
+            raise ValueError(f"shape must be one of {allowed}")
+        return v
+
 class DestinationBase(BaseModel):
     id: str
     state: str

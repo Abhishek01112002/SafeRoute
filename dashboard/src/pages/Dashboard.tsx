@@ -21,6 +21,7 @@ import {
   type LocationRecord,
   type SOSEvent,
 } from '../api';
+import OperationsMap from '../components/OperationsMap';
 import './Dashboard.css';
 
 const PAGE_SIZE = 50;
@@ -40,6 +41,14 @@ const minutesSince = (value?: string | null) => {
 const statusClass = (status?: string | null) =>
   (status || 'UNKNOWN').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
+const hasEventCoordinates = (event: SOSEvent) =>
+  typeof event.latitude === 'number' && typeof event.longitude === 'number';
+
+const formatEventCoordinates = (event: SOSEvent) =>
+  hasEventCoordinates(event)
+    ? `${event.latitude?.toFixed(5)}, ${event.longitude?.toFixed(5)}`
+    : 'Location unknown';
+
 const Dashboard = () => {
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [locations, setLocations] = useState<LocationRecord[]>([]);
@@ -48,6 +57,7 @@ const Dashboard = () => {
   const [hasMoreLocations, setHasMoreLocations] = useState(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMoreLocations, setLoadingMoreLocations] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
@@ -87,6 +97,7 @@ const Dashboard = () => {
 
   const loadMoreLocations = async () => {
     const nextOffset = locationOffset + PAGE_SIZE;
+    setLoadingMoreLocations(true);
     try {
       const next = await fetchLocations(PAGE_SIZE, nextOffset);
       setLocations((current) => [...current, ...next]);
@@ -94,6 +105,8 @@ const Dashboard = () => {
       setHasMoreLocations(next.length === PAGE_SIZE);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
+    } finally {
+      setLoadingMoreLocations(false);
     }
   };
 
@@ -136,6 +149,12 @@ const Dashboard = () => {
 
       {error && <div className="alert-banner">{error}</div>}
 
+      {!loading && error && !analytics && (
+        <div className="page-state">
+          Dashboard data is unavailable. Use refresh after the backend is reachable.
+        </div>
+      )}
+
       <section className="kpi-grid">
         <KpiCard icon={<Users />} label="Registered tourists" value={metrics?.registered_tourists ?? 0} />
         <KpiCard icon={<AlertTriangle />} label="Active SOS" value={metrics?.active_sos ?? 0} tone="danger" />
@@ -151,17 +170,17 @@ const Dashboard = () => {
           ) : (
             <div className="incident-list">
               {activeIncidents.map((event) => (
-                <div className="incident-row" key={event.id}>
-                  <div>
-                    <strong>{event.tourist_id}</strong>
-                    <span>{event.trigger_type} - {minutesSince(event.timestamp)}</span>
+                  <div className="incident-row" key={event.id}>
+                    <div>
+                      <strong>{event.tourist_id}</strong>
+                      <span>{event.trigger_type} - {minutesSince(event.timestamp)}</span>
+                    </div>
+                    <div className="incident-location">
+                      <MapPin size={14} />
+                      {formatEventCoordinates(event)}
+                    </div>
                   </div>
-                  <div className="incident-location">
-                    <MapPin size={14} />
-                    {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </Panel>
@@ -202,6 +221,14 @@ const Dashboard = () => {
         </Panel>
       </section>
 
+      <OperationsMap
+        locations={locations}
+        incidents={incidents}
+        staleThresholdMinutes={analytics?.freshness.stale_threshold_minutes ?? 15}
+        loading={loading}
+        error={!analytics && error ? error : undefined}
+      />
+
       <section className="wide-grid">
         <Panel title="Last known positions" action={`${locations.length} loaded`}>
           {locations.length === 0 ? (
@@ -230,8 +257,12 @@ const Dashboard = () => {
                 ))}
               </div>
               {hasMoreLocations && (
-                <button className="btn-secondary load-more" onClick={loadMoreLocations}>
-                  Load more locations
+                <button
+                  className="btn-secondary load-more"
+                  onClick={loadMoreLocations}
+                  disabled={loadingMoreLocations}
+                >
+                  {loadingMoreLocations ? 'Loading...' : 'Load more locations'}
                 </button>
               )}
             </>

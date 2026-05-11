@@ -41,6 +41,16 @@ async def create_zone(
     zone_id = str(uuid.uuid4())
     return await crud.create_zone(db, body, authority_id, zone_id)
 
+@router.put("/{zone_id}")
+async def update_zone(
+    zone_id: str,
+    body: schemas.ZoneUpdate,
+    authority_id: str = Depends(get_current_authority),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update an active zone (Authority only)."""
+    return await crud.update_zone(db, zone_id, body, authority_id)
+
 @router.delete("/{zone_id}")
 async def delete_zone(
     zone_id: str,

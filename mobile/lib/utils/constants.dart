@@ -1,14 +1,17 @@
 // lib/utils/constants.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 // API configuration.
 //
 // Debug builds default to the adb-reversed local backend. Production builds
-// must be launched with:
-// --dart-define=SAFEROUTE_API_BASE_URL=https://api.your-domain.example
+// default to the deployed backend. Both can be overridden with:
+// --dart-define=SAFEROUTE_API_BASE_URL=<url>
+const String _devApiBaseUrl = 'http://10.43.205.74:8000';
+const String _releaseApiBaseUrl = 'https://saferoute-backend-5ebu.onrender.com';
 const String kBaseUrl = String.fromEnvironment(
   'SAFEROUTE_API_BASE_URL',
-  defaultValue: 'http://10.43.205.74:8000',
+  defaultValue: kReleaseMode ? _releaseApiBaseUrl : _devApiBaseUrl,
 );
 
 // Optional SHA-256 fingerprint of the production TLS leaf certificate in hex.
