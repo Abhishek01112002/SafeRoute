@@ -1,5 +1,7 @@
 # SafeRoute: AI & ML Implementation Roadmap
 
+Current review note (2026-05-16): This remains a future-looking roadmap. The current codebase has a rule/heuristic safety engine, background services, telemetry, and SOS automation hooks, but no production ML model is wired into the backend or mobile app yet.
+
 This document outlines a structured, high-impact Artificial Intelligence (AI) and Machine Learning (ML) integration roadmap for SafeRoute. The focus is strictly on **safety, security, and offline reliability** to make the app an essential, life-saving tool for tourists in extreme environments.
 
 ---

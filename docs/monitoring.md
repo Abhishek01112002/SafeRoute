@@ -1,86 +1,90 @@
-# docs/monitoring.md
-#
-# SafeRoute — Health Check & Monitoring Guide
-# =============================================
+# SafeRoute Monitoring Guide
 
-## Health Check Endpoint
+Last reviewed: 2026-05-16
 
-The backend exposes a health check endpoint at:
+This guide matches the current `backend/app/routes/health.py` implementation.
 
-```
-GET /health
-```
+## Health Endpoints
 
-**Response (200 OK)**:
+| Endpoint | Auth | Purpose | Failure behavior |
+| --- | --- | --- | --- |
+| `GET /health` | None | Basic process health and legacy cache counts | Returns `200` if the app can serve requests |
+| `GET /live` | None | Liveness probe | Returns `{"status":"alive"}` |
+| `GET /ready` | None | Readiness probe for DB, Redis, and MinIO | Returns `503` only when DB check fails |
+| `GET /metrics` | None | Prometheus-style text metrics from in-memory counters | Returns text lines such as `saferoute_request_count 0` |
+| `POST /cleanup` | None | Manual location-ping retention cleanup | Deletes old location pings according to `RETENTION_DAYS_LOCATION` |
+
+## Example Responses
+
+`GET /health`
+
 ```json
 {
   "status": "ok",
-  "db": "connected",
-  "version": "3.0.0"
+  "timestamp": "2026-05-16T12:00:00.000000Z",
+  "tourists": 0,
+  "authorities": 0
 }
 ```
 
-This endpoint requires **no authentication** and is safe to poll frequently.
+`GET /ready`
 
----
-
-## Setting Up UptimeRobot (Free — Recommended)
-
-[UptimeRobot](https://uptimerobot.com) monitors your endpoint every 5 minutes
-and alerts you via email/SMS if it goes down.
-
-### Setup Steps
-
-1. Create a free account at [uptimerobot.com](https://uptimerobot.com)
-2. Click **"Add New Monitor"**
-3. Configure:
-   - **Monitor Type**: HTTP(S)
-   - **Friendly Name**: `SafeRoute Production API`
-   - **URL**: `https://api.saferoute.app/health`
-   - **Monitoring Interval**: Every 5 minutes
-   - **Alert Contacts**: Add your email + phone
-4. Under **"Advanced Settings"**:
-   - **Keyword**: `"ok"` (alert if this keyword is NOT in response)
-5. Click **"Create Monitor"**
-
-You'll receive an email/SMS within 5 minutes if the API goes down.
-
----
-
-## What to Monitor
-
-| Endpoint | Check | Alert Condition |
-|---|---|---|
-| `GET /health` | HTTP 200 + `{"status":"ok"}` | Any non-200 or `status != "ok"` |
-| `GET /health` | Response time < 3000ms | Latency > 3s consistently |
-
----
-
-## Local Health Check (Development)
-
-```bash
-# Quick check when backend is running:
-curl http://localhost:8000/health
-
-# Expected response:
-# {"status":"ok","db":"connected","version":"3.0.0"}
+```json
+{
+  "status": "ready",
+  "checks": {
+    "db": true,
+    "redis": false,
+    "minio": false
+  },
+  "timestamp": "2026-05-16T06:30:00+00:00"
+}
 ```
 
----
+Redis and MinIO are soft dependencies. A response can still be ready when those checks are false. The database is the hard dependency.
+
+## Local Checks
+
+```powershell
+curl http://localhost:8000/health
+curl http://localhost:8000/live
+curl http://localhost:8000/ready
+curl http://localhost:8000/metrics
+```
+
+## Suggested External Monitoring
+
+Use any HTTP monitor against:
+
+- `https://<api-host>/live` for process uptime.
+- `https://<api-host>/ready` for deploy/load-balancer readiness.
+- `https://<api-host>/health` for basic public availability.
+
+Alert on:
+
+- non-2xx from `/live`,
+- non-2xx from `/ready`,
+- repeated latency above 3 seconds,
+- rising `saferoute_error_count`,
+- stale SOS queue processing or no audit writes for active incidents.
+
+## SOS-Specific Observability
+
+For life-critical incidents, inspect:
+
+- `GET /sos/events`
+- `GET /sos/events/{event_id}/delivery`
+- `sos_dispatch_queue`
+- `sos_delivery_audit`
+- `sos_provider_circuit`
+
+Queue states include `PENDING`, `DISPATCHING`, `DELIVERED`, `ESCALATED`, `EXPIRED_NO_DELIVERY`, `EXPIRED_NO_RESPONSE`, and `CANCELLED`.
 
 ## Incident Response
 
-If UptimeRobot alerts you:
-
-1. **Check backend logs**: `make logs`
-2. **Check DB connection**: `alembic current`
-3. **Restart if needed**: `make restart`
-4. **Check disk space** (SQLite can fail if disk is full): `df -h`
-5. **Post-incident**: Create a GitHub issue tagged `incident` with root cause
-
----
-
-## Future: Structured Uptime Dashboard
-
-Consider adding [Statuspage.io](https://www.atlassian.com/software/statuspage)
-for a public status page that tourists/authorities can check.
+1. Check `/ready` to confirm database availability.
+2. Check backend logs for `sos.worker.tick_failed`, provider failures, or startup validation errors.
+3. Inspect the SOS delivery audit endpoint for affected incidents.
+4. Confirm webhook/Twilio/Firebase configuration if delivery is skipped.
+5. Restart the app only after capturing logs and queue state.
+6. Create an incident issue with timeline, root cause, user impact, and follow-up actions.

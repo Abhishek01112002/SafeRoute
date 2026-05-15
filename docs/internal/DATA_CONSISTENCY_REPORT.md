@@ -1,4 +1,6 @@
 # SafeRoute Data Consistency Report
+
+Current review note (2026-05-16): This report is retained for traceability. The current data model includes tourist identity, trips, group membership/snapshots/events, SOS queue/audit/circuit state, authority devices, location pings, destinations, zones, and scan logs.
 **Generated**: May 2, 2026 (Updated)
 **Analyzed**: Mobile (Flutter/Dart) → Backend (FastAPI/Python) → Database (PostgreSQL)
 

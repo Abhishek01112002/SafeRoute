@@ -1,4 +1,6 @@
 # SafeRoute Release Readiness Report
+
+Current review note (2026-05-16): This release-readiness report is historical. Since it was written, the codebase gained or refined API v3.1 behavior, queued SOS delivery, BLE relay verification, trips, groups, dashboard analytics, and updated docs. Current release readiness requires a fresh test run.
 ## Executive Summary for Stakeholders
 
 **Report Date:** May 3, 2026
@@ -207,7 +209,7 @@ Timeline: Tomorrow EOD
 
 2. **Assign Developer** to find authority endpoint
    - Time estimate: < 1 hour
-   - Search: [backend/routers/](../backend/routers/)
+   - Search: [backend/routers/](../../backend/routers/)
    - Verify: Test endpoint with curl
 
 3. **Schedule tomorrow AM sync** to discuss findings
@@ -360,7 +362,7 @@ Supporting documents for this report:
    - Copy-paste ready code fixes
    - Troubleshooting section
 
-4. **[test_report.json](../backend/test_report.json)**
+4. **[test_report.json](../../backend/test_report.json)**
    - Machine-readable test results
    - Test evidence and metrics
    - Programmatic access for CI/CD

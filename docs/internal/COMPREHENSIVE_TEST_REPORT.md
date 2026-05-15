@@ -1,5 +1,7 @@
 # SafeRoute Comprehensive Test Report
 
+Current review note (2026-05-16): This is a historical test report. Several previously failing or missing areas now have code support, including TUID propagation, zone status storage, refresh-token expiry checks, trips, groups, SOS queueing, relay verification, and dashboard analytics. Re-run the current test suite before using this as release evidence.
+
 **Generated:** May 3, 2026
 **Test Environment:** Local QA (Windows, Python 3.8, FastAPI, SQLite)
 **Tester:** Automated Test Suite
@@ -349,7 +351,7 @@
   1. Verify correct authority registration endpoint path in codebase
   2. Check if endpoint exists in OpenAPI schema
   3. Either fix endpoint path in test or implement missing endpoint
-- **Investigation Required:** Developer to review [backend/routers/authorities.py](backend/routers/authorities.py)
+- **Investigation Required:** Developer to review [backend/routers/authorities.py](../../backend/routers/authorities.py)
 - **Effort:** Low (1-2 hours) - likely documentation issue
 
 #### Issue #3: Test Data Isolation Missing
@@ -397,7 +399,7 @@
 - **Symptom:** POST /authority/register returns 404
 - **Likelihood:** Endpoint path mismatch or endpoint not implemented
 - **Required Fix:**
-  1. Check [backend/routers/authorities.py](backend/routers/authorities.py) for correct endpoint
+  1. Check [backend/routers/authorities.py](../../backend/routers/authorities.py) for correct endpoint
   2. Verify OpenAPI schema includes this endpoint
   3. Update test with correct path
 - **Validation:** `curl -X POST http://localhost:8000/<CORRECT_PATH> ...`

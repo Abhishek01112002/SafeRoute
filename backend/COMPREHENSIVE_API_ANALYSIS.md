@@ -1,5 +1,7 @@
 # SafeRoute API - FAANG Engineering Analysis & Test Guide
 
+Current review note (2026-05-16): This document is retained as an older engineering analysis. Several endpoint references and findings have since changed. The current mounted routes, request shapes, and operational behavior are summarized in `../docs/api-contracts.md` and `QUICK_START_GUIDE.md`.
+
 ## 📋 Executive Summary
 
 **Status**: ✅ GitHub changes pulled successfully (26 files modified)

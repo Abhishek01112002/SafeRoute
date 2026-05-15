@@ -1,5 +1,7 @@
 # API Data Flow Fixes - Code Examples & Verification Status
 
+Current review note (2026-05-16): This internal fix log is historical. The current verified API surface is documented in `../api-contracts.md`; older code snippets here may not include later trips, groups, SOS queue/audit, BLE relay, or dashboard analytics changes.
+
 ---
 
 ## FIX #1: Add Coordinate Validation

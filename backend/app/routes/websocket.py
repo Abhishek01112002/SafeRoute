@@ -2,7 +2,7 @@
 import datetime
 import json
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,7 @@ router = APIRouter()
 log = get_logger("websocket")
 
 # Live socket registry only. Canonical group state lives in PostgreSQL tables.
-connections: dict[str, List[WebSocket]] = {}
+connections: Dict[str, List[WebSocket]] = {}
 
 
 @router.post("/create")

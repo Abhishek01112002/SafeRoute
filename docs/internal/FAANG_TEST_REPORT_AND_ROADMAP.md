@@ -1,5 +1,7 @@
 # FAANG QA & Security Final Assessment: SafeRoute
 
+Current review note (2026-05-16): This assessment is preserved as a prior QA snapshot. Use current tests and `../api-contracts.md` for active validation; do not treat old scores as current production sign-off.
+
 **Document ID:** SR-QA-2026-05
 **Classification:** STRICTLY CONFIDENTIAL
 **Target:** SafeRoute Ecosystem (Mobile, Backend, Dashboard)

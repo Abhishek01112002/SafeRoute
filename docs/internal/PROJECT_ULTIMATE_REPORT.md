@@ -1,4 +1,6 @@
 # 🛰️ SafeRoute: The Ultimate Comprehensive Technical Report
+Current review note (2026-05-16): This is an older comprehensive report and still refers to Beta v2.5. The current project has backend API v3.1, trips, groups, queued SOS delivery, BLE relay verification, dashboard analytics, and updated operational docs.
+
 **Project Name**: SafeRoute (Uttarakhand Expedition Safety)
 **Status**: Beta v2.5 (65% Complete | Production-Ready Foundation)
 **Architecture**: Decoupled Hybrid Mesh (Flutter + FastAPI)

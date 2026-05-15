@@ -1,5 +1,7 @@
 # SafeRoute: Tourist Problems & Best-Fit Solutions
 
+Current review note (2026-05-16): This remains product discovery and solution framing. Current implementation coverage includes identity, trips, group safety, geofencing, offline-oriented navigation services, BLE relay, SOS queueing, and authority triage; future AI and advanced rescue-routing ideas are not yet production features.
+
 ## Planning Phase: Real Tourist Pain Points
 
 ---
@@ -49,19 +51,19 @@ APPROACH:
 // lib/services/waypoint_navigation_service.dart
 class WaypointNavigator {
   final List<Waypoint> trail;  // Preloaded from server
-  
+
   Stream<NavigationState> navigateTo(Waypoint target) async* {
     while (!isAtWaypoint(target)) {
       final bearing = calculateBearing(current, target);
       final distance = calculateDistance(current, target);
-      
+
       yield NavigationState(
         bearing: bearing,
         distance: distance,
         status: isOffTrail() ? 'OFF_TRAIL_ALERT' : 'ON_TRACK',
         nearestShelter: findNearestShelter(),
       );
-      
+
       await Future.delayed(Duration(seconds: 5));  // Update every 5s
     }
   }
@@ -117,9 +119,9 @@ import 'package:geolocator/geolocator.dart';
 
 class GeofenceManager {
   Future<void> setupGeofencesForDestination(String destId) async {
-    final zones = await db.query('zones', 
+    final zones = await db.query('zones',
         where: 'destination_id = ?', whereArgs: [destId]);
-    
+
     for (var zone in zones) {
       if (zone['shape'] == 'CIRCLE') {
         await geolocator.addGeofence(
@@ -131,11 +133,11 @@ class GeofenceManager {
       }
     }
   }
-  
+
   void onGeofenceEnter(String zoneId) async {
     final zone = await db.query('zones',
         where: 'id = ?', whereArgs: [zoneId]).first;
-    
+
     if (zone['type'] == 'RESTRICTED') {
       HapticFeedback.heavyImpact();
       Vibration.vibrate(duration: 500);
@@ -143,7 +145,7 @@ class GeofenceManager {
     } else if (zone['type'] == 'CAUTION') {
       HapticFeedback.mediumImpact();
     }
-    
+
     // Show alert UI
     showZoneAlert(zone);
   }
@@ -203,19 +205,19 @@ class SOSDispatchService {
   Future<SOSResponse> triggerSOS(double lat, double lng) async {
     final sosId = generateUUID();
     final sosData = {'id': sosId, 'lat': lat, 'lng': lng, 'time': now()};
-    
+
     // STORE locally immediately (don't wait for network)
     await db.insert('sos_local', sosData);
-    
+
     // SHOW UI immediately
     showSOSActive(sosId);
-    
+
     // TRY: Local BLE broadcast
     try {
       await bleService.broadcastSOS(sosData);
       updateSOSUI(sosId, status: 'BLE_SENT');
     } catch (e) {}
-    
+
     // TRY: SMS to emergency contacts
     if (connectivity.hasSignal) {
       try {
@@ -225,7 +227,7 @@ class SOSDispatchService {
         updateSOSUI(sosId, status: 'SMS_SENT');
       } catch (e) {}
     }
-    
+
     // TRY: Firebase push (may fail, that's OK)
     apiService.postSOS(sosData).then((res) {
       updateSOSUI(sosId, status: 'AUTHORITIES_NOTIFIED');
@@ -234,10 +236,10 @@ class SOSDispatchService {
       print('Firebase failed but SOS stored locally: $e');
       queueForRetry(sosData);
     });
-    
+
     // RETRY every 30s if offline
     startPeriodicRetry(sosData, interval: Duration(seconds: 30));
-    
+
     return SOSResponse(sosId: sosId, status: 'QUEUED_FOR_DISPATCH');
   }
 }
@@ -248,22 +250,22 @@ class SOSDispatchService {
 # backend/services/sos_queue_service.py
 class SOSQueueService:
     """Guarantees SOS delivery through multiple channels."""
-    
+
     @staticmethod
     async def enqueue_sos(tourist_id: str, lat: float, lng: float) -> str:
         sos_id = f"SOS-{uuid.uuid4().hex[:12]}"
-        
+
         # Store in durable queue (PostgreSQL, not memory)
         await db.query("""
             INSERT INTO sos_queue (sos_id, tourist_id, lat, lng, status, created_at)
             VALUES ($1, $2, $3, $4, 'PENDING', NOW())
         """, sos_id, tourist_id, lat, lng)
-        
+
         # Start worker task
         asyncio.create_task(SOSQueueService._dispatch_worker(sos_id))
-        
+
         return sos_id
-    
+
     @staticmethod
     async def _dispatch_worker(sos_id: str):
         """Background: Try every 30s until success."""
@@ -271,7 +273,7 @@ class SOSQueueService:
             try:
                 sos = await db.get_sos(sos_id)
                 authorities = await get_authorities_near(sos['lat'], sos['lng'])
-                
+
                 # Try Firebase
                 for auth in authorities:
                     try:
@@ -280,7 +282,7 @@ class SOSQueueService:
                         return  # Success!
                     except:
                         pass
-                
+
                 # Try SMS fallback
                 for auth in authorities:
                     try:
@@ -289,14 +291,14 @@ class SOSQueueService:
                         return
                     except:
                         pass
-                
+
                 # Wait before retry
                 await asyncio.sleep(30)
-            
+
             except Exception as e:
                 print(f"SOS worker error: {e}")
                 await asyncio.sleep(30)
-        
+
         # Final fallback: Mark as FAILED but alert admins
         await db.mark_sos_failed(sos_id)
         await send_admin_alert(f"SOS {sos_id} failed after 1 hour")
@@ -368,7 +370,7 @@ APPROACH:
 // lib/services/battery_aware_service.dart
 class BatteryAwareService {
   StreamSubscription? _batterySubscription;
-  
+
   void init() {
     battery.onBatteryStateChanged.listen((state) {
       _adjustGPSPoll();
@@ -376,13 +378,13 @@ class BatteryAwareService {
       _adjustNetwork();
     });
   }
-  
+
   void _adjustGPSPoll() {
     final batteryLevel = battery.level;  // 0-100
     final zoneType = currentZone.type;  // SAFE, CAUTION, RESTRICTED
-    
+
     int pollIntervalSeconds;
-    
+
     if (batteryLevel > 50) {
       // Plenty of battery
       pollIntervalSeconds = (zoneType == 'RESTRICTED') ? 10 : 60;
@@ -397,18 +399,18 @@ class BatteryAwareService {
       pollIntervalSeconds = 900;  // Only on manual check
       showCriticalBatteryUI();
     }
-    
+
     gpsService.setPollInterval(Duration(seconds: pollIntervalSeconds));
   }
-  
+
   void _adjustHaptics() {
     final batteryLevel = battery.level;
     hapticEnabled = batteryLevel > 15;  // Disable haptics under 15%
   }
-  
+
   void _adjustNetwork() {
     final batteryLevel = battery.level;
-    
+
     if (batteryLevel < 10) {
       // Queue all non-critical uploads
       networkService.setMode(NetworkMode.queueOnly);
@@ -474,13 +476,13 @@ APPROACH:
 # backend/services/id_ocr_service.py (NEW)
 class IDOCRService:
     """Extract identity from ID card scan."""
-    
+
     @staticmethod
     async def extract_from_image(image_base64: str) -> dict:
         """Use Tesseract/AWS Rekognition to extract ID info."""
         # Call OCR service
         result = await aws_rekognition.extract_document_info(image_base64)
-        
+
         return {
             'full_name': result['name'],
             'document_number': result['document_id'],
@@ -496,23 +498,23 @@ async def register_tourist_via_scan(
     db: AsyncSession = Depends(get_db)
 ):
     """Authority scans ID card, backend generates TUID."""
-    
+
     # Extract text from ID card
     image_bytes = await image_file.read()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
+
     extracted_data = await IDOCRService.extract_from_image(image_base64)
-    
+
     # Generate TUID
     tuid = generate_tuid(
         extracted_data['document_number'],
         extracted_data['date_of_birth'],
         extracted_data['nationality']
     )
-    
+
     # Generate QR code (TUID-based)
     qr_code_url = await qr_service.generate_qr_for_tuid(tuid)
-    
+
     return {
         'tuid': tuid,
         'full_name': extracted_data['full_name'],
@@ -540,7 +542,7 @@ class QRLoginScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Future<void> _loginWithTUID(String tuid) async {
     final response = await api.post('/auth/login/tuid', {'tuid': tuid});
     final token = response['token'];
@@ -610,7 +612,7 @@ APPROACH:
 class LocationBatchService {
   final List<LocationPoint> _buffer = [];
   Timer? _batchTimer;
-  
+
   void init() {
     gpsService.stream.listen((location) {
       _buffer.add(LocationPoint(
@@ -620,19 +622,19 @@ class LocationBatchService {
         timestamp: DateTime.now(),
       ));
     });
-    
+
     // Upload batch every 3 minutes
     _batchTimer = Timer.periodic(Duration(minutes: 3), (_) {
       _uploadBatch();
     });
   }
-  
+
   Future<void> _uploadBatch() async {
     if (_buffer.isEmpty) return;
-    
+
     final batch = _buffer.toList();
     _buffer.clear();
-    
+
     try {
       await api.post('/location/batch-ping', {
         'tourist_id': currentTouristId,
@@ -643,7 +645,7 @@ class LocationBatchService {
       _buffer.addAll(batch);
     }
   }
-  
+
   Future<void> uploadImmediate() async {
     // Called on SOS trigger
     _buffer.add(LocationPoint(
@@ -668,7 +670,7 @@ async def receive_location_batch(
 ):
     """Tourist uploads batch of locations."""
     locations = payload['locations']
-    
+
     # Store all locations
     for loc in locations:
         await crud.create_location_ping(db, LocationPing(
@@ -678,7 +680,7 @@ async def receive_location_batch(
             accuracy_meters=loc['accuracy'],
             timestamp=datetime.fromisoformat(loc['timestamp']),
         ))
-    
+
     # Broadcast LATEST location to watching authorities
     latest = locations[-1]
     await broadcaster.broadcast_location(
@@ -688,7 +690,7 @@ async def receive_location_batch(
         lng=latest['lng'],
         timestamp=latest['timestamp']
     )
-    
+
     return {'status': 'stored', 'count': len(locations)}
 ```
 
@@ -698,31 +700,31 @@ async def receive_location_batch(
 export function SOSDetail({ sosId }) {
   const [location, setLocation] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
-  
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const ws = new WebSocket(`wss://api/ws/sos/${sosId}/location?token=${token}`);
-    
+
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       setLocation({ lat: data.lat, lng: data.lng });
       setLastUpdate(new Date(data.timestamp));
     };
-    
+
     return () => ws.close();
   }, [sosId]);
-  
-  const timeSinceUpdate = lastUpdate 
-    ? Math.round((Date.now() - lastUpdate) / 1000) 
+
+  const timeSinceUpdate = lastUpdate
+    ? Math.round((Date.now() - lastUpdate) / 1000)
     : null;
-  
+
   return (
     <div>
       <MapContainer center={location} zoom={15}>
         <TileLayer url="..." />
         <Marker position={[location.lat, location.lng]} />
       </MapContainer>
-      
+
       <div className="status">
         {timeSinceUpdate > 300 ? (
           <span style={{ color: 'red' }}>⚠️ STALE ({timeSinceUpdate}s ago)</span>
@@ -799,7 +801,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class TripTemplate(Base):
     """Pre-built itineraries curated by authorities."""
     __tablename__ = "trip_templates"
-    
+
     template_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     destination_id: Mapped[str] = mapped_column(ForeignKey("destinations.id"))
     name: Mapped[str] = mapped_column(String(255))  # "Meghalaya Scenic Loop"
@@ -812,7 +814,7 @@ class TripTemplate(Base):
 class TripTemplateStop(Base):
     """Waypoints within a template."""
     __tablename__ = "trip_template_stops"
-    
+
     stop_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     template_id: Mapped[str] = mapped_column(ForeignKey("trip_templates.template_id"))
     day_number: Mapped[int] = mapped_column(Integer)  # 1, 2, 3...
@@ -834,7 +836,7 @@ async def start_trip_from_template(
     """Tourist creates a real trip from template."""
     template = await crud.get_trip_template(db, template_id)
     stops = await crud.get_template_stops(db, template_id)
-    
+
     # Create actual trip with stops
     trip = Trip(
         trip_id=f"TRIP-{uuid.uuid4().hex[:8]}",
@@ -844,7 +846,7 @@ async def start_trip_from_template(
         trip_end_date=trip_end_date,
         primary_state=template.destination.state,
     )
-    
+
     for stop in stops:
         trip.stops.append(TripStop(
             destination_id=stop.destination_id,
@@ -856,7 +858,7 @@ async def start_trip_from_template(
             center_lng=stop.center_lng,
             order_index=stop.order_index,
         ))
-    
+
     await crud.create_trip(db, trip)
     return {'trip_id': trip.trip_id, 'stops': [s.to_dict() for s in trip.stops]}
 
@@ -873,14 +875,14 @@ async def check_trip_deviation(
     trip = await crud.get_active_trip(db, tourist_id)
     if not trip:
         return {'deviation': 0, 'status': 'NO_TRIP'}
-    
+
     # Find closest expected waypoint
-    closest_stop = min(trip.stops, 
+    closest_stop = min(trip.stops,
         key=lambda s: haversine(current_lat, current_lng, s.center_lat, s.center_lng))
-    
-    distance_from_route = haversine(current_lat, current_lng, 
+
+    distance_from_route = haversine(current_lat, current_lng,
                                      closest_stop.center_lat, closest_stop.center_lng)
-    
+
     return {
         'expected_stop': closest_stop.name,
         'distance_from_route_km': distance_from_route / 1000,

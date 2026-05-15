@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 // Debug builds default to the adb-reversed local backend. Production builds
 // default to the deployed backend. Both can be overridden with:
 // --dart-define=SAFEROUTE_API_BASE_URL=<url>
-const String _devApiBaseUrl = 'http://10.43.205.74:8000';
+const String _devApiBaseUrl = 'http://10.150.111.18:8000';
 const String _releaseApiBaseUrl = 'https://saferoute-backend-5ebu.onrender.com';
 const String kBaseUrl = String.fromEnvironment(
   'SAFEROUTE_API_BASE_URL',

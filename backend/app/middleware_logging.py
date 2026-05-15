@@ -30,7 +30,8 @@ _SKIP_LOGGING_PATHS = {"/health", "/favicon.ico", "/.well-known"}
 _JWT_SUB_PATTERN = re.compile(r'"sub"\s*:\s*"([^"]+)"')
 
 
-def _extract_subject_from_bearer(auth_header: str | None) -> str | None:
+from typing import Optional
+def _extract_subject_from_bearer(auth_header: Optional[str]) -> Optional[str]:
     """Best-effort extraction of 'sub' from JWT payload for log context."""
     if not auth_header or not auth_header.startswith("Bearer "):
         return None

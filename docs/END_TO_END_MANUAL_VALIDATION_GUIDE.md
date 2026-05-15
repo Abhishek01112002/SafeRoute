@@ -1,5 +1,7 @@
 # End-to-End Manual Validation Guide
 
+Current review note (2026-05-16): Use this as the broad manual QA checklist, but align endpoint names with `api-contracts.md`. Current high-priority paths are authority auth, tourist registration/login, trips, groups, location pings, direct SOS, BLE relay SOS, dashboard analytics, zone operations, and SOS acknowledgement/resolution.
+
 This guide validates complete data flow across:
 - Mobile app (real device)
 - Backend API

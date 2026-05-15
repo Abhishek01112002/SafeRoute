@@ -1,409 +1,132 @@
-# 🚀 SafeRoute API - Quick Start Guide
+# SafeRoute Backend Quick Start
 
-## FAANG Engineering Standards - Complete Test Suite
+Last reviewed: 2026-05-16
 
-### 📊 Status
-- ✅ GitHub changes pulled (26 files, 364 insertions)
-- ✅ Code analysis completed (line-by-line FAANG standards)
-- ✅ Test framework ready (`comprehensive_test_suite.py`)
-- ⏳ Setup in progress (virtual environment + dependencies)
+This guide reflects the current SafeRoute API v3.1.0 backend in `backend/app`. Older references to `main:app`, `/v3/authority/login`, `/dashboard/stats`, or generated one-off setup paths are historical and should not be used for new development.
 
----
+## Runtime
 
-## 🎯 Quick Start (5 Minutes)
+- Python 3.10+
+- FastAPI, Uvicorn, Pydantic v2
+- Async SQLAlchemy
+- SQLite by default, PostgreSQL-ready via `DATABASE_URL`
+- Alembic migrations
+- Optional Redis, MinIO/S3, Firebase, Twilio, and SOS webhook integrations
 
-### 1. Wait for Setup to Complete
-```
-The setup script is currently installing dependencies...
-Location: D:\UKTravelTourism\Saferoute\backend\tests\integration\test_setup.py
+## Install
 
-Installation includes:
-✓ FastAPI, Uvicorn, SQLAlchemy
-✓ Pydantic, PyJWT, Bcrypt
-✓ Redis client, Boto3, Alembic
-```
-
-### 2. Start the Backend Server
-Once setup completes, run:
-
-**PowerShell:**
 ```powershell
-cd D:\UKTravelTourism\Saferoute\backend
-.\venv\Scripts\Activate.ps1
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Command Prompt:**
-```cmd
-cd D:\UKTravelTourism\Saferoute\backend
-venv\Scripts\activate.bat
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Expected Output:**
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-INFO:     Application startup complete
-```
-
-### 3. Run Comprehensive Test Suite (New Terminal)
-```powershell
-cd D:\UKTravelTourism\Saferoute\backend
-.\venv\Scripts\Activate.ps1
-python comprehensive_test_suite.py
-```
-
-### 4. View Results
-- Console output: Real-time test results
-- JSON report: `api_test_report.json`
-- API docs: `http://localhost:8000/docs`
-
----
-
-## 📚 Documentation Generated
-
-### 1. **COMPREHENSIVE_API_ANALYSIS.md** (This Document)
-   - Line-by-line code analysis
-   - Security audit findings
-   - Database migration review
-   - FAANG engineering standards checklist
-
-### 2. **comprehensive_test_suite.py** (Test Framework)
-- 8 test categories
-   - 25+ individual test cases
-   - Real-time analysis output
-   - JSON report generation
-
-### 3. **tests/integration/test_setup.py** (Automation)
-   - One-command environment setup
-   - Dependency installation
-   - .env file generation
-   - Migration execution
-
----
-
-## 🔍 What Gets Tested
-
-### Test Suite: 8 Categories
-
-#### 1. Health & Diagnostics (3 tests)
-```
-✅ /health           → Basic liveness check
-✅ /live             → Container health
-✅ /ready            → Readiness probe (DB, Redis, MinIO)
-```
-
-#### 2. Authentication & Security (6 tests)
-```
-✅ Authority registration with password validation
-✅ Tourist registration with TUID generation
-✅ Weak password rejection (12+ chars, mixed case, digits, special)
-✅ Duplicate email prevention
-✅ Rate limiting (5/minute)
-✅ JWT token validation
-```
-
-#### 3. SOS Emergency System (5 tests)
-```
-✅ Coordinate validation (lat/lon bounds)
-✅ Trigger type validation (MANUAL, AUTO_FALL, GEOFENCE_BREACH)
-✅ Timestamp freshness check (<10 min drift)
-✅ Rate limiting (3/minute)
-✅ Authentication requirement
-```
-
-#### 4. Tourist Operations (3 tests)
-```
-✅ Profile retrieval (auth required)
-✅ Destination visit logging
-✅ Location tracking
-```
-
-#### 5. Database Connectivity (2 tests)
-```
-✅ Connection pooling verification
-✅ Transaction management
-```
-
-#### 6. Zones & Locations (3 tests)
-```
-✅ Zone listing
-✅ Location endpoints
-✅ Destination management
-```
-
-#### 7. CORS & Security (1 test)
-```
-✅ CORS headers validation
-```
-
-#### 8. API Documentation (2 tests)
-```
-✅ OpenAPI schema (/openapi.json)
-✅ Swagger UI (/docs)
-```
-
----
-
-## 📊 Code Analysis Summary
-
-### Security Analysis ✅
-- **JWT**: RS256 (asymmetric) with fallback HS256
-- **Passwords**: 12+ chars, uppercase, lowercase, digits, special chars
-- **Rate Limiting**: 5/min auth, 3/min SOS
-- **Input Validation**: Coordinates, email, enums
-- **SQL Injection**: Protected via ORM (SQLAlchemy)
-- **No hardcoded secrets**: All from environment variables
-
-### Database Architecture ✅
-- **Async First**: SQLAlchemy AsyncSession
-- **Connection Pooling**: Configurable pool_size, max_overflow
-- **Health Checks**: pre_ping validates connections
-- **Transaction Management**: Explicit begin(), automatic rollback
-- **Dual Database**: SQLite (dev) + PostgreSQL (prod)
-- **Migrations**: Alembic versioning system
-
-### API Design ✅
-- **Versioning**: /v3/tourist, /v3/media, /v3/trips
-- **RESTful**: Semantic HTTP methods
-- **Stateless**: Can scale horizontally
-- **Async**: All endpoints non-blocking
-- **Logging**: Correlation IDs for tracing
-- **Errors**: Proper HTTP status codes + details
-
-### Performance Analysis ✅
-- **Expected Response Time**: <100ms (95th percentile)
-- **Concurrent Requests**: 100+ with pooling
-- **Rate Limiting**: Per-endpoint protection
-- **Database Indexes**: Pre-ping on each connection
-- **Cache-Ready**: Redis integration available
-
----
-
-## 🔐 Security Findings
-
-### Critical Issues
-1. **In-memory brute-force tracking**
-   - Lost on server restart
-   - Not distributed (single instance only)
-   - **Fix**: Use Redis
-
-2. **No email verification**
-   - Users can register with fake emails
-   - **Fix**: Send OTP or verification link
-
-3. **No token revocation**
-   - Cannot invalidate tokens early
-   - **Fix**: Redis-backed blacklist
-
-### Medium Issues
-1. **Distributed rate limiting**: Single instance only (Redis fix)
-2. **Duplicate SOS alerts**: Limited deduplication logic
-3. **No CAPTCHA**: Account enumeration risk
-
-### Low Issues
-1. Password history not enforced
-2. No signup email confirmation
-
----
-
-## 📈 Test Execution Flow
-
-```
-┌─────────────────────────────────────────┐
-│  Start Backend Server (uvicorn)         │
-│  http://localhost:8000                  │
-└────────────┬────────────────────────────┘
-             │
-             ↓
-┌─────────────────────────────────────────┐
-│  Run comprehensive_test_suite.py        │
-│  (Automated test suite)                 │
-└────────────┬────────────────────────────┘
-             │
-             ├─→ Health Checks (3 tests)
-             ├─→ Auth Tests (6 tests)
-             ├─→ SOS Tests (5 tests)
-             ├─→ Tourist Tests (3 tests)
-             ├─→ Database Tests (2 tests)
-             ├─→ Zones Tests (3 tests)
-             ├─→ CORS Tests (1 test)
-             └─→ Doc Tests (2 tests)
-             │
-             ↓
-┌─────────────────────────────────────────┐
-│  Generate Report                        │
-│  - Console output (real-time)           │
-│  - api_test_report.json                 │
-│  - Pass/Fail analysis                   │
-└─────────────────────────────────────────┘
-```
-
----
-
-## 🛠️ Troubleshooting
-
-### Issue: "Connection refused to localhost:8000"
-**Solution**: Start backend server first
-```powershell
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Issue: "ModuleNotFoundError: No module named 'fastapi'"
-**Solution**: Activate venv and reinstall dependencies
-```powershell
-.\venv\Scripts\Activate.ps1
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### Issue: "Database locked"
-**Solution**: Check if another process is accessing the database
+## Configure
+
+Create `backend/.env` if needed. Development can run with defaults, but production must provide strong values.
+
+Important settings:
+
+```env
+DATABASE_URL=sqlite+aiosqlite:///./saferoute.db
+JWT_SECRET=replace-with-32-plus-byte-secret
+DOC_NUMBER_SALT=replace-for-production
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+MESH_SECRET_MASTER_KEY=replace-for-production
+SOS_WORKER_ENABLED=true
+SOS_DISPATCH_WEBHOOK_URL=
+REDIS_URL=
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=saferoute_access
+MINIO_SECRET_KEY=saferoute_secret_change_me
+MINIO_BUCKET=saferoute-media
+```
+
+RS256 QR signing uses either key files or base64 PEM environment variables. See `KEYS.md`.
+
+## Database
+
 ```powershell
-Get-Process | Where-Object {$_.Name -like "*python*"}
+cd backend
+alembic upgrade head
+python seed_data.py
 ```
 
-### Issue: "Port 8000 already in use"
-**Solution**: Change port or kill process on 8000
+The app also calls `Base.metadata.create_all()` on startup for the local/hackathon SQLite path and performs a few idempotent SQLite compatibility column additions. Alembic remains the source of truth for committed schema changes.
+
+## Run
+
 ```powershell
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+cd backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
----
+Useful URLs:
 
-## 📋 API Endpoints Reference
+- `GET /health`
+- `GET /live`
+- `GET /ready`
+- `GET /metrics`
+- `GET /docs`
 
-### Health & Monitoring
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| GET | `/health` | ❌ | Basic health check |
-| GET | `/live` | ❌ | Liveness probe (k8s) |
-| GET | `/ready` | ❌ | Readiness probe (k8s) |
+## Current Mounted Route Groups
 
-### Authentication
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| POST | `/auth/register/authority` | ❌ | Register authority |
-| POST | `/v3/tourist/register` | ❌ | Register tourist |
-| POST | `/v3/tourist/login` | ❌ | Tourist login |
-| POST | `/v3/authority/login` | ❌ | Authority login |
+| Prefix | Purpose |
+| --- | --- |
+| `/auth` | Authority registration/login and token refresh |
+| `/v3/tourist` | Tourist registration, login, photo access, mesh-key rotation, QR refresh |
+| `/v3/trips` | Trip create/list/active/end/cancel |
+| `/v3/groups` | Tourist group create/join/active/members/sharing/leave |
+| `/location` | Authenticated location pings |
+| `/sos` | Direct SOS, BLE relay SOS, tourist status, authority events, audit, acknowledge, resolve |
+| `/zones` | Active zones, destination zones, create/update/deactivate |
+| `/destinations` | Destination catalogue, detail, trail graph placeholder, authority create/deactivate |
+| `/dashboard` | Authority metrics, analytics, tourists, last locations |
+| `/authority` | Authority device registration and QR/TUID scan |
+| `/identity` | Public duplicate-check identity verification |
+| `/v3/media` | Presigned upload URL and authenticated local download |
+| `/rooms` | Room create/join/websocket |
+| `/onboard` | Offline onboarding bundle and preview QR |
+| `/.well-known` | QR public key |
 
-### Tourist Operations
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| GET | `/v3/tourist/profile` | ✅ | Get profile |
-| POST | `/v3/tourist/destination-visit` | ✅ | Log visit |
-| GET | `/location` | ❌ | List locations |
-| GET | `/zones` | ❌ | List zones |
-| GET | `/destinations` | ❌ | List destinations |
+See `../docs/api-contracts.md` for request and response summaries.
 
-### SOS Emergency
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| POST | `/sos/trigger` | ✅ | Trigger SOS alert |
-| GET | `/sos/events` | ✅ | List SOS events |
-| GET | `/sos/events/{id}` | ✅ | Get SOS details |
+## SOS Worker
 
-### Dashboard
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| GET | `/dashboard/stats` | ✅ | Statistics |
-| GET | `/dashboard/heatmap` | ✅ | Location heatmap |
+When `SOS_WORKER_ENABLED=true`, startup launches a background worker that:
 
----
+- processes due `sos_dispatch_queue` rows,
+- writes `sos_delivery_audit` rows,
+- tries webhook, SMS, and FCM channels when configured,
+- applies provider circuit state,
+- escalates delivered-but-unacknowledged incidents,
+- expires undelivered or unresponded incidents after configured TTLs.
 
-## 📊 Expected Test Results
+Defaults:
 
-### Pass Rate Target
-- **Baseline**: 90%+ (9 out of 10 tests)
-- **Healthy**: 95%+ (19 out of 20 tests)
-- **Excellent**: 100% (all tests)
+- `SOS_RETRY_INTERVAL_SECONDS=30`
+- `SOS_DELIVERY_TTL_SECONDS=7200`
+- `SOS_ESCALATE_AFTER_SECONDS=1800`
+- `SOS_EXPIRE_RESPONSE_AFTER_SECONDS=14400`
 
-### Response Time Targets
-- Health checks: <20ms
-- Database queries: <50ms
-- API endpoints: <100ms
+## Tests
 
-### Sample Report Output
-```json
-{
-  "timestamp": "2026-05-04T...",
-  "summary": {
-    "total": 25,
-    "passed": 24,
-    "failed": 1,
-    "pass_rate": 0.96,
-    "avg_response_time_ms": 45.2
-  },
-  "tests": [
-    {
-      "name": "Health Check",
-      "endpoint": "/health",
-      "method": "GET",
-      "status_code": 200,
-      "expected_status": 200,
-      "passed": true,
-      "response_time_ms": 12.5
-    }
-  ]
-}
+```powershell
+cd backend
+python -m pytest tests -q
+python -m pytest tests/test_sos_routes.py -q
+python -m pytest tests/test_group_safety.py -q
 ```
 
----
+The root `pytest.ini` also includes `mobile/test`; run backend tests from `backend/` when you want only Python tests.
 
-## 🎓 Learning Resources
+## Troubleshooting
 
-### Within This Repository
-1. **COMPREHENSIVE_API_ANALYSIS.md** - Deep dive code analysis
-2. **comprehensive_test_suite.py** - Automated testing framework
-3. **tests/integration/test_setup.py** - Infrastructure setup
-
-### Code to Review
-- `backend/app/routes/` - API endpoint implementations
-- `backend/app/services/` - Business logic
-- `backend/app/db/` - Database layer
-- `backend/app/models/` - Data models
-
-### Key Concepts
-- **JWT (JSON Web Tokens)**: Authentication tokens
-- **RBAC (Role-Based Access Control)**: Tourist vs Authority roles
-- **TUID (Tourist Unique ID)**: Identity verification
-- **SOS Alert System**: Emergency dispatch logic
-- **Rate Limiting**: DDoS and brute-force protection
-
----
-
-## ✅ Next Steps
-
-1. ⏳ **Wait for setup** to complete
-2. 🚀 **Start backend server** (`uvicorn app.main:app --reload`)
-3. 🧪 **Run test suite** (`python comprehensive_test_suite.py`)
-4. 📊 **Review results** (console + JSON report)
-5. 🔧 **Fix any failures** (code changes as needed)
-6. 📈 **Load test** with concurrent users
-7. 🔒 **Security audit** (OWASP Top 10)
-8. 🚢 **Deploy to production**
-
----
-
-## 📞 Support
-
-### Files Created
-- `comprehensive_test_suite.py` - Main test suite
-- `tests/integration/test_setup.py` - Automated setup
-- `COMPREHENSIVE_API_ANALYSIS.md` - Detailed analysis
-- `api_test_report.json` - Test results (generated)
-- `.env` - Environment config (generated)
-
-### Git Status
-```
-✅ All changes pulled from origin/main
-✅ Local changes stashed (preserved in git stash)
-✅ 26 files updated in latest commit
-```
-
----
-
-**Document Generated**: 2026-05-04
-**Backend Version**: 3.1.0
-**Test Framework**: FAANG Engineering Standards
-**Status**: Ready for Testing ✅
+| Symptom | Check |
+| --- | --- |
+| `ModuleNotFoundError` | Activate the virtual environment and reinstall `requirements.txt`. |
+| `RS256 keys missing` in production | Generate keys with `python generate_keys.py` or set base64 PEM env vars. |
+| Dashboard CORS failure | Add the dashboard origin to `ALLOWED_ORIGINS`. |
+| SOS remains queued | Configure webhook/Twilio/Firebase targets or inspect `/sos/events/{id}/delivery`. |
+| MinIO unavailable | Local media upload URLs return `503`; local multipart registration still stores files under `uploaded_files/`. |

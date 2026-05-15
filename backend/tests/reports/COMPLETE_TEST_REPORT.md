@@ -1,5 +1,7 @@
 # SafeRoute API - Complete Testing & Analysis Report
 
+Current review note (2026-05-16): This is a historical API testing report. The project now includes additional SOS queue/audit state, trips, groups, dashboard analytics, BLE relay verification, and updated route paths. Treat old pass/fail status as historical evidence, not current release status.
+
 ## 🎯 Executive Summary
 
 ### ✅ COMPLETED

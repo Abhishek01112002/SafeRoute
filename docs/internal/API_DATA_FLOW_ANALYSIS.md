@@ -1,5 +1,7 @@
 # SafeRoute API Data Flow Analysis & Inconsistencies Report
 
+Current review note (2026-05-16): This inconsistency report predates later fixes and API additions. Use it for audit trail only. Current contracts are in `../api-contracts.md`, and current quick reference is in `API_QUICK_REFERENCE.md`.
+
 **Generated**: May 2, 2026
 **Scope**: Mobile App (Flutter, Dart) → Backend API (FastAPI, Python) → PostgreSQL Database
 

@@ -1,5 +1,7 @@
 # SafeRoute: Implementation Roadmap & Checklist
 
+Current review note (2026-05-16): This is now a mixed historical/future roadmap. Backend queued SOS delivery, delivery audit, provider circuit state, BLE relay verification, trip APIs, group safety, dashboard analytics, zone operations, and RS256 QR key publication are implemented. Items about future AI/ML, richer waypoint data, and production-grade external dispatch configuration remain roadmap work.
+
 ## Phase-Based Rollout Strategy
 
 ---
@@ -140,9 +142,9 @@
 - [ ] Implement `GeofenceManager` class
   ```dart
   Future<void> setupGeofencesForDestination(destId) async {
-    final zones = await db.query('zones', 
+    final zones = await db.query('zones',
         where: 'destination_id = ?', whereArgs: [destId]);
-    
+
     for (var zone in zones) {
       await geolocator.addGeofence(
         latitude: zone['center_lat'],
@@ -158,7 +160,7 @@
   ```dart
   void onGeofenceEnter(String zoneId) async {
     final zone = await db.get('zones', zoneId);
-    
+
     if (zone['type'] == 'RESTRICTED') {
       HapticFeedback.heavyImpact();
       Vibration.vibrate(duration: 500);
@@ -166,7 +168,7 @@
     } else if (zone['type'] == 'CAUTION') {
       HapticFeedback.mediumImpact();
     }
-    
+
     showZoneAlert(zone);
   }
   ```
@@ -209,7 +211,7 @@
       locations = payload['locations']
       for loc in locations:
           await crud.create_location_ping(db, LocationPing(...))
-      
+
       # Broadcast latest
       latest = locations[-1]
       await broadcaster.broadcast_location(
@@ -221,7 +223,7 @@
   ```python
   class RealtimeBroadcaster:
       authority_connections = {}  # {auth_id: [ws1, ws2, ...]}
-      
+
       async def broadcast_location(self, tourist_id, lat, lng):
           authorities = await get_watching_authorities(tourist_id)
           for auth_id in authorities:
@@ -247,10 +249,10 @@
   class LocationBatchService {
     Timer.periodic(Duration(minutes: 3), (_) async {
       if (_buffer.isEmpty) return;
-      
+
       final batch = _buffer.toList();
       _buffer.clear();
-      
+
       await api.post('/location/batch-ping', {
         'locations': batch.map((l) => l.toJson()).toList(),
       });
@@ -299,7 +301,7 @@
   void _adjustGPSPoll() {
     final batteryLevel = battery.level;
     final zoneType = currentZone.type;
-    
+
     int interval;
     if (batteryLevel > 50) {
       interval = zoneType == 'RESTRICTED' ? 10 : 60;
@@ -308,7 +310,7 @@
     } else {
       interval = zoneType == 'RESTRICTED' ? 30 : 300;
     }
-    
+
     gpsService.setPollInterval(Duration(seconds: interval));
   }
   ```
@@ -369,12 +371,12 @@
   async def register_via_scan(image_file, authority_id, db):
       image_bytes = await image_file.read()
       extracted = await IDOCRService.extract_from_image(image_bytes)
-      
-      tuid = generate_tuid(extracted['document_number'], 
+
+      tuid = generate_tuid(extracted['document_number'],
                           extracted['dob'], 'IN')
-      
+
       qr_code = await QRService.generate(tuid)
-      
+
       return {
           'tuid': tuid,
           'qr_code_url': qr_code,
@@ -427,7 +429,7 @@
     difficulty VARCHAR(20),
     created_by_authority VARCHAR(30)
   );
-  
+
   CREATE TABLE trip_template_stops (
     stop_id UUID PRIMARY KEY,
     template_id UUID REFERENCES trip_templates,
@@ -449,7 +451,7 @@
           'duration_days': body['duration_days'],
           'created_by_authority': authority_id,
       })
-      
+
       for stop in body['stops']:
           await crud.create_template_stop(db, {
               'template_id': template.id,
@@ -466,11 +468,11 @@
   async def create_trip_from_template(template_id, tourist_id, db):
       template = await crud.get_trip_template(db, template_id)
       stops = await crud.get_template_stops(db, template_id)
-      
+
       trip = Trip(tourist_id=tourist_id, status='ACTIVE')
       for stop in stops:
           trip.stops.append(TripStop(...))
-      
+
       await crud.create_trip(db, trip)
       return {'trip_id': trip.trip_id}
   ```
@@ -562,6 +564,6 @@ After all 6 phases:
 
 ---
 
-**Total Effort: 6-8 weeks**  
-**Team: 2-3 backend engineers + 1 mobile engineer + 1 DevOps**  
+**Total Effort: 6-8 weeks**
+**Team: 2-3 backend engineers + 1 mobile engineer + 1 DevOps**
 **Output: Production-ready SafeRoute system**

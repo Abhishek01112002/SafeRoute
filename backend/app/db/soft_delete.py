@@ -1,3 +1,4 @@
+from __future__ import annotations
 # app/db/soft_delete.py
 #
 # SafeRoute Soft Delete Mixin

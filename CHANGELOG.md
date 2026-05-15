@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Documentation
+- Refreshed all tracked project Markdown files on 2026-05-16 after reviewing the current FastAPI, Flutter, React/Vite, migrations, tests, and configuration surfaces.
+- Rewrote the root README, contributing guide, backend quick start, mobile README, dashboard README, monitoring guide, and API contracts to match the live v3.1 implementation.
+- Marked historical QA, planning, and analysis reports with current-status review notes so stale findings are preserved as history rather than treated as active truth.
+- Updated BLE and mesh-secret documentation for the current relay endpoint, HMAC derivation, idempotency, and two-hour delivery TTL behavior.
 - Refreshed `docs/internal/DATA_CONSISTENCY_SUMMARY.md` to remove stale contradictions, normalize endpoint paths to mounted routes, and publish a verified current-state matrix for all 13 previously reported consistency issues.
 - Added `docs/internal/MANUAL_VERIFICATION_CHECKLIST.md` with complete manual validation plan: test cases, acceptance criteria, regression protocol, performance gates, compatibility checks, documentation alignment checks, sign-off workflow, and defect-tracker evidence requirements.
 

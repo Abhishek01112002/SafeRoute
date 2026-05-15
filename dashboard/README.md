@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# SafeRoute Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Last reviewed: 2026-05-16
 
-Currently, two official plugins are available:
+The dashboard is the React/Vite authority command center. It is no longer the default Vite template; it now provides authenticated operational views for SafeRoute authorities.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- React 19
+- TypeScript
+- Vite
+- React Router
+- Axios
+- Leaflet / React Leaflet
+- lucide-react icons
+- qrcode for offline onboarding QR display
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Run Locally
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+cd dashboard
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server usually runs at `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Set the backend URL with:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+$env:VITE_API_BASE_URL="http://localhost:8000"
+npm run dev
 ```
+
+If not set, `dashboard/src/api.ts` defaults to `http://localhost:8000`.
+
+## Build
+
+```powershell
+npm run build
+npm run preview
+```
+
+## Current Pages
+
+| Route | Page | Backend dependencies |
+| --- | --- | --- |
+| `/login` | Authority login | `POST /auth/login/authority` |
+| `/` | Command overview | `GET /dashboard/analytics`, `GET /dashboard/locations`, `GET /sos/events` |
+| `/zones` | Zone operations | `GET /destinations`, `GET /zones`, `POST /zones`, `PUT /zones/{id}`, `DELETE /zones/{id}`, `GET /onboard/preview/{destination_id}` |
+| `/sos` | SOS triage board | `GET /sos/events`, `GET /sos/events/{id}/delivery`, `POST /sos/events/{id}/acknowledge`, `POST /sos/events/{id}/respond` |
+
+## Permissions
+
+Dashboard permissions are resolved in `src/auth.ts`.
+
+Built-in `authority` and `superadmin` roles receive:
+
+- `overview:view`
+- `zones:view`
+- `zones:manage`
+- `sos:view`
+- `sos:respond`
+- `map:view`
+
+Inactive, suspended, or unrecognized accounts are denied dashboard access.
+
+## Operational Notes
+
+- API calls attach `Authorization: Bearer <token>` from local storage.
+- A `401` response clears local session data and redirects to `/login`.
+- Dashboard data auto-refreshes every 10 seconds via `POLL_INTERVAL_MS`.
+- The overview map displays locations and incidents; stale location threshold currently comes from `/dashboard/analytics`.
+- Zone management supports circle and polygon zones and protects mutating actions behind `zones:manage`.
+- SOS triage separates active incidents from resolved/expired records and can expand the audited delivery timeline.

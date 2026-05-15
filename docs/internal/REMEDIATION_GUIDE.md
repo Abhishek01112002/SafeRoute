@@ -1,5 +1,7 @@
 # SafeRoute Test Remediation & Implementation Guide
 
+Current review note (2026-05-16): This guide records previous remediation work and should be used as historical context. Before applying any recommendation, compare it with the current code and `../api-contracts.md`.
+
 **Created:** May 3, 2026
 **Purpose:** Provide step-by-step fixes to achieve production-ready test coverage
 **Expected Outcome:** >90% test pass rate within 1-2 business days
@@ -23,7 +25,7 @@ This guide provides complete, copy-paste ready solutions for all identified test
 Tests are failing with 401 "Not authenticated" because they don't include JWT tokens in the request headers.
 
 ### Solution
-Modify [backend/comprehensive_test_suite.py](../backend/comprehensive_test_suite.py) to:
+Modify [backend/comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py) to:
 1. Generate a valid JWT token during test setup
 2. Pass the token to all protected endpoints
 3. Handle token expiry scenarios
@@ -255,7 +257,7 @@ Look for authority-related endpoints in the output.
 
 **Step 2:** Check the main app.py for router registration
 
-Check [backend/app/core.py](../backend/app/core.py) or [backend/main.py](../backend/main.py) to see how routers are included:
+Check [backend/app/core.py](../../backend/app/core.py) or [backend/main.py](../../backend/main.py) to see how routers are included:
 
 ```python
 # Look for something like:
@@ -285,7 +287,7 @@ Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/authorities/register"
 
 **Step 4:** Update test with correct path
 
-In [backend/comprehensive_test_suite.py](../backend/comprehensive_test_suite.py), find `test_DC_H09_email_format_validation`:
+In [backend/comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py), find `test_DC_H09_email_format_validation`:
 
 Update from:
 ```python
@@ -460,8 +462,8 @@ print('Cleanup complete')
 **Cause:** Endpoint doesn't exist or wrong path
 
 **Solution:**
-1. Check [backend/routers/authorities.py](../backend/routers/authorities.py) exists
-2. Check [backend/app/core.py](../backend/app/core.py) for router registration
+1. Check [backend/routers/authorities.py](../../backend/routers/authorities.py) exists
+2. Check [backend/app/core.py](../../backend/app/core.py) for router registration
 3. Search codebase: `grep -r "authority" backend/routers/`
 
 ---

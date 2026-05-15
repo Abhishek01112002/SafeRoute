@@ -20,7 +20,7 @@ import json
 import datetime
 import sys
 import traceback
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 # ────────────────────────────────────────────────────────────────
 # Correlation ID context (populated by middleware per-request)
@@ -48,7 +48,7 @@ class StructuredJSONFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        entry: dict[str, Any] = {
+        entry: Dict[str, Any] = {
             "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
             "level": record.levelname,
             "cid": getattr(record, "correlation_id", get_correlation_id()),

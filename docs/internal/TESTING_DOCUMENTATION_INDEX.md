@@ -1,4 +1,6 @@
 # SafeRoute Comprehensive Test Campaign - Complete Documentation
+
+Current review note (2026-05-16): This index points to historical campaign artifacts. Current source-of-truth docs are now the root README, `../api-contracts.md`, `../monitoring.md`, `../ble_packet_spec.md`, and `../mesh_secret_spec.md`.
 ## Index & Navigation Guide
 
 **Campaign ID:** SAFEROUTE-TEST-20260503
@@ -72,7 +74,7 @@
 ---
 
 ### 5. 📈 Raw Test Results
-**File:** [test_report.json](../backend/test_report.json)
+**File:** [test_report.json](../../backend/test_report.json)
 **For:** Automation, CI/CD Integration
 **Time to Read:** Machine-readable format
 **Contents:**
@@ -283,10 +285,10 @@ TOMORROW EVENING (May 4):
 ## 📚 Additional Resources
 
 ### Code References
-- Backend API: [backend/main.py](../backend/main.py)
-- Test Suite: [backend/comprehensive_test_suite.py](../backend/comprehensive_test_suite.py)
-- Routers: [backend/routers/](../backend/routers/)
-- Test Output: [backend/test_results.log](../backend/test_results.log)
+- Backend API: [backend/main.py](../../backend/main.py)
+- Test Suite: [backend/comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py)
+- Routers: [backend/routers/](../../backend/routers/)
+- Test Output: `backend/test_results.log` (generated file, not tracked)
 
 ### Related Documentation
 - [MANUAL_VERIFICATION_CHECKLIST.md](./MANUAL_VERIFICATION_CHECKLIST.md) - Original checklist this campaign was based on

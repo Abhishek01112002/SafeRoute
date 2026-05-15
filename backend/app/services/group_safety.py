@@ -1,9 +1,10 @@
+from __future__ import annotations
 import datetime
 import json
 import secrets
 import string
 import time
-from typing import Optional
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -37,7 +38,7 @@ TRUST_CONFIRMED = "confirmed"
 TRUST_MESH = "mesh_trusted"
 TRUST_ADVISORY = "advisory"
 
-_failed_join_attempts: dict[str, list[float]] = {}
+_failed_join_attempts: Dict[str, List[float]] = {}
 _invite_alphabet = "".join(ch for ch in string.ascii_uppercase + string.digits if ch not in {"0", "O", "1", "I"})
 
 

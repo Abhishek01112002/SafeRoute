@@ -1,5 +1,7 @@
 # SafeRoute: Architecture Decision Matrix
 
+Current review note (2026-05-16): This matrix is kept for product and architecture rationale. The current implementation has delivered core pieces of the SOS queue, delivery audit, BLE relay verification, trip separation, group safety, and dashboard operations. Check `api-contracts.md` before relying on older endpoint names in this file.
+
 ## Comparison: Current Claims vs. Best-Fit Solutions
 
 ### 1. **NAVIGATION**

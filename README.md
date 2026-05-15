@@ -1,104 +1,122 @@
-# SafeRoute 🛡️
+# SafeRoute
 
-**SafeRoute** is a comprehensive, end-to-end safety and navigation ecosystem engineered for tourists navigating remote, high-altitude, or low-connectivity environments (specifically optimized for North East India).
+Last reviewed: 2026-05-16
 
-SafeRoute combines real-time geofencing, offline-capable pathfinding, and instant distress signaling into a robust platform using BLE Mesh and GPS.
+SafeRoute is a tourist safety and emergency response platform for remote, high-altitude, and low-connectivity travel. The project is a monorepo with a FastAPI backend, a Flutter mobile app, and a React/Vite authority dashboard.
 
----
+The current implementation centers on verified tourist identity, trip planning, location awareness, geofence safety zones, group safety, BLE SOS relay, and a queued multi-channel SOS delivery workflow for authorities.
 
-## 🏗️ Architecture overview
+## Current Architecture
 
-SafeRoute is structured as a monorepo containing three distinct, collaborative pillars:
+| Area | Stack | Current role |
+| --- | --- | --- |
+| `backend/` | SafeRoute API v3.1.0 on FastAPI, async SQLAlchemy, Alembic, SQLite by default, PostgreSQL-ready | Canonical API for identity, auth, trips, groups, zones, SOS queueing, dashboard analytics, health checks, and storage hooks |
+| `mobile/` | Flutter 3 / Dart 3, Provider, SQLite, BLE, maps, Firebase telemetry | Tourist app with registration, digital ID, trip start, navigation, geofencing, mesh status, group safety, SOS, background sync, and local caches |
+| `dashboard/` | React 19, Vite, TypeScript, Leaflet, Axios, lucide-react | Authority command center for overview metrics, map operations, zone management, offline onboarding QR generation, and SOS triage |
 
-- **`backend/`** — A high-performance Python **FastAPI** server powered by SQLite/PostgreSQL. It manages the canonical source of truth for all destinations, zones, and SOS events.
-- **`mobile/`** — The **Flutter** mobile application for tourists. Designed with an offline-first methodology, relying on heavy local SQLite caching and BLE Mesh for continuous safety monitoring.
-- **`dashboard/`** — A **React + Vite** web command center featuring a premium "Dark Punk" aesthetic. Used by Zone Authorities to monitor active tourists, dispatch SOS responses, and draw active geofence boundaries.
+## Implemented Highlights
 
----
+- Tourist registration and login issue access and refresh JWTs, TUID identity data, QR payloads, and versioned mesh secrets.
+- Authority registration and login use password strength checks, JWT auth, account status checks, and dashboard permissions.
+- Trips are separated from tourist identity through `/v3/trips`, with one active trip at a time and multi-stop itinerary support.
+- SOS events are queued with idempotency, delivery audit rows, provider circuit state, acknowledgement, resolution, escalation, and BLE relay support.
+- BLE relay packets are verified with TUID suffixes, key versions, HMAC signatures, timestamp freshness, and idempotency hashes.
+- Location pings store coordinates, speed, accuracy, zone status, TUID, and client timestamp.
+- Dashboard analytics aggregate tourists, locations, active/resolved SOS events, trip states, freshness, and recent activity.
+- Zones support circle and polygon shapes for `SAFE`, `CAUTION`, and `RESTRICTED` areas.
+- Media and QR flows support RS256 QR signing, public-key publication, local file access checks, and optional MinIO presigned uploads.
 
-## ✨ Key Features
+## Quick Start
 
-### 📱 Tourist Mobile App (Flutter)
-*   **Offline-First Pathfinding:** Uses A* algorithms on pre-downloaded GeoJSON trail graphs to navigate tourists to safety, even with zero network connectivity.
-*   **Dynamic Geofencing:** Syncs `SAFE`, `CAUTION`, and `RESTRICTED` boundaries from the backend. The app uses complex ray-casting to determine user status and triggers tactical haptic feedback upon entering dangerous areas.
-*   **Intelligent Safety Engine:** Continuously calculates a "Safety Risk Level" based on current zone status, battery depletion rate, velocity (stillness detection), and mesh network availability.
-*   **Automated SOS Dispatch:** One-tap SOS triggering. If connectivity is lost, the system relies on fallback mechanisms (like Bluetooth mesh pinging) to relay the distress signal.
+### Backend
 
-### 💻 Authority Command Center (React)
-*   **Real-Time SOS Monitoring:** A live tracker that segments active distress signals from resolved logs, allowing authorities to initiate rapid responses.
-*   **Zone Manager:** A dynamic interface allowing authorities to deploy or retract geofence boundaries (circles and polygons) across their jurisdiction instantly.
-*   **Premium Aesthetic:** Built with a cohesive "Dark Punk" UI—featuring neon accents, glassmorphism panels, and glitch hover animations—making the dashboard feel like a true tactical command center.
-
-### ⚙️ Backend Infrastructure (FastAPI)
-*   **Role-Based Access Control (RBAC):** Strict JWT-based authentication distinguishing between generic `tourist` tokens and heavily restricted `authority` tokens limited to specific district jurisdictions.
-*   **Multi-Channel Alerts:** When a critical SOS is fired, the backend dispatches Firebase Cloud Messaging (FCM) push notifications, alongside SMS fallbacks (via Twilio) to the relevant authorities.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.10+
-- Flutter SDK 3.x
-- Node.js 18+
-
-### 1. Booting the Backend
-```bash
+```powershell
 cd backend
-# 1. Copy environment variables
-cp .env.example .env
-# Add your JWT_SECRET, Twilio, and Firebase keys to .env
-
-# 2. Install dependencies
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# 3. Seed the database with initial destinations and zones
-python manage.py seed
-
-# 4. Create an admin account for the web dashboard
-python manage.py create-authority
-
-# 5. Run the server
-uvicorn main:app --reload
+alembic upgrade head
+python seed_data.py
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Launching the Web Dashboard
-```bash
+Useful backend URLs:
+
+- API: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
+- Readiness: `http://localhost:8000/ready`
+- Metrics: `http://localhost:8000/metrics`
+
+### Dashboard
+
+```powershell
 cd dashboard
 npm install
 npm run dev
-# The dashboard will be available at http://localhost:5173
 ```
 
-### 3. Running the Mobile App
-For production or registration-enabled builds, you **must** provide a cryptographic salt for TUID generation.
+Set `VITE_API_BASE_URL=http://localhost:8000` when the dashboard should point at a non-default backend. The dashboard runs at `http://localhost:5173` by default.
 
-```bash
+### Mobile
+
+```powershell
 cd mobile
 flutter pub get
-
-# Development run (uses default salt)
-flutter run
-
-# Production-ready run with custom salt
-flutter run --dart-define=SAFEROUTE_TUID_SALT="your_secure_random_salt_here"
+flutter run --dart-define=SAFEROUTE_API_BASE_URL=http://<LAN_IP>:8000 --dart-define=SAFEROUTE_WS_URL=ws://<LAN_IP>:8000
 ```
 
----
+Flavor entry points are also available:
 
-## 🔒 Security & Privacy
-
-### Secret Management
-SafeRoute uses a multi-layered security approach:
-- **Environment Injection:** Sensitive keys (Twilio, Firebase, Salts) are injected via `.env` files (backend) or `--dart-define` (mobile).
-- **Pre-commit Hooks:** The repository includes `detect-secrets` to prevent accidental commits of API keys.
-- **GitHub Actions:** Automated `gitleaks` scanning runs on every push to catch any leaked credentials.
-
-To initialize local secret detection:
-```bash
-pip install pre-commit
-pre-commit install
+```powershell
+flutter run --flavor dev -t lib/main_dev.dart
+flutter run --flavor staging -t lib/main_staging.dart --release
+flutter build appbundle --flavor prod -t lib/main_prod.dart
 ```
 
-### Data Retention
-To prioritize user privacy and optimize storage, location breadcrumbs are automatically pruned from the local device after **72 hours**. Location data is only dispatched to the centralized server during explicit SOS events or while navigating active `RESTRICTED` zones.
+## Key Configuration
+
+Backend settings are loaded from environment variables in `backend/app/config.py`. Important values include:
+
+- `DATABASE_URL`
+- `ENABLE_PG`, `ENABLE_DUAL_WRITE`, `READ_FROM_PG`
+- `JWT_SECRET`
+- `DOC_NUMBER_SALT`
+- `ALLOWED_ORIGINS`
+- `PRIVATE_KEY_PATH`, `PUBLIC_KEY_PATH`, or base64 equivalents
+- `REDIS_URL`
+- `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`
+- `SOS_DISPATCH_WEBHOOK_URL`
+- `SOS_WORKER_ENABLED`
+- `MESH_SECRET_MASTER_KEY`
+
+Production mode validates explicit CORS origins, strong JWT configuration, RS256 keys, and mesh secret configuration.
+
+## Documentation Map
+
+- API contracts: `docs/api-contracts.md`
+- Monitoring: `docs/monitoring.md`
+- BLE packet format: `docs/ble_packet_spec.md`
+- Mesh secret lifecycle: `docs/mesh_secret_spec.md`
+- Backend quick start: `backend/QUICK_START_GUIDE.md`
+- Mobile details: `mobile/README.md`
+- Dashboard details: `dashboard/README.md`
+- Historical reports and older QA writeups: `docs/internal/`
+
+## Validation
+
+Common checks:
+
+```powershell
+cd backend
+python -m pytest tests -q
+
+cd ..\dashboard
+npm run build
+
+cd ..\mobile
+flutter analyze
+flutter test
+```
+
+The documentation was refreshed from the live codebase on 2026-05-16. Some historical reports remain for traceability and are marked with current-status notes.

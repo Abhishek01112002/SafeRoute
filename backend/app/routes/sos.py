@@ -201,7 +201,8 @@ async def trigger_sos(
     }
 
 
-def _optional_relayer_tourist_id(request: Request) -> str | None:
+from typing import Optional
+def _optional_relayer_tourist_id(request: Request) -> Optional[str]:
     auth = request.headers.get("authorization") or request.headers.get("Authorization")
     if not auth or not auth.lower().startswith("bearer "):
         return None
@@ -428,7 +429,7 @@ async def respond_to_sos(
     """Authority endpoint — respond to an SOS event."""
     result = await db.execute(select(SOSEvent).where(SOSEvent.id == event_id))
     event = result.scalar_one_or_none()
-    
+
     if not event:
         raise HTTPException(status_code=404, detail="SOS event not found")
 
@@ -464,7 +465,6 @@ async def respond_to_sos(
         provider_status="RESOLVED",
         attempt_number=queue.attempt_count if queue else 0,
     )
-    
+
     log.info("sos.event.responded", event_id=event_id, authority_id=authority_id)
     return {"status": "resolved", "event_id": event_id}
-

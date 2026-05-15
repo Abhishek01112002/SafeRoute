@@ -1,3 +1,4 @@
+from __future__ import annotations
 # app/db/crud.py
 import json
 from types import SimpleNamespace

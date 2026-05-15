@@ -1,5 +1,9 @@
 # SafeRoute CBEP v3 SOS Packet Spec
 
+Last reviewed: 2026-05-16
+
+Current backend endpoint: `POST /sos/trigger/relay`.
+
 ## Purpose
 CBEP v3 is the compact BLE advertisement format used for offline SOS relay. It is designed for opportunistic broadcast, not paired transfer. Any SafeRoute device can relay the packet, but only the origin tourist's mesh secret can sign it.
 
@@ -45,7 +49,7 @@ The HMAC input is:
 v1:{idempotency_hash_hex}:{tuid_suffix}:{lat_6}:{lng_6}:{unix_minute}:{trigger_type}
 ```
 
-For V1, `trigger_type` is `MANUAL` for BLE-originated packets. `lat_6` and `lng_6` are decimal degree strings with exactly six fractional digits. Mutable relay fields such as hop count are excluded from the signature so relayers can decrement hop count without invalidating origin authenticity.
+For the current mobile relay flow, `trigger_type` is normally `MANUAL`, but the backend accepts the same enum as direct SOS: `MANUAL`, `AUTO_FALL`, or `GEOFENCE_BREACH`. `lat_6` and `lng_6` are decimal degree strings with exactly six fractional digits. Mutable relay fields such as hop count are excluded from the signature so relayers can decrement hop count without invalidating origin authenticity.
 
 ## Relay Rules
 - A relayer may decrement hop count and rebroadcast the packet.
@@ -54,4 +58,13 @@ For V1, `trigger_type` is `MANUAL` for BLE-originated packets. `lat_6` and `lng_
 - The backend records relayer identity separately when authenticated, but the SOS incident belongs to the origin tourist only.
 
 ## Replay Window
-The backend accepts packets whose unix-minute timestamp is within 30 minutes of server time. Accepted relay packets are deduplicated by `(origin_tourist_id, idempotency_key)` when the full key is available, or by `(origin_tourist_id, idempotency_hash, timestamp window)` for compact BLE packets.
+The backend accepts packets whose unix-minute timestamp is not more than 10 minutes in the future and not older than `SOS_DELIVERY_TTL_SECONDS` seconds. The current default TTL is 7200 seconds. Accepted relay packets are deduplicated through a compact key in the form `BLE-{origin_tuid_suffix}-{idempotency_hash}-{unix_minute}` against the origin tourist.
+
+## Backend Validation Summary
+
+- `origin_tuid_suffix` must be 4 characters.
+- `idempotency_hash` must be at least 12 hex characters.
+- Coordinates must be valid latitude/longitude.
+- `key_version` must match an active or grace-valid mesh key for the suffix.
+- `origin_signature` is verified against the canonical payload using the derived mesh secret.
+- Unknown suffixes, stale timestamps, revoked keys, and invalid HMACs are rejected without queueing an SOS.

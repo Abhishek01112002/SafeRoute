@@ -1,202 +1,165 @@
 # Contributing to SafeRoute
 
-Welcome to SafeRoute! This guide covers everything you need to contribute effectively — from local setup to submitting your first pull request.
+Last reviewed: 2026-05-16
 
----
+Welcome to SafeRoute. This guide reflects the current monorepo shape after the backend v3.1, mobile safety, trip, mesh, and dashboard work.
 
-## 📁 Project Structure
+## Project Structure
 
-```
-SafeRoute/
-├── mobile/          # Flutter app (Tourist + Authority modules)
-│   └── lib/
-│       ├── core/        # Shared: theme, errors, providers, repositories
-│       ├── tourist/     # Tourist module (screens, providers, models)
-│       ├── authority/   # Authority Hub (screens)
-│       ├── services/    # All backend service calls
-│       └── widgets/     # Shared UI components
-├── backend/         # FastAPI Python backend
-│   └── app/
-│       ├── routes/      # API route handlers
-│       ├── models/      # SQLAlchemy models
-│       ├── services/    # Business logic
-│       └── db/          # Database layer (SQLite + migrations)
-└── dashboard/       # React + Vite admin dashboard
-```
-
----
-
-## 🛠️ Local Development Setup
-
-### Prerequisites
-- **Flutter**: 3.x+ (`flutter --version`)
-- **Python**: 3.10+ (`python --version`)
-- **Node.js**: 18+ (`node --version`)
-- **Docker** (optional, recommended for backend DB)
-
-### 1. Clone & Setup
-
-```bash
-git clone https://github.com/Abhishek01112002/SafeRoute.git
-cd SafeRoute
+```text
+saferoute/
+  backend/
+    app/
+      routes/        FastAPI route handlers
+      models/        SQLAlchemy and Pydantic models
+      services/      Identity, QR, mesh, SOS delivery, storage, telemetry
+      db/            Async session, CRUD, legacy SQLite helpers, soft-delete helpers
+    migrations/      Alembic migrations
+    tests/           Pytest suites
+  mobile/
+    lib/
+      core/          Shared config, theme, providers, service locator, errors
+      tourist/       Tourist screens, providers, models, repositories
+      authority/     Mobile authority screens and repository
+      services/      API, sync, BLE mesh, maps, navigation, safety, telemetry
+      widgets/       Shared UI
+    test/            Flutter unit and widget tests
+  dashboard/
+    src/
+      pages/         Login, overview, zones, SOS triage
+      components/    Layout, maps, shared operational components
+      api.ts         Axios client and typed API helpers
+      auth.ts        Dashboard session permissions
+  docs/
+    internal/        Historical QA and planning reports
 ```
 
-### 2. Backend
+## Local Development
 
-```bash
+### Backend
+
+```powershell
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
-
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Copy environment file
-cp .env.example .env
-# Edit .env with your local values
-
-# Run database migrations
 alembic upgrade head
-
-# Seed test data (optional)
 python seed_data.py
-
-# Start the backend
-uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend will be running at: `http://localhost:8000`  
-Interactive API docs at: `http://localhost:8000/docs`
+The backend exposes:
 
-### 3. Mobile App
+- `http://localhost:8000/docs`
+- `http://localhost:8000/health`
+- `http://localhost:8000/ready`
+- `http://localhost:8000/metrics`
 
-```bash
-cd mobile
-flutter pub get
+### Dashboard
 
-# Run against local backend (default dev config)
-flutter run -t lib/main_dev.dart
-
-# Run against production backend
-flutter run -t lib/main_prod.dart
-```
-
-### 4. Dashboard
-
-```bash
+```powershell
 cd dashboard
 npm install
 npm run dev
 ```
 
----
+Use `VITE_API_BASE_URL=http://localhost:8000` when needed.
 
-## 🌿 Branching Strategy
+### Mobile
 
-| Branch | Purpose |
-|---|---|
-| `main` | Production-ready code only |
-| `develop` | Integration branch for features |
-| `feature/<name>` | New features |
-| `fix/<name>` | Bug fixes |
-| `chore/<name>` | Refactors, docs, config |
-
-**Example**: `feature/tourist-group-safety`, `fix/sos-offline-crash`
-
-```bash
-# Always branch from develop:
-git checkout develop
-git pull origin develop
-git checkout -b feature/my-feature
-```
-
----
-
-## 📐 Coding Standards
-
-### Dart / Flutter
-- **Imports**: Always use **absolute package imports** (`package:saferoute/...`), never relative (`../`)
-- **Errors**: New code returns `Result<T>` — do not add new try/catch blocks in Providers
-- **Assets**: Use `AppAssets.animations.xxx` — never hardcode `'assets/...'` strings
-- **Colors**: Use `AppColors.primary`, `AppColors.danger` — never hardcode hex values
-- **Spacing**: Use `AppSpacing.m`, `AppSpacing.l` — never hardcode pixel values
-- **Run before PR**: `flutter analyze` must produce zero errors
-
-### Python / FastAPI
-- **Database changes**: Always use Alembic migrations — never raw `ALTER TABLE` or `CREATE TABLE`
-- **Testing**: All new routes must have a pytest test covering: auth required, validation errors, happy path
-- **Logging**: Use `structlog` or the existing `logging_config` — never use bare `print()`
-- **Run before PR**: `pytest backend/tests/` must all pass
-
----
-
-## 📝 Commit Message Format
-
-```
-<type>(<scope>): <short description>
-
-Types: feat, fix, docs, chore, refactor, test, perf
-Scope: mobile, backend, dashboard, core
-
-Examples:
-feat(mobile): add SOS offline queue with mesh relay
-fix(backend): correct latitude validation range in /sos/trigger
-docs(mobile): update CONTRIBUTING with Alembic setup
-test(backend): add pytest coverage for /auth/refresh endpoint
-```
-
----
-
-## ✅ PR Checklist
-
-Before opening a PR, ensure:
-
-1. `flutter analyze` → zero errors
-2. `flutter test` → all tests pass
-3. `pytest backend/tests/` → all tests pass
-4. No hardcoded strings (assets, colors, URLs)
-5. Offline mode tested (airplane mode on device/emulator)
-6. New database columns have an Alembic migration file
-7. PR description filled using the PR template
-
----
-
-## 🔍 Code Review Guidelines
-
-- Reviews should be completed within **48 hours**
-- Use the GitHub suggestion feature for small fixes
-- Tag `@lead-dev` for architecture decisions
-- One approval required to merge to `develop`
-- Two approvals required to merge to `main`
-
----
-
-## 🧪 Running Tests
-
-```bash
-# Mobile
+```powershell
 cd mobile
-flutter test                        # All tests
-flutter test test/core/             # Core layer only
-flutter test test/tourist/          # Tourist module only
+flutter pub get
+flutter run --dart-define=SAFEROUTE_API_BASE_URL=http://<LAN_IP>:8000 --dart-define=SAFEROUTE_WS_URL=ws://<LAN_IP>:8000
+```
 
+Flavor commands:
+
+```powershell
+flutter run --flavor dev -t lib/main_dev.dart
+flutter run --flavor staging -t lib/main_staging.dart --release
+flutter build appbundle --flavor prod -t lib/main_prod.dart
+```
+
+## Coding Standards
+
+### Backend
+
+- Use `app.main:app` as the current FastAPI entry point.
+- Keep new database behavior in async SQLAlchemy models and Alembic migrations.
+- Add pytest coverage for new routes, especially auth, validation, failure paths, and happy paths.
+- Use the existing `logging_config` helpers for operational logs.
+- Preserve idempotency and audit behavior in SOS changes.
+- Do not store raw document numbers. Use the identity service hash/TUID flow.
+
+### Mobile
+
+- Prefer package imports such as `package:saferoute/...`.
+- Keep tourist state, trip state, room state, mesh state, and navigation state in their existing providers.
+- Use secure storage for tokens and mesh secrets.
+- Keep offline behavior explicit: registration requires backend verification; navigation, pings, and SOS replay may use local queues/caches.
+- Run `flutter analyze` and relevant tests before a PR.
+
+### Dashboard
+
+- Use typed helpers from `dashboard/src/api.ts`.
+- Respect permissions from `dashboard/src/auth.ts`.
+- Keep authority workflows focused on overview, zones, maps, and SOS triage.
+- Run `npm run build` before merging dashboard changes.
+
+## Tests
+
+```powershell
 # Backend
 cd backend
-pytest backend/tests/ -v            # All tests, verbose
-pytest backend/tests/test_sos.py    # Specific file
-pytest -k "test_sos_trigger"        # Specific test by name
+python -m pytest tests -q
+
+# Dashboard
+cd dashboard
+npm run build
+npm run lint
+
+# Mobile
+cd mobile
+flutter analyze
+flutter test
 ```
 
----
+## API Contracts
 
-## 🔑 Environment Variables
+Keep `docs/api-contracts.md` aligned with mounted routes in `backend/app/main.py` and typed dashboard calls in `dashboard/src/api.ts`. If a route changes, update:
 
-Never commit `.env` or secret keys. See `backend/.env.example` for required variables and `backend/KEYS.md` for key generation instructions.
+- backend tests,
+- mobile repositories/services,
+- dashboard API helpers,
+- documentation.
 
----
+## Database Changes
 
-## ❓ Getting Help
+Use Alembic for schema changes:
 
-- Open a GitHub Discussion for questions
-- Tag relevant owners (see `CODEOWNERS`)
-- Check `docs/api-contracts.md` for API reference
+```powershell
+cd backend
+alembic revision --autogenerate -m "short_description"
+alembic upgrade head
+```
+
+Review autogenerated migrations before committing. Do not delete migration files.
+
+## Security Checklist
+
+- Never commit `.env`, `.pem`, `.db`, upload folders, or generated secrets.
+- Production requires strong `JWT_SECRET`, explicit `ALLOWED_ORIGINS`, RS256 keys, and `MESH_SECRET_MASTER_KEY`.
+- QR signing keys are documented in `backend/KEYS.md`.
+- Mesh secret behavior is documented in `docs/mesh_secret_spec.md`.
+- BLE packet format is documented in `docs/ble_packet_spec.md`.
+
+## Pull Request Checklist
+
+- Documentation updated for any changed behavior.
+- Backend tests added or updated for API changes.
+- Mobile service/provider tests added or updated for mobile behavior changes.
+- Dashboard build passes for UI/API changes.
+- New environment variables documented.
+- Migrations included for schema changes.
+- Historical docs in `docs/internal/` are not treated as current source of truth unless re-reviewed.

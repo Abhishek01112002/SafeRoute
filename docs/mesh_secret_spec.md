@@ -1,5 +1,9 @@
 # SafeRoute Mesh Secret Lifecycle
 
+Last reviewed: 2026-05-16
+
+Current backend implementation: `backend/app/services/mesh_key_service.py`, issued by `/v3/tourist/register`, `/v3/tourist/login`, and `/v3/tourist/mesh-key/rotate`.
+
 ## Purpose
 `mesh_secret` signs offline SOS packets before the phone has network access. It is separate from JWTs, TUIDs, and global salts. JWTs authenticate API requests; mesh secrets authenticate offline SOS origin.
 
@@ -30,3 +34,24 @@ The database stores tourist id, key version, status, creation time, optional rev
 ## Verification
 The relay endpoint reconstructs the CBEP canonical payload and validates the truncated HMAC against every active or grace-valid key matching the submitted TUID suffix and key version. Unknown suffixes, stale timestamps, revoked keys, and invalid HMACs are rejected without queueing an SOS.
 
+## Current Defaults
+
+- `MESH_SECRET_MASTER_KEY`: required in production.
+- `MESH_KEY_GRACE_DAYS`: defaults to 7.
+- `mesh_key_expires_at`: currently returned as `null`; rotation is explicit.
+- TUID suffix matching uses the final 4 uppercase characters of the TUID.
+
+## Storage Model
+
+The `tourist_mesh_keys` table stores derivation metadata:
+
+- `tourist_id`
+- `tuid`
+- `tuid_suffix`
+- `key_version`
+- `status` (`ACTIVE` or `GRACE`)
+- `created_at`
+- `revoked_at`
+- `grace_expires_at`
+
+Raw mesh secrets are not stored in the database.

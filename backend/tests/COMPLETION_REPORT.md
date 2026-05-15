@@ -1,5 +1,7 @@
 # SafeRoute Test Organization & Database Fixes - COMPLETION REPORT
 
+Current review note (2026-05-16): This is a historical completion report. The current test layout is still under `backend/tests`, but current route contracts should be checked against `../../docs/api-contracts.md` before using older examples from this report.
+
 **Date**: May 5, 2026
 **Status**: ✅ COMPLETE
 
@@ -60,8 +62,8 @@ backend/tests/
 **Problem**: Legacy code writes to `location_logs` but ORM reads from `location_pings` → data loss
 
 **Files Modified**:
-- [sqlite_legacy.py](backend/app/db/sqlite_legacy.py) - Renamed table definition
-- [location.py](backend/app/routes/location.py) - Fixed reference from `location_logs` to `location_pings`
+- [sqlite_legacy.py](../app/db/sqlite_legacy.py) - Renamed table definition
+- [location.py](../app/routes/location.py) - Fixed reference from `location_logs` to `location_pings`
 
 **Migration**: `f8a9b0c1d2e3_rename_location_logs_table.py`
 
@@ -71,7 +73,7 @@ backend/tests/
 **Problem**: Authority deletion leaves orphaned scan logs violating referential integrity
 
 **File Modified**:
-- [database.py](backend/app/models/database.py#L119) - Added `ondelete="CASCADE"` to authority_id FK
+- [database.py](../app/models/database.py#L119) - Added `ondelete="CASCADE"` to authority_id FK
 
 **Impact**: Cleanup automatically cascades when authority deleted
 
@@ -81,7 +83,7 @@ backend/tests/
 **Problem**: Could create SOS events with timestamps from days ago/future → breaks emergency response chronology
 
 **File Modified**:
-- [database.py](backend/app/models/database.py#L93) - Added `server_default=func.now()`
+- [database.py](../app/models/database.py#L93) - Added `server_default=func.now()`
 
 **Impact**: Server enforces valid timestamp on creation; client can override but server timestamp validates
 
@@ -91,7 +93,7 @@ backend/tests/
 
 #### ✅ ISSUE #4: Missing SOS Resolution Fields in Legacy SQLite
 **File Modified**:
-- [sqlite_legacy.py](backend/app/db/sqlite_legacy.py) - Added `authority_response TEXT`, `resolved_at TEXT` columns
+- [sqlite_legacy.py](../app/db/sqlite_legacy.py) - Added `authority_response TEXT`, `resolved_at TEXT` columns
 
 ---
 
@@ -107,7 +109,7 @@ Indexes added:
 
 #### ✅ ISSUE #7: Improved Dual-Write Error Handling
 **File Modified**:
-- [crud.py](backend/app/db/crud.py) - Enhanced logging, fallback to in-memory cache on failure
+- [crud.py](../app/db/crud.py) - Enhanced logging, fallback to in-memory cache on failure
 
 **Behavior**:
 - PostgreSQL write blocks entire operation if fails
@@ -119,7 +121,7 @@ Indexes added:
 
 #### ✅ ISSUE #8: Statement Caching Disabled
 **File Modified**:
-- [session.py](backend/app/db/session.py#L18) - Changed `statement_cache_size` from 0 → 20
+- [session.py](../app/db/session.py#L18) - Changed `statement_cache_size` from 0 -> 20
 
 **Impact**: ~20-30% faster for high-frequency queries (prepared statements reused)
 

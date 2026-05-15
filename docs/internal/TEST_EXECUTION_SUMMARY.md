@@ -1,5 +1,7 @@
 # SafeRoute Test Execution Summary & Action Plan
 
+Current review note (2026-05-16): This summary is a historical execution snapshot. Current execution should include backend pytest, dashboard build, Flutter analyze/tests, SOS queue/audit validation, BLE relay validation, and dashboard manual validation.
+
 **Date:** May 3, 2026
 **Test Run ID:** SAFEROUTE-TEST-20260503
 **Status:** ⚠️ **RELEASE BLOCKED - ACTION REQUIRED**
@@ -82,7 +84,7 @@ def get_unique_doc_number():
 - **Owner:** Dev
 - **Status:** 🚫 NOT STARTED
 **Steps:**
-1. Search [backend/routers/](../backend/routers/) for authority registration
+1. Search [backend/routers/](../../backend/routers/) for authority registration
 2. Verify endpoint path in OpenAPI schema
 3. Either fix endpoint or update test path
 
@@ -226,7 +228,7 @@ RELEASE READY (expected)
 
 ### Fix #1: Add JWT Authentication to Tests
 
-**File to modify:** [backend/comprehensive_test_suite.py](../backend/comprehensive_test_suite.py)
+**File to modify:** [backend/comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py)
 
 **Steps:**
 1. Create test setup that registers a test tourist
@@ -258,7 +260,7 @@ class SafeRouteTestSuite:
 
 ### Fix #2: Implement Test Data Isolation
 
-**File to modify:** [backend/comprehensive_test_suite.py](../backend/comprehensive_test_suite.py)
+**File to modify:** [backend/comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py)
 
 **Steps:**
 1. Generate unique document numbers
@@ -291,7 +293,7 @@ def cleanup_test_data():
 ### Fix #3: Find Authority Registration Endpoint
 
 **Investigation steps:**
-1. Check [backend/routers/authorities.py](../backend/routers/authorities.py) for registration endpoint
+1. Check [backend/routers/authorities.py](../../backend/routers/authorities.py) for registration endpoint
 2. Search for "authority" and "register" in router files
 3. Check FastAPI OpenAPI docs: http://localhost:8000/docs
 4. Try these possible paths:
@@ -334,8 +336,8 @@ def test_DC_H09_email_format_validation(self):
 ## Files Generated
 
 1. **[COMPREHENSIVE_TEST_REPORT.md](./COMPREHENSIVE_TEST_REPORT.md)** - Full test details, 500+ lines
-2. **[test_report.json](../backend/test_report.json)** - Machine-readable results
-3. **[comprehensive_test_suite.py](../backend/comprehensive_test_suite.py)** - Automation code
+2. **[test_report.json](../../backend/test_report.json)** - Machine-readable results
+3. **[comprehensive_test_suite.py](../../backend/comprehensive_test_suite.py)** - Automation code
 4. **[TEST_EXECUTION_SUMMARY.md](./TEST_EXECUTION_SUMMARY.md)** - This file
 
 ---

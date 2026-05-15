@@ -1,50 +1,60 @@
 ---
-name: 🐛 Bug Report
-about: Report a crash, error, or unexpected behavior
+name: Bug Report
+about: Report a crash, error, regression, or unexpected behavior
 title: "[BUG] "
 labels: bug
 assignees: Abhishek01112002
 ---
 
-## Describe the Bug
-<!-- A clear description of what went wrong -->
+## Summary
+<!-- What went wrong? Keep this short and specific. -->
 
+## Affected Area
+- [ ] Backend API
+- [ ] Flutter mobile app - Tourist
+- [ ] Flutter mobile app - Authority
+- [ ] React dashboard
+- [ ] BLE mesh / offline SOS
+- [ ] Database / migrations
+- [ ] Documentation
 
 ## Steps to Reproduce
-1. Open the app
-2. Navigate to '...'
-3. Tap '...'
-4. See error
+1.
+2.
+3.
 
 ## Expected Behavior
 <!-- What should have happened? -->
 
-
 ## Actual Behavior
-<!-- What actually happened? Include error messages if available -->
+<!-- What happened instead? Include exact messages when available. -->
 
+## Environment
+- Commit SHA or branch:
+- Backend URL:
+- Mobile flavor / dashboard mode:
+- Device / browser:
+- OS:
+- User role: Tourist / Authority / Guest
 
-## Screenshots / Screen Recording
-<!-- If applicable, add screenshots or a screen recording -->
-
-
-## Device Information
-- **Device**: (e.g., Samsung Galaxy S22 / Android Emulator)
-- **OS Version**: (e.g., Android 14)
-- **App Version**: (e.g., 1.2.0 or commit SHA)
-- **User Role**: Tourist / Authority / Guest
-
-## Network State When Bug Occurred
-- [ ] Online (WiFi)
-- [ ] Online (Mobile Data)  
-- [ ] Offline / Airplane Mode
+## Network State
+- [ ] Online - WiFi
+- [ ] Online - mobile data
 - [ ] Intermittent connectivity
+- [ ] Offline / airplane mode
 
-## Relevant Logs
-<!-- Paste any error logs from `flutter logs` or backend logs here -->
-```
-(paste logs here)
+## Safety Impact
+- [ ] Blocks SOS
+- [ ] Delays SOS delivery or acknowledgement
+- [ ] Affects identity / QR / authority scan
+- [ ] Affects geofence or navigation safety
+- [ ] No direct safety impact
+
+## Logs / Evidence
+
+```text
+Paste backend logs, Flutter logs, dashboard console output, screenshots, or request/response snippets.
 ```
 
 ## Additional Context
-<!-- Anything else that might help? e.g. "Only happens on first launch" -->
+<!-- Anything else that would help reproduce or triage? -->

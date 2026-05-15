@@ -1,5 +1,7 @@
 # SafeRoute: Planning Phase - Executive Summary
 
+Current review note (2026-05-16): This planning summary predates significant implementation work. For the current system state, use `README.md`, `api-contracts.md`, `monitoring.md`, `ble_packet_spec.md`, and `mesh_secret_spec.md`.
+
 ## The Problem: Claimed vs. Actual
 
 Your SafeRoute claims 5 core features for tourists:

@@ -1,5 +1,7 @@
 # SafeRoute Manual Verification Checklist (Comprehensive)
 
+Current review note (2026-05-16): This checklist is still useful, but route names should be reconciled with `../api-contracts.md`. Add explicit coverage for `/v3/trips`, `/v3/groups`, `/sos/trigger/relay`, `/sos/events/{id}/delivery`, `/dashboard/analytics`, and `/authority/devices`.
+
 Generated: May 3, 2026
 Owner: QA + Backend + Mobile + Dashboard
 Scope: Verification of all data-consistency bug fixes and regression safety
